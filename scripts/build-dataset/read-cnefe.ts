@@ -1,59 +1,59 @@
 import { createInterface } from 'node:readline';
 import yauzl from 'yauzl';
 
-export interface RegistroCnefe {
+export interface CnefeRecord {
   cep: string;
   lat: number;
   lon: number;
   nv: number;
 }
 
-const COLUNAS = ['CEP', 'LATITUDE', 'LONGITUDE', 'NV_GEO_COORD'] as const;
+const COLUMNS = ['CEP', 'LATITUDE', 'LONGITUDE', 'NV_GEO_COORD'] as const;
 
-export function ufDoZip(caminho: string): string {
-  const m = /(?:^|[\\/])\d+_([A-Z]{2})\.zip$/i.exec(caminho);
-  if (!m) throw new Error(`Nome de ZIP fora do padrão <codigo>_<UF>.zip: ${caminho}`);
+export function ufFromZip(path: string): string {
+  const m = /(?:^|[\\/])\d+_([A-Z]{2})\.zip$/i.exec(path);
+  if (!m) throw new Error(`Nome de ZIP fora do padrão <codigo>_<UF>.zip: ${path}`);
   return (m[1] as string).toUpperCase();
 }
 
-/** Converte uma linha do CSV; devolve null se faltar coordenada ou precisão numérica. */
-export function parseLinha(campos: string[], idx: number[]): RegistroCnefe | null {
-  const [iCep, iLat, iLon, iNv] = idx as [number, number, number, number];
-  const lat = Number.parseFloat(campos[iLat] ?? '');
-  const lon = Number.parseFloat(campos[iLon] ?? '');
-  const nv = Number.parseInt(campos[iNv] ?? '', 10);
+/** Parses a CSV line; returns null when the coordinate or precision is not numeric. */
+export function parseLine(fields: string[], indexes: number[]): CnefeRecord | null {
+  const [iCep, iLat, iLon, iNv] = indexes as [number, number, number, number];
+  const lat = Number.parseFloat(fields[iLat] ?? '');
+  const lon = Number.parseFloat(fields[iLon] ?? '');
+  const nv = Number.parseInt(fields[iNv] ?? '', 10);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(nv)) return null;
-  return { cep: (campos[iCep] ?? '').trim(), lat, lon, nv };
+  return { cep: (fields[iCep] ?? '').trim(), lat, lon, nv };
 }
 
-function abrirZip(caminho: string): Promise<yauzl.ZipFile> {
+function openZip(path: string): Promise<yauzl.ZipFile> {
   return new Promise((resolve, reject) => {
-    yauzl.open(caminho, { lazyEntries: true }, (err, zip) => (err ? reject(err) : resolve(zip)));
+    yauzl.open(path, { lazyEntries: true }, (err, zip) => (err ? reject(err) : resolve(zip)));
   });
 }
 
-/** Lê o CSV do ZIP em streaming. Linha sem coordenada ou precisão numérica vira `null`. */
-export async function* lerCnefe(caminhoZip: string): AsyncGenerator<RegistroCnefe | null> {
-  const zip = await abrirZip(caminhoZip);
+/** Streams the CSV inside the ZIP. A line without numeric coordinate or precision yields `null`. */
+export async function* readCnefe(zipPath: string): AsyncGenerator<CnefeRecord | null> {
+  const zip = await openZip(zipPath);
   try {
-    const entrada = await new Promise<yauzl.Entry>((resolve, reject) => {
+    const entry = await new Promise<yauzl.Entry>((resolve, reject) => {
       zip.once('entry', resolve);
-      zip.once('end', () => reject(new Error(`ZIP sem arquivo CSV: ${caminhoZip}`)));
+      zip.once('end', () => reject(new Error(`ZIP sem arquivo CSV: ${zipPath}`)));
       zip.once('error', reject);
       zip.readEntry();
     });
     const stream = await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-      zip.openReadStream(entrada, (err, s) => (err ? reject(err) : resolve(s)));
+      zip.openReadStream(entry, (err, s) => (err ? reject(err) : resolve(s)));
     });
-    let idx: number[] | null = null;
-    for await (const linha of createInterface({ input: stream, crlfDelay: Infinity })) {
-      const campos = linha.split(';');
-      if (!idx) {
-        idx = COLUNAS.map((c) => campos.indexOf(c));
-        if (idx.includes(-1)) throw new Error(`Cabeçalho do CNEFE sem colunas ${COLUNAS.join(', ')}: ${caminhoZip}`);
+    let indexes: number[] | null = null;
+    for await (const line of createInterface({ input: stream, crlfDelay: Infinity })) {
+      const fields = line.split(';');
+      if (!indexes) {
+        indexes = COLUMNS.map((c) => fields.indexOf(c));
+        if (indexes.includes(-1)) throw new Error(`Cabeçalho do CNEFE sem colunas ${COLUMNS.join(', ')}: ${zipPath}`);
         continue;
       }
-      yield parseLinha(campos, idx);
+      yield parseLine(fields, indexes);
     }
   } finally {
     zip.close();

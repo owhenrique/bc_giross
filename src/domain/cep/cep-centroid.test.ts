@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { avaliarCep, centroideDeUnicos, percentil } from './cep-centroid.js';
+import { assessCep, percentile, uniquePointsCentroid } from './cep-centroid.js';
 
-describe('centroideDeUnicos', () => {
-  it('ignora pontos repetidos na média', () => {
-    const c = centroideDeUnicos([
+describe('uniquePointsCentroid', () => {
+  it('ignores repeated points in the average', () => {
+    const c = uniquePointsCentroid([
       { lat: 0, lon: 0 },
       { lat: 0, lon: 0 },
       { lat: 0, lon: 0 },
@@ -12,53 +12,57 @@ describe('centroideDeUnicos', () => {
     expect(c).toEqual({ lat: 1, lon: 2 });
   });
 
-  it('um ponto só devolve ele mesmo', () => {
-    expect(centroideDeUnicos([{ lat: -9.97, lon: -67.8 }])).toEqual({ lat: -9.97, lon: -67.8 });
+  it('a single point returns itself', () => {
+    expect(uniquePointsCentroid([{ lat: -9.97, lon: -67.8 }])).toEqual({ lat: -9.97, lon: -67.8 });
   });
 });
 
-describe('percentil (nearest-rank)', () => {
-  it('p90 de 10 valores é o 9º', () => {
-    expect(percentil([10, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0.9)).toBe(9);
+describe('percentile (nearest-rank)', () => {
+  it('p90 of 10 values is the 9th', () => {
+    expect(percentile([10, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0.9)).toBe(9);
   });
 
-  it('um valor só', () => {
-    expect(percentil([5], 0.9)).toBe(5);
+  it('single value', () => {
+    expect(percentile([5], 0.9)).toBe(5);
   });
 });
 
-describe('avaliarCep', () => {
-  it('um ponto: p90 = 0 e permanece', () => {
-    const r = avaliarCep([{ lat: -23.55, lon: -46.63 }]);
+describe('assessCep', () => {
+  it('one point: p90 = 0 and it stays', () => {
+    const r = assessCep([{ lat: -23.55, lon: -46.63 }]);
     expect(r.p90Km).toBe(0);
-    expect(r.removido).toBe(false);
+    expect(r.removed).toBe(false);
   });
 
-  it('repetidos pesam no p90: 1 ponto distante entre muitos repetidos', () => {
-    const perto = Array.from({ length: 19 }, () => ({ lat: 0, lon: 0 }));
-    const r = avaliarCep([...perto, { lat: 0, lon: 0.5 }]);
-    // centróide dos únicos = (0, 0.25); todos a ~27,8 km do centro
+  it('repeats weigh on p90: one distant point among many repeats', () => {
+    const near = Array.from({ length: 19 }, () => ({ lat: 0, lon: 0 }));
+    const r = assessCep([...near, { lat: 0, lon: 0.5 }]);
+    // centroid of the unique points = (0, 0.25); every address is ~27.8 km from it
     expect(r.p90Km).toBeGreaterThan(20);
-    expect(r.removido).toBe(true);
+    expect(r.removed).toBe(true);
   });
 
-  it('espalhamento pequeno permanece', () => {
-    const r = avaliarCep([
+  it('small spread stays', () => {
+    const r = assessCep([
       { lat: 0, lon: 0 },
       { lat: 0, lon: 0.01 },
     ]);
     expect(r.p90Km).toBeLessThan(2);
-    expect(r.removido).toBe(false);
+    expect(r.removed).toBe(false);
   });
 
-  it('limiar de 2 km: 1,9 km permanece, 2,1 km remove', () => {
-    const grau = 360 / (2 * Math.PI * 6371.0088);
-    const com = (km: number) => avaliarCep([{ lat: 0, lon: 0 }, { lat: 0, lon: 2 * km * grau }]);
-    expect(com(1.9).removido).toBe(false);
-    expect(com(2.1).removido).toBe(true);
+  it('2 km threshold: 1.9 km stays, 2.1 km is removed', () => {
+    const degree = 360 / (2 * Math.PI * 6371.0088);
+    const at = (km: number) =>
+      assessCep([
+        { lat: 0, lon: 0 },
+        { lat: 0, lon: 2 * km * degree },
+      ]);
+    expect(at(1.9).removed).toBe(false);
+    expect(at(2.1).removed).toBe(true);
   });
 
-  it('lança com lista vazia', () => {
-    expect(() => avaliarCep([])).toThrow();
+  it('throws on an empty list', () => {
+    expect(() => assessCep([])).toThrow();
   });
 });

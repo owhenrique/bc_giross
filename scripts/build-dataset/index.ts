@@ -1,110 +1,110 @@
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { avaliarCep } from '../../src/domain/cep/cep-centroid.js';
-import { lerCnefe, ufDoZip } from './read-cnefe.js';
-import { montarRelatorio, type EstatisticaUf } from './report.js';
+import { assessCep } from '../../src/domain/cep/cep-centroid.js';
+import { readCnefe, ufFromZip } from './read-cnefe.js';
+import { buildReport, type UfStats } from './report.js';
 
-const PRECISAO_MAXIMA = 4;
-const CEP_VALIDO = /^\d{8}$/;
+const MAX_PRECISION = 4;
+const VALID_CEP = /^\d{8}$/;
 
-interface CepFinal {
+interface FinalCep {
   cep: string;
   uf: string;
   lat: number;
   lon: number;
   p90Km: number;
-  removido: boolean;
-  pontos: number;
+  removed: boolean;
+  points: number;
 }
 
 const fmt = (n: number) => n.toFixed(6);
 
-async function processarUf(zip: string, uf: string, stats: EstatisticaUf): Promise<CepFinal[]> {
-  const porCep = new Map<string, number[]>();
-  const semPrecisao = new Set<string>();
-  for await (const r of lerCnefe(zip)) {
-    if (!r || !CEP_VALIDO.test(r.cep)) {
-      stats.invalidos++;
+async function processUf(zip: string, uf: string, stats: UfStats): Promise<FinalCep[]> {
+  const byCep = new Map<string, number[]>();
+  const noPrecision = new Set<string>();
+  for await (const r of readCnefe(zip)) {
+    if (!r || !VALID_CEP.test(r.cep)) {
+      stats.invalid++;
       continue;
     }
-    if (r.nv > PRECISAO_MAXIMA) {
-      semPrecisao.add(r.cep);
+    if (r.nv > MAX_PRECISION) {
+      noPrecision.add(r.cep);
       continue;
     }
-    const pontos = porCep.get(r.cep);
-    if (pontos) pontos.push(r.lat, r.lon);
-    else porCep.set(r.cep, [r.lat, r.lon]);
+    const points = byCep.get(r.cep);
+    if (points) points.push(r.lat, r.lon);
+    else byCep.set(r.cep, [r.lat, r.lon]);
   }
-  for (const cep of porCep.keys()) semPrecisao.delete(cep);
-  stats.semPrecisao = semPrecisao.size;
+  for (const cep of byCep.keys()) noPrecision.delete(cep);
+  stats.noPrecision = noPrecision.size;
 
-  const finais: CepFinal[] = [];
-  for (const [cep, flat] of porCep) {
-    const pontos = [];
-    for (let i = 0; i < flat.length; i += 2) pontos.push({ lat: flat[i] as number, lon: flat[i + 1] as number });
-    const a = avaliarCep(pontos);
-    finais.push({ cep, uf, lat: a.centro.lat, lon: a.centro.lon, p90Km: a.p90Km, removido: a.removido, pontos: pontos.length });
+  const finals: FinalCep[] = [];
+  for (const [cep, flat] of byCep) {
+    const points = [];
+    for (let i = 0; i < flat.length; i += 2) points.push({ lat: flat[i] as number, lon: flat[i + 1] as number });
+    const a = assessCep(points);
+    finals.push({ cep, uf, lat: a.center.lat, lon: a.center.lon, p90Km: a.p90Km, removed: a.removed, points: points.length });
   }
-  return finais;
+  return finals;
 }
 
-export async function construirDataset(pasta: string, saida: string): Promise<void> {
-  const inicio = performance.now();
-  const zips = readdirSync(pasta).filter((f) => f.toLowerCase().endsWith('.zip')).sort();
-  if (zips.length === 0) throw new Error(`Nenhum ZIP encontrado em ${pasta}`);
+export async function buildDataset(folder: string, output: string): Promise<void> {
+  const start = performance.now();
+  const zips = readdirSync(folder).filter((f) => f.toLowerCase().endsWith('.zip')).sort();
+  if (zips.length === 0) throw new Error(`Nenhum ZIP encontrado em ${folder}`);
 
-  const porUf = new Map<string, EstatisticaUf>();
-  const ceps = new Map<string, CepFinal>();
-  const avisos: string[] = [];
+  const byUf = new Map<string, UfStats>();
+  const ceps = new Map<string, FinalCep>();
+  const warnings: string[] = [];
 
-  for (const nome of zips) {
-    const uf = ufDoZip(nome);
-    const stats: EstatisticaUf = { total: 0, removidos: 0, invalidos: 0, semPrecisao: 0 };
-    porUf.set(uf, stats);
-    for (const c of await processarUf(join(pasta, nome), uf, stats)) {
-      const existente = ceps.get(c.cep);
-      if (existente) {
-        const mantido = existente.pontos >= c.pontos ? existente : c;
-        avisos.push(`CEP ${c.cep} presente em ${existente.uf} e ${c.uf}; mantida ${mantido.uf}`);
-        ceps.set(c.cep, mantido);
+  for (const name of zips) {
+    const uf = ufFromZip(name);
+    const stats: UfStats = { total: 0, removed: 0, invalid: 0, noPrecision: 0 };
+    byUf.set(uf, stats);
+    for (const c of await processUf(join(folder, name), uf, stats)) {
+      const existing = ceps.get(c.cep);
+      if (existing) {
+        const kept = existing.points >= c.points ? existing : c;
+        warnings.push(`CEP ${c.cep} presente em ${existing.uf} e ${c.uf}; mantida ${kept.uf}`);
+        ceps.set(c.cep, kept);
       } else {
         ceps.set(c.cep, c);
       }
     }
   }
 
-  const ordenados = [...ceps.values()].sort((a, b) => (a.cep < b.cep ? -1 : 1));
-  const mantidos = ordenados.filter((c) => !c.removido);
-  const removidos = ordenados.filter((c) => c.removido);
-  for (const c of ordenados) {
-    const e = porUf.get(c.uf) as EstatisticaUf;
-    if (c.removido) e.removidos++;
+  const sorted = [...ceps.values()].sort((a, b) => (a.cep < b.cep ? -1 : 1));
+  const keptCeps = sorted.filter((c) => !c.removed);
+  const removedCeps = sorted.filter((c) => c.removed);
+  for (const c of sorted) {
+    const e = byUf.get(c.uf) as UfStats;
+    if (c.removed) e.removed++;
     else e.total++;
   }
 
-  mkdirSync(saida, { recursive: true });
-  const csv = ['cep;uf;latitude;longitude', ...mantidos.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`)];
-  writeFileSync(join(saida, 'ceps.csv.gz'), gzipSync(csv.join('\n') + '\n'));
-  const csvRemovidos = ['cep;uf;latitude;longitude;p90_km', ...removidos.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)};${c.p90Km.toFixed(3)}`)];
-  writeFileSync(join(saida, 'ceps-removidos.csv'), csvRemovidos.join('\n') + '\n');
-  const segundos = (performance.now() - inicio) / 1000;
-  writeFileSync(join(saida, 'relatorio.md'), montarRelatorio({ porUf, avisos, segundos }));
+  mkdirSync(output, { recursive: true });
+  const csv = ['cep;uf;latitude;longitude', ...keptCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`)];
+  writeFileSync(join(output, 'ceps.csv.gz'), gzipSync(csv.join('\n') + '\n'));
+  const removedCsv = ['cep;uf;latitude;longitude;p90_km', ...removedCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)};${c.p90Km.toFixed(3)}`)];
+  writeFileSync(join(output, 'ceps-removidos.csv'), removedCsv.join('\n') + '\n');
+  const seconds = (performance.now() - start) / 1000;
+  writeFileSync(join(output, 'relatorio.md'), buildReport({ byUf, warnings, seconds }));
 }
 
-function lerPasta(args: string[]): string | undefined {
+function readFolderArg(args: string[]): string | undefined {
   const i = args.indexOf('--pasta');
   return i >= 0 ? args[i + 1] : undefined;
 }
 
 async function main(): Promise<void> {
-  const pasta = lerPasta(process.argv.slice(2));
-  if (!pasta) {
+  const folder = readFolderArg(process.argv.slice(2));
+  if (!folder) {
     console.error('Uso: npm run build-dataset -- --pasta <diretorio com os ZIPs do CNEFE>');
     process.exit(1);
   }
   try {
-    await construirDataset(resolve(pasta), resolve('data'));
+    await buildDataset(resolve(folder), resolve('data'));
   } catch (e) {
     console.error(`Erro: ${(e as Error).message}`);
     process.exit(1);

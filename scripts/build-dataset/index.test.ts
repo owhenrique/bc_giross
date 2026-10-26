@@ -4,39 +4,39 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { gunzipSync } from 'node:zlib';
 import { afterAll, describe, expect, it } from 'vitest';
-import { criarZipCnefe } from './fixtures.js';
-import { construirDataset } from './index.js';
+import { createCnefeZip } from './fixtures.js';
+import { buildDataset } from './index.js';
 
 const base = mkdtempSync(join(tmpdir(), 'build-'));
 afterAll(() => rmSync(base, { recursive: true, force: true }));
 
-async function montarEntrada(dir: string) {
-  await criarZipCnefe(dir, '12_AC.zip', [
+async function buildInput(dir: string) {
+  await createCnefeZip(dir, '12_AC.zip', [
     ['69900126', '-9.0', '-67.0', '1'],
-    ['69900126', '-9.0', '-67.0', '2'], // ponto duplicado
+    ['69900126', '-9.0', '-67.0', '2'], // duplicated point
     ['69900126', '-9.0', '-67.0004', '3'],
-    ['69900126', '-1.0', '-1.0', '5'], // precisão 5 ignorada
-    ['69900127', '-9.5', '-67.5', '6'], // só precisão 6
-    ['6990-128', '-9.5', '-67.5', '1'], // CEP sujo
-    ['69900129', '', '', '1'], // sem coordenada
+    ['69900126', '-1.0', '-1.0', '5'], // precision 5 is ignored
+    ['69900127', '-9.5', '-67.5', '6'], // precision 6 only
+    ['6990-128', '-9.5', '-67.5', '1'], // malformed CEP
+    ['69900129', '', '', '1'], // no coordinate
   ]);
-  await criarZipCnefe(dir, '35_SP.zip', [
+  await createCnefeZip(dir, '35_SP.zip', [
     ['01001000', '-23.55', '-46.63', '1'],
-    ['01001000', '-23.55', '-46.57', '1'], // ~6 km entre pontos: p90 > 2 km
+    ['01001000', '-23.55', '-46.57', '1'], // ~6 km apart: p90 > 2 km
     ['01310100', '-23.5614', '-46.6559', '4'],
   ]);
 }
 
-describe('construirDataset', () => {
-  it('gera base, removidos e relatório; saída ordenada e idempotente', async () => {
-    const entrada = join(base, 'in');
+describe('buildDataset', () => {
+  it('writes dataset, removed list and report; output is sorted and idempotent', async () => {
+    const input = join(base, 'in');
     const s1 = join(base, 'out1');
     const s2 = join(base, 'out2');
-    mkdirSync(entrada, { recursive: true });
-    await montarEntrada(entrada);
+    mkdirSync(input, { recursive: true });
+    await buildInput(input);
 
-    await construirDataset(entrada, s1);
-    await construirDataset(entrada, s2);
+    await buildDataset(input, s1);
+    await buildDataset(input, s2);
 
     const gz = gunzipSync(readFileSync(join(s1, 'ceps.csv.gz'))).toString();
     expect(gz).toBe(
@@ -54,27 +54,27 @@ describe('construirDataset', () => {
     expect(readFileSync(join(s2, 'ceps-removidos.csv'), 'utf8')).toBe(removidos);
   });
 
-  it('pasta sem ZIPs lança erro', async () => {
-    const vazia = join(base, 'vazia');
-    mkdirSync(vazia);
-    await expect(construirDataset(vazia, join(base, 'x'))).rejects.toThrow(/Nenhum ZIP/);
+  it('folder without ZIPs throws', async () => {
+    const empty = join(base, 'empty');
+    mkdirSync(empty);
+    await expect(buildDataset(empty, join(base, 'x'))).rejects.toThrow(/Nenhum ZIP/);
   });
 });
 
 describe('CLI', () => {
-  const rodar = (...args: string[]) =>
+  const run = (...args: string[]) =>
     spawnSync('npx', ['tsx', 'scripts/build-dataset/index.ts', ...args], { encoding: 'utf8' });
 
-  it('sem --pasta sai com código ≠ 0', () => {
-    const r = rodar();
+  it('without --pasta exits with non-zero code', () => {
+    const r = run();
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain('--pasta');
   });
 
-  it('pasta sem ZIPs sai com código ≠ 0', () => {
-    const vazia = mkdtempSync(join(base, 'v-'));
-    writeFileSync(join(vazia, 'leia.txt'), 'x');
-    const r = rodar('--pasta', vazia);
+  it('folder without ZIPs exits with non-zero code', () => {
+    const empty = mkdtempSync(join(base, 'v-'));
+    writeFileSync(join(empty, 'leia.txt'), 'x');
+    const r = run('--pasta', empty);
     expect(r.status).not.toBe(0);
     expect(r.stderr).toContain('Nenhum ZIP');
   });

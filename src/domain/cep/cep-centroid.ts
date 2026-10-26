@@ -1,39 +1,39 @@
-import { haversineKm, type Ponto } from '../geo/haversine.js';
+import { haversineKm, type Point } from '../geo/haversine.js';
 
-export const LIMIAR_P90_KM = 2;
+export const P90_THRESHOLD_KM = 2;
 
-export function centroideDeUnicos(pontos: Ponto[]): Ponto {
-  const unicos = new Map<string, Ponto>();
-  for (const p of pontos) unicos.set(`${p.lat},${p.lon}`, p);
+export function uniquePointsCentroid(points: Point[]): Point {
+  const unique = new Map<string, Point>();
+  for (const p of points) unique.set(`${p.lat},${p.lon}`, p);
   let lat = 0;
   let lon = 0;
-  for (const p of unicos.values()) {
+  for (const p of unique.values()) {
     lat += p.lat;
     lon += p.lon;
   }
-  return { lat: lat / unicos.size, lon: lon / unicos.size };
+  return { lat: lat / unique.size, lon: lon / unique.size };
 }
 
-/** Percentil por nearest-rank: menor valor com ao menos `p` dos dados abaixo ou iguais. */
-export function percentil(valores: number[], p: number): number {
-  const ordenados = [...valores].sort((a, b) => a - b);
-  const posicao = Math.max(1, Math.ceil(p * ordenados.length));
-  return ordenados[posicao - 1] as number;
+/** Nearest-rank percentile: smallest value with at least `p` of the data at or below it. */
+export function percentile(values: number[], p: number): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.max(1, Math.ceil(p * sorted.length));
+  return sorted[rank - 1] as number;
 }
 
-export interface AvaliacaoCep {
-  centro: Ponto;
+export interface CepAssessment {
+  center: Point;
   p90Km: number;
-  removido: boolean;
+  removed: boolean;
 }
 
-/** Centróide dos pontos únicos; p90 das distâncias de todos os endereços (repetidos incluídos). */
-export function avaliarCep(pontos: Ponto[]): AvaliacaoCep {
-  if (pontos.length === 0) throw new Error('CEP sem pontos');
-  const centro = centroideDeUnicos(pontos);
-  const p90Km = percentil(
-    pontos.map((p) => haversineKm(p, centro)),
+/** Centroid of the unique points; p90 of the distances of every address (repeats included). */
+export function assessCep(points: Point[]): CepAssessment {
+  if (points.length === 0) throw new Error('CEP without points');
+  const center = uniquePointsCentroid(points);
+  const p90Km = percentile(
+    points.map((p) => haversineKm(p, center)),
     0.9,
   );
-  return { centro, p90Km, removido: p90Km > LIMIAR_P90_KM };
+  return { center, p90Km, removed: p90Km > P90_THRESHOLD_KM };
 }
