@@ -84,7 +84,7 @@ A `uf` permite filtrar o seed e responder a regra de cobertura (D13) com um `DIS
 
 ## D9 — Brasil inteiro no repositório
 
-O CNEFE do Brasil tem ~3,7 GB compactado (~19 GB em CSV) e 931.499 CEPs. Depois de processado, uma linha por CEP, o arquivo fica com dezenas de MB (~15 MB compactado, a confirmar). Esse tamanho cabe no git sem LFS, então o repositório entrega a base do **Brasil inteiro**.
+O CNEFE do Brasil tem ~3,7 GB compactado (~19 GB em CSV) e 931.499 CEPs. Depois de processado, uma linha por CEP, o arquivo fica com dezenas de MB (medido na US1: `ceps.csv.gz` com 8,2 MB para 896.920 CEPs; `ceps-removidos.csv` com 1,3 MB). Esse tamanho cabe no git sem LFS, então o repositório entrega a base do **Brasil inteiro**.
 
 O CSV unificado é gerado **uma vez, pelo mantenedor**, com o `build-dataset` lendo os ZIPs do IBGE de uma pasta local (sem lógica de download). O avaliador só sobe o `docker compose`: o seed carrega o CSV e aceita `SEED_UFS=SP,RJ` para limitar as UFs. A regra de cobertura (D13) consulta as UFs carregadas na tabela, então uma carga parcial continua coerente.
 

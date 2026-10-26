@@ -1,6 +1,6 @@
 # US1 — Base de CEPs com coordenadas
 
-Status: aprovada (em implementação)
+Status: implementada (aguardando verificação)
 Origem: `docs/HISTORIAS.md` (US1) · Decisões: D4, D5, D6, D7, D8, D9, D10, D25, D27, D28
 Estimativa: ~200 linhas de lógica (limite: 500)
 
