@@ -17,13 +17,21 @@ describe('uniquePointsCentroid', () => {
   });
 });
 
-describe('percentile (nearest-rank)', () => {
+describe('percentile (index floor(p * (n - 1)))', () => {
   it('p90 of 10 values is the 9th', () => {
     expect(percentile([10, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0.9)).toBe(9);
   });
 
+  it('p90 of 5 values is the 4th, not the largest', () => {
+    expect(percentile([5, 1, 3, 2, 4], 0.9)).toBe(4);
+  });
+
   it('single value', () => {
     expect(percentile([5], 0.9)).toBe(5);
+  });
+
+  it('two values: index floor(0.9) is the smaller', () => {
+    expect(percentile([7, 3], 0.9)).toBe(3);
   });
 });
 
@@ -34,11 +42,20 @@ describe('assessCep', () => {
     expect(r.removed).toBe(false);
   });
 
-  it('repeats weigh on p90: one distant point among many repeats', () => {
-    const near = Array.from({ length: 19 }, () => ({ lat: 0, lon: 0 }));
-    const r = assessCep([...near, { lat: 0, lon: 0.5 }]);
-    // centroid of the unique points = (0, 0.25); every address is ~27.8 km from it
-    expect(r.p90Km).toBeGreaterThan(20);
+  it('a distant tower with 300 addresses does not remove a compact street', () => {
+    const houses = Array.from({ length: 20 }, (_, i) => ({ lat: 0, lon: i * 0.0001 }));
+    const tower = Array.from({ length: 300 }, () => ({ lat: 0, lon: 0.03 }));
+    const r = assessCep([...houses, ...tower]);
+    // 21 unique points: the tower (~3.2 km away) is only the 21st value, past the p90
+    expect(r.p90Km).toBeLessThan(1);
+    expect(r.removed).toBe(false);
+  });
+
+  it('a central tower with 300 addresses does not hide a spread CEP', () => {
+    const spread = Array.from({ length: 10 }, (_, i) => ({ lat: 0, lon: (i - 4.5) * 0.01 }));
+    const tower = Array.from({ length: 300 }, () => ({ lat: 0, lon: 0 }));
+    const r = assessCep([...spread, ...tower]);
+    expect(r.p90Km).toBeGreaterThan(2);
     expect(r.removed).toBe(true);
   });
 
@@ -49,17 +66,6 @@ describe('assessCep', () => {
     ]);
     expect(r.p90Km).toBeLessThan(2);
     expect(r.removed).toBe(false);
-  });
-
-  it('2 km threshold: 1.9 km stays, 2.1 km is removed', () => {
-    const degree = 360 / (2 * Math.PI * 6371.0088);
-    const at = (km: number) =>
-      assessCep([
-        { lat: 0, lon: 0 },
-        { lat: 0, lon: 2 * km * degree },
-      ]);
-    expect(at(1.9).removed).toBe(false);
-    expect(at(2.1).removed).toBe(true);
   });
 
   it('at the threshold: just under 2 km stays, just over is removed', () => {
