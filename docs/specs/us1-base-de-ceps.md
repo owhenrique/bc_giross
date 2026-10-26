@@ -1,7 +1,9 @@
 # US1 — Base de CEPs com coordenadas
 
-Status: implementada (verificada)
+Status: implementado
 verificada_em: 2026-10-26
+implementada_em: 2026-10-26
+merge_request: —
 Origem: `docs/HISTORIAS.md` (US1) · Decisões: D4, D5, D6, D7, D8, D9, D10, D25, D27, D28
 Estimativa: ~200 linhas de lógica (limite: 500)
 
@@ -62,6 +64,16 @@ Teto: 500 linhas de lógica (não conta teste, fixture, dados nem lockfile). Med
 ```bash
 grep -cv '^\s*$' $(git ls-files 'src/*.ts' 'scripts/*.ts' 'vitest.config.ts' | grep -v -e '\.test\.ts' -e fixtures.ts) | awk -F: '{s+=$2} END {print s}'
 ```
+
+## Registro de testes
+
+| Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-26 | Automatizado | local | local | `npm test` (23 testes), `npm run lint`, `npm run typecheck` | Aprovado | — |
+| 2026-10-26 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-26 | Manual | Henrique | local | `build-dataset` nos 27 ZIPs reais; `01001000` em `ceps-removidos.csv`; total de CEPs coerente | Aprovado | `data/relatorio.md` (896.920 CEPs, 34.557 removidos, 422,8 s) |
+
+Playwright não se aplica (sem telas).
 
 ## Riscos
 - **Memória/tempo em SP e MG**: mitigado pelo processamento por UF e arrays numéricos; se estourar, particionar por prefixo de CEP.
