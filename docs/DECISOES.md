@@ -67,7 +67,7 @@ Nenhuma API pública responde "quais CEPs existem a X km de um ponto". Alternati
 
 ## D7 — CEPs sujos
 
-No CNEFE de São Paulo, o CEP `01001000` (Praça da Sé) aparece em ~7 mil endereços espalhados pela cidade inteira, porque foi usado como valor padrão. Medição em 46.906 CEPs de SP, considerando a distância ao centróide dentro da qual ficam 90% dos endereços:
+No CNEFE de São Paulo, o CEP `01001000` (Praça da Sé) aparece em ~7 mil endereços espalhados pela cidade inteira, porque foi usado como valor padrão. Medição em 46.906 CEPs de SP, considerando a distância ao centróide dentro da qual ficam 90% dos **pontos únicos** (endereços com a mesma coordenada, como os apartamentos de um prédio, contam uma vez; p90 no índice `floor(0,9 × (n − 1))` da lista ordenada):
 
 | Espalhamento p90 | % dos CEPs |
 |---|---|
@@ -75,6 +75,8 @@ No CNEFE de São Paulo, o CEP `01001000` (Praça da Sé) aparece em ~7 mil ender
 | 500 m – 1 km | 2,7% |
 | 1 – 2 km | 1,0% |
 | > 2 km | 1,6% |
+
+A tabela vem da amostra inicial de 46.906 CEPs. Na base completa de SP, com pontos únicos, 5.413 de cerca de 275,6 mil CEPs (~2,0%) passam de 2 km.
 
 **Decisão:** CEPs com p90 > 2 km ficam fora do arquivo gerado, e o `build-dataset` registra quais foram removidos. Como origem, eles caem no fallback externo (D11).
 
@@ -84,7 +86,7 @@ A `uf` permite filtrar o seed e responder a regra de cobertura (D13) com um `DIS
 
 ## D9 — Brasil inteiro no repositório
 
-O CNEFE do Brasil tem ~3,7 GB compactado (~19 GB em CSV) e 931.499 CEPs. Depois de processado, uma linha por CEP, o arquivo fica com dezenas de MB (~15 MB compactado, a confirmar). Esse tamanho cabe no git sem LFS, então o repositório entrega a base do **Brasil inteiro**.
+O CNEFE do Brasil tem ~3,7 GB compactado (~19 GB em CSV) e 931.499 CEPs. Depois de processado, uma linha por CEP, o arquivo fica com dezenas de MB (medido na US1: `ceps.csv.gz` com 8,2 MB para 898.455 CEPs; `ceps-removidos.csv` com 1,3 MB e 33.022 CEPs). Esse tamanho cabe no git sem LFS, então o repositório entrega a base do **Brasil inteiro**.
 
 O CSV unificado é gerado **uma vez, pelo mantenedor**, com o `build-dataset` lendo os ZIPs do IBGE de uma pasta local (sem lógica de download). O avaliador só sobe o `docker compose`: o seed carrega o CSV e aceita `SEED_UFS=SP,RJ` para limitar as UFs. A regra de cobertura (D13) consulta as UFs carregadas na tabela, então uma carga parcial continua coerente.
 

@@ -1,6 +1,9 @@
 # US1 — Base de CEPs com coordenadas
 
-Status: aprovada (em implementação)
+Status: implementado
+verificada_em: 2026-10-26
+implementada_em: 2026-10-26
+merge_request: https://github.com/owhenrique/bc_giross/pull/1
 Origem: `docs/HISTORIAS.md` (US1) · Decisões: D4, D5, D6, D7, D8, D9, D10, D25, D27, D28
 Estimativa: ~200 linhas de lógica (limite: 500)
 
@@ -22,7 +25,7 @@ Carga no Postgres, endpoint, docker compose, Prisma (US2). Sem lógica de downlo
 - **Formato do CNEFE** (verificado em `12_AC.zip`): CSV `;`, um arquivo por ZIP. Colunas usadas: `CEP` (9), `LATITUDE` (26), `LONGITUDE` (27), `NV_GEO_COORD` (28). Coordenadas em ponto decimal.
 - **UF** vem do nome do ZIP (`35_SP.zip` → `SP`), sem tabela de código IBGE.
 - **Leitura em streaming** (`unzip -p`/`yauzl` + `readline`): o CSV de SP tem 3,8 GB descompactado. Processa um ZIP por vez, agrupando por CEP só dentro da UF, guardando apenas lat/lon em `Float64Array`/arrays numéricos. Rodar com `NODE_OPTIONS=--max-old-space-size` ajustado no script npm.
-- **p90**: distância de cada endereço (preci­são 1–4, repetidos incluídos) ao centróide dos pontos únicos; p90 por *nearest-rank*. Usar os endereços repetidos é o que o D7 mediu (a Praça da Sé tem ~7 mil endereços espalhados). Distância via Haversine do domínio.
+- **p90**: distância de cada **ponto único** (precisão 1–4) ao centróide dos pontos únicos; p90 no índice `floor(0,9 × (n − 1))` da lista ordenada, como no D7. Centróide e p90 usam a mesma unidade, porque o espalhamento é geográfico e não por domicílio: um prédio de 300 apartamentos conta como 1 ponto. Distância via Haversine do domínio. *(Corrigido após a verificação: a primeira versão incluía os endereços repetidos no p90 e usava nearest-rank, por uma redação ambígua do D7.)*
 - **Limiar**: `p90 > 2 km` remove; exatamente 2 km permanece. Constante nomeada, não variável de ambiente.
 - **CEP em mais de uma UF** (não esperado): mantém a UF com mais pontos e registra aviso no relatório.
 - **CEP malformado** (≠ 8 dígitos) ou sem coordenada válida: descartado e contado no relatório como "inválidos".
@@ -55,7 +58,48 @@ Scripts npm: `build-dataset`, `test`, `lint`, `typecheck`.
 - Integração: fixture com ZIPs mínimos cobrindo: precisão 5/6 ignorada, ponto duplicado, CEP sujo removido, CEP sem precisão válida, ordenação e idempotência da saída.
 - Manual: rodar nos 27 ZIPs; conferir que `01001000` está em `ceps-removidos.csv` e que o total fica próximo de 931 mil CEPs menos os removidos.
 
+## Limite de tamanho
+Teto: 500 linhas de lógica (não conta teste, fixture, dados nem lockfile). Medição, em `bc_giross`:
+
+```bash
+grep -cv '^\s*$' $(git ls-files 'src/*.ts' 'scripts/*.ts' 'vitest.config.ts' | grep -v -e '\.test\.ts' -e fixtures.ts) | awk -F: '{s+=$2} END {print s}'
+```
+
+## Registro de testes
+
+| Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-26 | Automatizado | local | local | `npm test` (23 testes), `npm run lint`, `npm run typecheck` | Aprovado | — |
+| 2026-10-26 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-26 | Manual | Henrique | local | `build-dataset` nos 27 ZIPs reais; `01001000` em `ceps-removidos.csv`; total de CEPs coerente | Aprovado | `data/relatorio.md` (896.920 CEPs, 34.557 removidos, 422,8 s) |
+| 2026-10-26 | Manual | Claude (pedido do Henrique) | local | Correção do p90 (pontos únicos + `floor(0,9·(n−1))`): `npm test` (25 testes), lint, typecheck e `build-dataset` de novo nos 27 ZIPs; `04551000` e `08072290` na base com as coordenadas do protótipo; `01001000` removido (p90 20,9 km). 1.978 CEPs voltaram para a base e 443 passaram a ser removidos | Aprovado | `data/relatorio.md` (898.455 CEPs, 33.022 removidos, 515,6 s) |
+
+Playwright não se aplica (sem telas).
+
 ## Riscos
 - **Memória/tempo em SP e MG**: mitigado pelo processamento por UF e arrays numéricos; se estourar, particionar por prefixo de CEP.
 - **Tamanho do `ceps.csv.gz`**: se passar de ~50 MB, reavaliar (D9 estima ~15 MB).
 - **Teto de 500 linhas**: leitura de ZIP em streaming é o ponto que mais pode crescer; usar dependência (`yauzl`) em vez de código próprio.
+
+## Verificação independente
+Data: 2026-10-26 (duas rodadas; a segunda após as correções de `7ed329c` e `97412d2`).
+
+- **Suítes:** `npm test` 23 testes, 0 falhas; `npm run lint` e `npm run typecheck` sem erros. Playwright não se aplica (sem telas).
+- **Critérios:** 1 a 5 atendidos, incluindo Haversine no domínio. Nenhum achado Alta ou Média.
+- **Entregável:** sim, funciona só com esta branch; 9 commits, todos da US1, partindo de `main`.
+- **Tamanho:** 256/500 linhas de lógica (comando da seção "Limite de tamanho").
+- **Achados Baixa corrigidos:** linhas longas em `index.ts`, teste do limiar de 2 km, teste de CEP em duas UFs, seção "Limite de tamanho" na spec.
+- **Achados Baixa aceitos:** linhas de 116 e 118 colunas restantes (`index.ts:97`, `read-cnefe.ts:53`, sem regra de largura no projeto); teste de 1,9/2,1 km redundante com o do limiar; 2,0 km exato sem teste (instável em ponto flutuante); commit de refactor D27 fora da lista de tarefas.
+- **Não verificado:** reexecução do `build-dataset` nos 27 ZIPs reais (cerca de 389 s), memória em SP e MG.
+- **Decisão do usuário:** corrigir os achados úteis; o restante fica como está.
+
+### Rodada 3 — após a correção do p90 (pontos únicos, índice `floor(0,9 × (n − 1))`)
+Data: 2026-10-26. Verificação sobre o working tree.
+
+- **Suítes:** `npm test` 25 testes (também após os ajustes desta rodada), 0 falhas; `npm run lint` e `npm run typecheck` sem erros.
+- **Critérios:** 1 a 6 atendidos; base regerada coerente com `data/relatorio.md` (898.455 CEPs, 33.022 removidos). Nenhum achado Alta ou Média.
+- **Entregável:** sim; só vale com a correção e os dados regerados commitados.
+- **Tamanho:** 261/500 linhas de lógica.
+- **Achados Baixa corrigidos:** teste de 1,9/2,1 km redundante removido; teste direto de `percentile` com n=2 adicionado; D7 anota que a tabela vem da amostra inicial (~2,0% > 2 km em SP na base completa).
+- **Não verificado:** reexecução da CLI e de pasta sem ZIPs nesta rodada; coordenadas de `04551000` e `08072290` contra o protótipo; memória em SP e MG.
+- **Decisão do usuário:** corrigir os achados úteis e commitar tudo.
