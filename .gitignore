@@ -1,2 +1,4 @@
 node_modules
 graphify-out
+src/generated
+.env

@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Cep {
+  cep       String @id @db.Char(8)
+  uf        String @db.Char(2)
+  latitude  Float  @db.DoublePrecision
+  longitude Float  @db.DoublePrecision
+
+  @@index([latitude, longitude])
+  @@map("cep")
+}

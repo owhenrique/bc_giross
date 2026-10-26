@@ -5,7 +5,7 @@ mapa: docs/HISTORIAS.md
 depende_de: US1 (mergeada em main, PR #1)
 titulo: Consultar CEPs próximos
 status: em-andamento
-modo:
+modo: agent-driven
 criada_em: 2026-10-26
 implementada_em:
 verificada_em:
@@ -24,7 +24,7 @@ A US1 entregou a base `data/ceps.csv.gz` (898.455 CEPs, `cep;uf;latitude;longitu
 Decisões que valem aqui: D1, D2, D3, D8, D9, D10, D14, D15, D16, D17, D18, D24, D25, D26, D27, D28.
 
 ## Critérios de aceite
-- [ ] 1. Dado um checkout limpo, quando rodo `docker compose up`, então o Postgres sobe, o serviço `seed` aplica a migration, carrega `data/ceps.csv.gz` e termina, e só depois a `api` começa a responder na porta `3000`.
+- [x] 1. Dado um checkout limpo, quando rodo `docker compose up`, então o Postgres sobe, o serviço `seed` aplica a migration, carrega `data/ceps.csv.gz` e termina, e só depois a `api` começa a responder na porta `3000`.
 - [ ] 2. Dado `SEED_UFS=SP,RJ`, quando o seed roda, então a tabela tem só CEPs de SP e RJ. Dado `SEED_UFS` vazio ou ausente, então o Brasil inteiro é carregado. Dado uma UF inválida (ex.: `XX`), então o seed sai com código ≠ 0 e mensagem clara, sem alterar a tabela.
 - [ ] 3. Dado o seed rodando de novo (com as mesmas UFs ou com outras), então a tabela fica exatamente com as UFs pedidas, sem duplicatas, e a API nunca vê a tabela vazia ou pela metade (TRUNCATE + COPY na mesma transação).
 - [ ] 4. Dado `04551000` na base, quando chamo `GET /ceps-proximos/04551000`, então recebo `200` com:
@@ -208,7 +208,7 @@ Não contam (config, dados, testes, docs, gerado):
 
 ## Tarefas
 Passos (commits) desta US. Todos entram no mesmo PR.
-- [ ] 1. Infra base: dependências, `src/config/env.ts`, Prisma (schema, migration `init`, client), `docker-compose.yml` com o `postgres`, `.env.example`. Testes do `loadEnv`.
+- [x] 1. Infra base: dependências, `src/config/env.ts`, Prisma (schema, migration `init`, client), `docker-compose.yml` com o `postgres`, `.env.example`. Testes do `loadEnv`.
 - [ ] 2. Seed: `scripts/seed/index.ts` (`parseSeedUfs`, stream do gz com filtro, TRUNCATE + COPY em transação), script `npm run seed`, serviço `seed` no compose. Testes de `parseSeedUfs` e do filtro de linhas.
 - [ ] 3. Domínio: `normalizeCep` e `boundingBox` + testes (hífen, tamanho, letras; um ponto a `radiusKm` em cada direção cabe na caixa).
 - [ ] 4. Aplicação: porta `CepRepository` e `findNearbyCeps` + testes com repositório em memória.
