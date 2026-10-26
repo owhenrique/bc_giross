@@ -1,6 +1,7 @@
 # US1 — Base de CEPs com coordenadas
 
-Status: implementada (aguardando verificação)
+Status: implementada (verificada)
+verificada_em: 2026-10-26
 Origem: `docs/HISTORIAS.md` (US1) · Decisões: D4, D5, D6, D7, D8, D9, D10, D25, D27, D28
 Estimativa: ~200 linhas de lógica (limite: 500)
 
@@ -66,3 +67,15 @@ grep -cv '^\s*$' $(git ls-files 'src/*.ts' 'scripts/*.ts' 'vitest.config.ts' | g
 - **Memória/tempo em SP e MG**: mitigado pelo processamento por UF e arrays numéricos; se estourar, particionar por prefixo de CEP.
 - **Tamanho do `ceps.csv.gz`**: se passar de ~50 MB, reavaliar (D9 estima ~15 MB).
 - **Teto de 500 linhas**: leitura de ZIP em streaming é o ponto que mais pode crescer; usar dependência (`yauzl`) em vez de código próprio.
+
+## Verificação independente
+Data: 2026-10-26 (duas rodadas; a segunda após as correções de `7ed329c` e `97412d2`).
+
+- **Suítes:** `npm test` 23 testes, 0 falhas; `npm run lint` e `npm run typecheck` sem erros. Playwright não se aplica (sem telas).
+- **Critérios:** 1 a 5 atendidos, incluindo Haversine no domínio. Nenhum achado Alta ou Média.
+- **Entregável:** sim, funciona só com esta branch; 9 commits, todos da US1, partindo de `main`.
+- **Tamanho:** 256/500 linhas de lógica (comando da seção "Limite de tamanho").
+- **Achados Baixa corrigidos:** linhas longas em `index.ts`, teste do limiar de 2 km, teste de CEP em duas UFs, seção "Limite de tamanho" na spec.
+- **Achados Baixa aceitos:** linhas de 116 e 118 colunas restantes (`index.ts:97`, `read-cnefe.ts:53`, sem regra de largura no projeto); teste de 1,9/2,1 km redundante com o do limiar; 2,0 km exato sem teste (instável em ponto flutuante); commit de refactor D27 fora da lista de tarefas.
+- **Não verificado:** reexecução do `build-dataset` nos 27 ZIPs reais (cerca de 389 s), memória em SP e MG.
+- **Decisão do usuário:** corrigir os achados úteis; o restante fica como está.
