@@ -15,5 +15,15 @@ services:
       timeout: 3s
       retries: 20
 
+  seed:
+    build: .
+    command: sh -c "npx prisma migrate deploy && npm run seed"
+    environment:
+      DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
+      SEED_UFS: ${SEED_UFS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
