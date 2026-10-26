@@ -55,6 +55,13 @@ Scripts npm: `build-dataset`, `test`, `lint`, `typecheck`.
 - Integração: fixture com ZIPs mínimos cobrindo: precisão 5/6 ignorada, ponto duplicado, CEP sujo removido, CEP sem precisão válida, ordenação e idempotência da saída.
 - Manual: rodar nos 27 ZIPs; conferir que `01001000` está em `ceps-removidos.csv` e que o total fica próximo de 931 mil CEPs menos os removidos.
 
+## Limite de tamanho
+Teto: 500 linhas de lógica (não conta teste, fixture, dados nem lockfile). Medição, em `bc_giross`:
+
+```bash
+grep -cv '^\s*$' $(git ls-files 'src/*.ts' 'scripts/*.ts' 'vitest.config.ts' | grep -v -e '\.test\.ts' -e fixtures.ts) | awk -F: '{s+=$2} END {print s}'
+```
+
 ## Riscos
 - **Memória/tempo em SP e MG**: mitigado pelo processamento por UF e arrays numéricos; se estourar, particionar por prefixo de CEP.
 - **Tamanho do `ceps.csv.gz`**: se passar de ~50 MB, reavaliar (D9 estima ~15 MB).

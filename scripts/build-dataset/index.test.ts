@@ -54,6 +54,21 @@ describe('buildDataset', () => {
     expect(readFileSync(join(s2, 'ceps-removidos.csv'), 'utf8')).toBe(removidos);
   });
 
+  it('CEP in two UFs keeps the one with more points and warns', async () => {
+    const input = join(base, 'dup');
+    mkdirSync(input, { recursive: true });
+    await createCnefeZip(input, '12_AC.zip', [['69900126', '-9.0', '-67.0', '1']]);
+    await createCnefeZip(input, '35_SP.zip', [
+      ['69900126', '-23.55', '-46.63', '1'],
+      ['69900126', '-23.55', '-46.6301', '1'],
+    ]);
+    const out = join(base, 'dup-out');
+    await buildDataset(input, out);
+    const gz = gunzipSync(readFileSync(join(out, 'ceps.csv.gz'))).toString();
+    expect(gz).toBe(['cep;uf;latitude;longitude', '69900126;SP;-23.550000;-46.630050', ''].join('\n'));
+    expect(readFileSync(join(out, 'relatorio.md'), 'utf8')).toContain('CEP 69900126 presente em AC e SP; mantida SP');
+  });
+
   it('folder without ZIPs throws', async () => {
     const empty = join(base, 'empty');
     mkdirSync(empty);

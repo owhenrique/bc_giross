@@ -62,6 +62,17 @@ describe('assessCep', () => {
     expect(at(2.1).removed).toBe(true);
   });
 
+  it('at the threshold: just under 2 km stays, just over is removed', () => {
+    const degree = 360 / (2 * Math.PI * 6371.0088);
+    const at = (km: number) =>
+      assessCep([
+        { lat: 0, lon: 0 },
+        { lat: 0, lon: 2 * km * degree },
+      ]);
+    expect(at(1.9999).removed).toBe(false);
+    expect(at(2.0001).removed).toBe(true);
+  });
+
   it('throws on an empty list', () => {
     expect(() => assessCep([])).toThrow();
   });
