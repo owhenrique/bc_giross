@@ -42,9 +42,19 @@ async function processUf(zip: string, uf: string, stats: UfStats): Promise<Final
   const finals: FinalCep[] = [];
   for (const [cep, flat] of byCep) {
     const points = [];
-    for (let i = 0; i < flat.length; i += 2) points.push({ lat: flat[i] as number, lon: flat[i + 1] as number });
+    for (let i = 0; i < flat.length; i += 2) {
+      points.push({ lat: flat[i] as number, lon: flat[i + 1] as number });
+    }
     const a = assessCep(points);
-    finals.push({ cep, uf, lat: a.center.lat, lon: a.center.lon, p90Km: a.p90Km, removed: a.removed, points: points.length });
+    finals.push({
+      cep,
+      uf,
+      lat: a.center.lat,
+      lon: a.center.lon,
+      p90Km: a.p90Km,
+      removed: a.removed,
+      points: points.length,
+    });
   }
   return finals;
 }
@@ -86,7 +96,10 @@ export async function buildDataset(folder: string, output: string): Promise<void
   mkdirSync(output, { recursive: true });
   const csv = ['cep;uf;latitude;longitude', ...keptCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`)];
   writeFileSync(join(output, 'ceps.csv.gz'), gzipSync(csv.join('\n') + '\n'));
-  const removedCsv = ['cep;uf;latitude;longitude;p90_km', ...removedCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)};${c.p90Km.toFixed(3)}`)];
+  const removedCsv = [
+    'cep;uf;latitude;longitude;p90_km',
+    ...removedCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)};${c.p90Km.toFixed(3)}`),
+  ];
   writeFileSync(join(output, 'ceps-removidos.csv'), removedCsv.join('\n') + '\n');
   const seconds = (performance.now() - start) / 1000;
   writeFileSync(join(output, 'relatorio.md'), buildReport({ byUf, warnings, seconds }));
