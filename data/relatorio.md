@@ -4,7 +4,7 @@
 - CEPs removidos por espalhamento (p90 > 2 km): 34557
 - Linhas inválidas (CEP malformado ou sem coordenada): 0
 - CEPs sem endereço de precisão 1–4: 22
-- Tempo de execução: 389.2 s
+- Tempo de execução: 422.8 s
 
 | UF | CEPs | Removidos | Inválidos | Sem precisão |
 |----|-----:|----------:|----------:|-------------:|
