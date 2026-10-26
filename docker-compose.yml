@@ -25,5 +25,18 @@ services:
       postgres:
         condition: service_healthy
 
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
+      PORT: 3000
+      SEARCH_RADIUS_KM: ${SEARCH_RADIUS_KM:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:

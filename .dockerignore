@@ -1,0 +1,8 @@
+node_modules
+.git
+graphify-out
+src/generated
+docs
+.env
+data/ceps-removidos.csv
+data/relatorio.md
