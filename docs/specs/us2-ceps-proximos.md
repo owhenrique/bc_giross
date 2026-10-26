@@ -27,7 +27,7 @@ Decisões que valem aqui: D1, D2, D3, D8, D9, D10, D14, D15, D16, D17, D18, D24,
 - [x] 1. Dado um checkout limpo, quando rodo `docker compose up`, então o Postgres sobe, o serviço `seed` aplica a migration, carrega `data/ceps.csv.gz` e termina, e só depois a `api` começa a responder na porta `3000`.
 - [x] 2. Dado `SEED_UFS=SP,RJ`, quando o seed roda, então a tabela tem só CEPs de SP e RJ. Dado `SEED_UFS` vazio ou ausente, então o Brasil inteiro é carregado. Dado uma UF inválida (ex.: `XX`), então o seed sai com código ≠ 0 e mensagem clara, sem alterar a tabela.
 - [x] 3. Dado o seed rodando de novo (com as mesmas UFs ou com outras), então a tabela fica exatamente com as UFs pedidas, sem duplicatas, e a API nunca vê a tabela vazia ou pela metade (TRUNCATE + COPY na mesma transação).
-- [ ] 4. Dado `04551000` na base, quando chamo `GET /ceps-proximos/04551000`, então recebo `200` com:
+- [x] 4. Dado `04551000` na base, quando chamo `GET /ceps-proximos/04551000`, então recebo `200` com:
   ```json
   {
     "origem": { "cep": "04551000", "latitude": -23.59, "longitude": -46.68, "fonte": "base" },
@@ -211,7 +211,7 @@ Passos (commits) desta US. Todos entram no mesmo PR.
 - [x] 1. Infra base: dependências, `src/config/env.ts`, Prisma (schema, migration `init`, client), `docker-compose.yml` com o `postgres`, `.env.example`. Testes do `loadEnv`.
 - [x] 2. Seed: `scripts/seed/index.ts` (`parseSeedUfs`, stream do gz com filtro, TRUNCATE + COPY em transação), script `npm run seed`, serviço `seed` no compose. Testes de `parseSeedUfs` e do filtro de linhas.
 - [x] 3. Domínio: `normalizeCep` e `boundingBox` + testes (hífen, tamanho, letras; um ponto a `radiusKm` em cada direção cabe na caixa).
-- [ ] 4. Aplicação: porta `CepRepository` e `findNearbyCeps` + testes com repositório em memória.
+- [x] 4. Aplicação: porta `CepRepository` e `findNearbyCeps` + testes com repositório em memória.
 - [ ] 5. Infraestrutura: `PrismaCepRepository` e `prisma-client`. Conferência manual contra o Postgres do compose.
 - [ ] 6. HTTP: `logger`, `errors`, `nearby-ceps-route`, `createApp` + testes Supertest com o repositório em memória.
 - [ ] 7. Entrada e empacotamento: `src/index.ts`, `Dockerfile`, `.dockerignore`, serviço `api` no compose, README ("como rodar" e contrato). Rodar `docker compose up` de ponta a ponta e registrar o resultado.
