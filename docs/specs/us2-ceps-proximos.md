@@ -7,7 +7,7 @@ titulo: Consultar CEPs próximos
 status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-26
-implementada_em:
+implementada_em: 2026-10-26
 verificada_em:
 branch: feat/us2-ceps-proximos
 merge_request:
@@ -40,12 +40,12 @@ Decisões que valem aqui: D1, D2, D3, D8, D9, D10, D14, D15, D16, D17, D18, D24,
 - [x] 5. Dado `SEARCH_RADIUS_KM=1` e um CEP a 1,004 km da origem, então ele não aparece, mesmo que a saída arredondada fosse `1.00`. Um CEP a exatamente ≤ 1 km aparece (D15).
 - [x] 6. Dado `GET /ceps-proximos/04551-000`, então a resposta é igual à de `04551000`, com `origem.cep` normalizado (`04551000`).
 - [x] 7. Dado `?pagina=2&limite=50`, então recebo os itens 51 a 100 da lista ordenada, com `total` e `total_paginas` corretos. Sem parâmetros, valem `pagina=1` e `limite=50`. Dado `pagina` além da última, então `200` com `ceps: []`. Dado nenhum vizinho no raio, então `200` com `ceps: []`, `total: 0` e `total_paginas: 0`.
-- [ ] 8. Dado `limite` fora de 1–200, `pagina` < 1 ou um valor não inteiro, então `400` com `{ "erro": { "codigo": "PARAMETRO_INVALIDO", "mensagem": "..." } }`.
-- [ ] 9. Dado `GET /ceps-proximos/123` (ou qualquer valor que não seja `00000000`/`00000-000`), então `400` com `codigo: "CEP_INVALIDO"`.
-- [ ] 10. Dado um CEP com formato válido que não está na base, então `404` com `{ "erro": { "codigo": "CEP_NAO_ENCONTRADO", "mensagem": "CEP não encontrado" } }`. A US3 refina esse caso.
-- [ ] 11. Dado uma rota ou um método inexistente (ex.: `GET /admin`, `POST /ceps-proximos/04551000`), então `404` com o corpo genérico `{ "erro": { "codigo": "NAO_ENCONTRADO", "mensagem": "Recurso não encontrado" } }`. A resposta é a mesma para qualquer caminho, sem HTML padrão do Express, sem ecoar o caminho pedido e sem o header `X-Powered-By`, para não revelar quais rotas existem nem a stack. Dado um erro inesperado, então `500` com `codigo: "ERRO_INTERNO"`, sem stack na resposta, e o erro vai para o log.
-- [ ] 12. Cada requisição gera uma linha de log Pino (método, rota, status, tempo).
-- [ ] 13. O Haversine segue testado contra distâncias conhecidas (testes da US1 mantidos verdes).
+- [x] 8. Dado `limite` fora de 1–200, `pagina` < 1 ou um valor não inteiro, então `400` com `{ "erro": { "codigo": "PARAMETRO_INVALIDO", "mensagem": "..." } }`.
+- [x] 9. Dado `GET /ceps-proximos/123` (ou qualquer valor que não seja `00000000`/`00000-000`), então `400` com `codigo: "CEP_INVALIDO"`.
+- [x] 10. Dado um CEP com formato válido que não está na base, então `404` com `{ "erro": { "codigo": "CEP_NAO_ENCONTRADO", "mensagem": "CEP não encontrado" } }`. A US3 refina esse caso.
+- [x] 11. Dado uma rota ou um método inexistente (ex.: `GET /admin`, `POST /ceps-proximos/04551000`), então `404` com o corpo genérico `{ "erro": { "codigo": "NAO_ENCONTRADO", "mensagem": "Recurso não encontrado" } }`. A resposta é a mesma para qualquer caminho, sem HTML padrão do Express, sem ecoar o caminho pedido e sem o header `X-Powered-By`, para não revelar quais rotas existem nem a stack. Dado um erro inesperado, então `500` com `codigo: "ERRO_INTERNO"`, sem stack na resposta, e o erro vai para o log.
+- [x] 12. Cada requisição gera uma linha de log Pino (método, rota, status, tempo).
+- [x] 13. O Haversine segue testado contra distâncias conhecidas (testes da US1 mantidos verdes).
 
 ## Escopo
 **Dentro:**
