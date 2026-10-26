@@ -37,7 +37,7 @@ Decisões que valem aqui: D1, D2, D3, D8, D9, D10, D14, D15, D16, D17, D18, D24,
   }
   ```
   com `ceps` ordenado por distância crescente (empate por CEP crescente), `distancia_km` com 2 casas decimais e sem a própria origem. Os números acima são ilustrativos.
-- [ ] 5. Dado `SEARCH_RADIUS_KM=1` e um CEP a 1,004 km da origem, então ele não aparece, mesmo que a saída arredondada fosse `1.00`. Um CEP a exatamente ≤ 1 km aparece (D15).
+- [x] 5. Dado `SEARCH_RADIUS_KM=1` e um CEP a 1,004 km da origem, então ele não aparece, mesmo que a saída arredondada fosse `1.00`. Um CEP a exatamente ≤ 1 km aparece (D15).
 - [ ] 6. Dado `GET /ceps-proximos/04551-000`, então a resposta é igual à de `04551000`, com `origem.cep` normalizado (`04551000`).
 - [ ] 7. Dado `?pagina=2&limite=50`, então recebo os itens 51 a 100 da lista ordenada, com `total` e `total_paginas` corretos. Sem parâmetros, valem `pagina=1` e `limite=50`. Dado `pagina` além da última, então `200` com `ceps: []`. Dado nenhum vizinho no raio, então `200` com `ceps: []`, `total: 0` e `total_paginas: 0`.
 - [ ] 8. Dado `limite` fora de 1–200, `pagina` < 1 ou um valor não inteiro, então `400` com `{ "erro": { "codigo": "PARAMETRO_INVALIDO", "mensagem": "..." } }`.
@@ -212,7 +212,7 @@ Passos (commits) desta US. Todos entram no mesmo PR.
 - [x] 2. Seed: `scripts/seed/index.ts` (`parseSeedUfs`, stream do gz com filtro, TRUNCATE + COPY em transação), script `npm run seed`, serviço `seed` no compose. Testes de `parseSeedUfs` e do filtro de linhas.
 - [x] 3. Domínio: `normalizeCep` e `boundingBox` + testes (hífen, tamanho, letras; um ponto a `radiusKm` em cada direção cabe na caixa).
 - [x] 4. Aplicação: porta `CepRepository` e `findNearbyCeps` + testes com repositório em memória.
-- [ ] 5. Infraestrutura: `PrismaCepRepository` e `prisma-client`. Conferência manual contra o Postgres do compose.
+- [x] 5. Infraestrutura: `PrismaCepRepository` e `prisma-client`. Conferência manual contra o Postgres do compose.
 - [ ] 6. HTTP: `logger`, `errors`, `nearby-ceps-route`, `createApp` + testes Supertest com o repositório em memória.
 - [ ] 7. Entrada e empacotamento: `src/index.ts`, `Dockerfile`, `.dockerignore`, serviço `api` no compose, README ("como rodar" e contrato). Rodar `docker compose up` de ponta a ponta e registrar o resultado.
 
