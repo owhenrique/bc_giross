@@ -4,13 +4,13 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US3 (PR #4, mergeada) e US11 (PR #5, mergeada)
 titulo: Cache
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us4-cache
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/6
 ---
 
 # US4 — Cache
@@ -207,10 +207,11 @@ Data: 2026-10-27. Base: `main`.
 - **Decisão do usuário:** manter o commit `63bc080` e registrar a decisão aqui e no `DECISOES.md`; depois pediu para corrigir o timeout do `deleteByPrefix`; a redação dos "8 critérios" fica como está. Suítes após a correção: 160 testes, 0 falhas.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
-
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (18 arquivos, 160 testes), typecheck, lint e format:check | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | usuário (autor) | local (docker compose) | roteiro da spec: cache hit com `redis-cli keys`, Redis parado e religado, seed limpando `result:*`, `loaded_uf` e 422 sem ler `cep` | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Reconexão do node-redis v5:** o comportamento do `connect()` com o Redis fora na subida (rejeita ou fica tentando) precisa ser confirmado no implement. O critério 6 exige que a API suba mesmo assim.
