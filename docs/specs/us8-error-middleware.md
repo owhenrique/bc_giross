@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em:
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us8-error-middleware
 merge_request:
 ---
@@ -130,7 +130,15 @@ Não se aplica.
 - Manual: `curl` em `/ceps-proximos/123`, `/ceps-proximos/04551000?pagina=0`, `?limite=999` e um CEP inexistente; respostas idênticas às da US2.
 
 ## Verificação independente
-Preenchido no `/pato/verify`.
+Em 2026-10-27, subagente em contexto limpo, base `e4fc4e9` (merge do PR #2; `main` local estava desatualizada).
+
+- **Suítes:** `npm test` 13 arquivos, 89 testes, 0 falhas; `npm run lint` e `npm run typecheck` sem erros. Sem curl real (sem Postgres); respostas cobertas por supertest em `app.test.ts`.
+- **Critérios 1 a 7:** todos atendidos (evidência em `errors.ts`, `error-catalog.ts`, `nearby-ceps-route.ts` e testes; `app.test.ts` não foi tocado).
+- **Entregável:** sim, funciona só com esta branch; 6 commits, todos da US8.
+- **Linhas medidas:** 72 / 500 (`bc_giross`).
+- **Achados:** nenhum Alta ou Média. Baixa: `find-nearby-ceps.test.ts` foi reformatado por inteiro (aspas e quebras), ruído no diff; `docs/HISTORIAS.md` alterado fora da lista, mas registrado em "Decisões".
+- **Decisão do usuário:** aceitar como está.
+- **Não verificado:** curl contra servidor real com Postgres.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
