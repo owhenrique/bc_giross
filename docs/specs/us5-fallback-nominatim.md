@@ -153,7 +153,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 - [x] 2. `OriginGeocoder` e `geocodeKey` (validação de cidade/UF normalizada, cache de `found` 30 d e `no_match` 1 h), com testes.
 - [x] 3. Fallback no `findNearbyCeps` (nova assinatura, vizinhos a partir da origem, `source` no resultado em cache) e `fonte` na rota, com testes do caso de uso e do `app.test.ts`.
 - [x] 4. Composição em `src/index.ts`, mais as variáveis no `docker-compose.yml` e no `.env.example`.
-- [ ] 5. README e `DECISOES.md`.
+- [x] 5. README e `DECISOES.md`.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.

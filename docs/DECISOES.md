@@ -179,3 +179,13 @@ Consequência: numa base migrada sem rodar o seed, a tabela fica vazia e todo CE
 O `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do `.env` e monta a `DATABASE_URL` dos serviços `api` e `seed`, em vez de ter credenciais fixas no arquivo. `POSTGRES_PORT` e `API_PORT` definem as portas publicadas no host.
 
 Consequência: o `docker compose up` falha sem um `.env`, então o README manda copiar o `.env.example` antes. Fora do docker (`npm start`, `npm run seed`), a `DATABASE_URL` continua vindo do `.env`.
+
+## D11 (cont.) — Fallback do Nominatim na US5
+
+- **Escopo:** só para CEP fora da base de UF carregada. Ele substitui o `422 CEP_SEM_GEOLOCALIZACAO`. Para UF não carregada continua `422 CEP_FORA_DA_COBERTURA`, porque não haveria vizinhos na base, e o Nominatim nem é chamado.
+- **Nominatim fora do ar:** `503 PROVEDOR_INDISPONIVEL`, como a BrasilAPI. Timeout (3 s), erro de rede, status ≠ 200, corpo inválido e o limite de 1 req/s contam como indisponível, que é transitório. Indisponibilidade nunca entra no cache.
+- **Sem rua, cidade ou UF na BrasilAPI:** `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. Usar o centro da cidade deixaria o raio de ~1 km sem sentido.
+- **TTLs do geocoding** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h), os mesmos da D20. O resultado final fica em `result:<raio>:<cep>` com a fonte (`base` ou `nominatim`), então a repetição não vai ao banco nem ao Nominatim. O seed não apaga as chaves `geocode:*`, porque a coordenada do Nominatim não depende da base.
+- **Comparação normalizada:** a cidade e a UF do candidato precisam bater com as da BrasilAPI, sem acento, sem diferença de maiúsculas e sem espaços extras. A cidade vem de `city`/`town`/`village`/`municipality`, e a UF vem de `ISO3166-2-lvl4` (`BR-SP` → `SP`). Grafias diferentes da cidade (ex.: "Embu" × "Embu das Artes") viram `422`.
+- **Busca sem `state` e com `limit=5`:** o parâmetro `state` do Nominatim espera o nome do estado, não a UF, então a busca leva só `street` e `city` (mais `countrycodes=br`), e a UF é validada depois. O `limit=5` dá a chance de achar o candidato certo quando o primeiro é um homônimo; vale o primeiro que bater.
+- **Política de uso:** `User-Agent` identificado (`NOMINATIM_USER_AGENT`), no máximo 1 req/s e cache dos resultados. O limiter é em memória, por processo; com mais de uma réplica da API ele passaria a ser agregado e teria de ir para o Redis. `NOMINATIM_URL` permite apontar para uma instância própria.

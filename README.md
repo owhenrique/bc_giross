@@ -32,6 +32,8 @@ SEED_UFS=SP,RJ docker compose up --build
 | `CACHE_TTL_ADDRESS_SECONDS` | `2592000` (30 d) | TTL do endereço (BrasilAPI) |
 | `CACHE_TTL_RESULT_SECONDS` | `604800` (7 d) | TTL do resultado (origem + lista de vizinhos) |
 | `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra |
+| `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | base do Nominatim, usado como fallback de coordenada |
+| `NOMINATIM_USER_AGENT` | `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)` | `User-Agent` enviado ao Nominatim (a política de uso exige identificar o cliente) |
 | `LOG_LEVEL` | `info` | nível do Pino |
 
 ### Cache (Redis)
@@ -42,6 +44,17 @@ O compose tem o serviço `redis` (`maxmemory` com política `allkeys-lru`, sem p
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
 - **Redis fora do ar:** a API segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
 - **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
+
+### Fallback de coordenada (Nominatim)
+
+Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um "sujo" removido pelo `build-dataset`), a API busca a coordenada no Nominatim a partir do endereço da BrasilAPI (rua e cidade) e calcula os vizinhos da base a partir dela. Nas duas rotas a resposta é `200`; no `/detalhes`, `origem.fonte` vem `"nominatim"`.
+
+- **Validação:** o Nominatim só vale se a cidade e a UF do candidato baterem com as da BrasilAPI (sem acento, sem diferença de maiúsculas e sem espaços extras). Sem candidato válido: `422 CEP_SEM_GEOLOCALIZACAO`.
+- **Sem rua, cidade ou UF** na BrasilAPI: `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. UF não carregada continua `422 CEP_FORA_DA_COBERTURA`.
+- **Nominatim fora do ar** (timeout de 3 s, erro, status ≠ 200, corpo inválido) ou limite de 1 req/s atingido: `503 PROVEDOR_INDISPONIVEL`.
+- **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra. O seed não apaga essas chaves.
+- **Política de uso do Nominatim público:** máximo de 1 req/s (a API aplica esse limite por processo), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
+- **Precisão:** em ruas longas o ponto devolvido é algum trecho da rua, não o centro do CEP.
 
 **Atenção ao migrar à mão:** a tabela `loaded_uf` (UFs carregadas) é preenchida pelo seed. Depois de um `prisma migrate deploy`, rode o seed; sem ele, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O `docker compose up` já roda o seed antes da API.
 
@@ -88,7 +101,7 @@ curl "localhost:3000/ceps-proximos/04551000/detalhes?pagina=1&limite=50"
 }
 ```
 
-`origem.endereco` é `null` quando a BrasilAPI está fora do ar, estoura o timeout (3 s) ou não acha o CEP; a lista vem normalmente. Campos vazios do endereço saem como `null`.
+`origem.fonte` é `"base"` (coordenada do CEP na base) ou `"nominatim"` (CEP fora da base, coordenada do fallback). `origem.endereco` é `null` quando a BrasilAPI está fora do ar, estoura o timeout (3 s) ou não acha o CEP; a lista vem normalmente. Campos vazios do endereço saem como `null`.
 
 Nas duas rotas, `ceps` vem ordenado por distância (empate por CEP), sem a própria origem. Página além da última devolve `ceps: []`.
 
@@ -105,8 +118,8 @@ Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
 | 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
 | 404 | `NAO_ENCONTRADO` | rota ou método inexistente |
 | 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
-| 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas a base não tem a coordenada dele |
-| 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP está fora do ar, estourou o timeout ou o limite de 5 req/s |
+| 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas nem a base nem o Nominatim dão a coordenada dele (ou o endereço não tem rua, cidade ou UF) |
+| 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP (BrasilAPI, limite de 5 req/s) ou o Nominatim (limite de 1 req/s) está fora do ar ou estourou o timeout |
 | 500 | `ERRO_INTERNO` | erro inesperado (sem detalhes na resposta) |
 
 ## Testes
