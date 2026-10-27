@@ -189,10 +189,11 @@ Verificada em 2026-10-27 por subagente independente (contexto limpo), contra `ma
 - **Não verificado:** teste manual com `docker compose` e `SEED_UFS=SP` contra a BrasilAPI real; `/docs` (Scalar).
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
-
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (15 arquivos, 133 testes), `npm run lint` e `npm run typecheck` | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | Henrique | local (docker compose, `SEED_UFS=SP`) | roteiro da spec: `04551000` (simples e `/detalhes`), `00000001`, `20040020`, `01001000` e BrasilAPI cortada | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Contrato quebra para quem já usa `/ceps-proximos/:cep`:** quem lia `origem.latitude`, `raio_km` etc. precisa migrar para `/detalhes`. O projeto ainda não tem consumidores em produção, então a mudança fica registrada no README.
