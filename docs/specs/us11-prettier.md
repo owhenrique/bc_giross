@@ -8,7 +8,7 @@ status: em-andamento
 modo: direto
 criada_em: 2026-10-27
 implementada_em:
-verificada_em:
+verificada_em: 2026-10-27
 branch: us11-prettier
 merge_request:
 ---
@@ -143,6 +143,28 @@ Não se aplica.
 - Negativo: tirar o `;` de uma linha em `src/` faz o `npm run format:check` sair com código ≠ 0 (depois, desfazer).
 
 ## Verificação independente
+
+Data: 2026-10-27. Verificador: subagente em contexto limpo, só reportou. Base: `main`.
+
+**Veredito:** aprovada, sem achados Alta/Média.
+
+| Critério | Veredito |
+| --- | --- |
+| `.prettierrc.json` com as 6 opções | Atendido |
+| `format` / `format:check` (0 na branch, ≠ 0 com desvio, testado numa cópia) | Atendido |
+| `.prettierignore` e formatação de TS/JS, JSON e YAML | Atendido |
+| `eslint-config-prettier/flat` por último; `npm run lint` passa | Atendido |
+| Reformatação em commit único (`59f2d5c`), só saída do Prettier, hash em `.git-blame-ignore-revs` | Atendido |
+| `npm test` e `npm run typecheck` sem mudança manual em teste | Atendido |
+| README com `format:check` e `blame.ignoreRevsFile` | Atendido |
+
+- **Entregável:** sim, funciona só com esta branch (4 commits, todos da US11).
+- **Linhas medidas:** 51 / 500 (`bc_giross`).
+- **Suítes:** `npm test` 15 arquivos, 133 testes, 0 falhas; `typecheck`, `lint` e `format:check` sem erros.
+- **Blame:** com `blame.ignoreRevsFile`, 0 linhas do `59f2d5c` em `scripts/seed/index.ts` (27 sem a config).
+- **Achados:** Baixa — `status`, `implementada_em` e `merge_request` vazios na spec; esperado antes do `/pato/close-spec`.
+- **Não verificado:** `npm ci` limpo (warning ERESOLVE), leitura do `.git-blame-ignore-revs` pelo GitHub, merge commit (depende do PR).
+- **Decisão do usuário:** corrigir achados; o único é Baixa e se resolve no close-spec, sem correção de código.
 
 ## Registro de testes
 
