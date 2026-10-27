@@ -10,7 +10,7 @@ criada_em: 2026-10-27
 implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: us3-endereco-e-erros
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/4
 ---
 
 # US3 — Endereço da origem e erros claros
