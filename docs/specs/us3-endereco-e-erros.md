@@ -4,12 +4,12 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US2 (PR #2, mergeada) e US8 (PR #3, mergeada)
 titulo: Endereço da origem e erros claros
-status: pendente
+status: implementado
 modo:
 criada_em: 2026-10-27
-implementada_em:
-verificada_em:
-branch:
+implementada_em: 2026-10-27
+verificada_em: 2026-10-27
+branch: us3-endereco-e-erros
 merge_request:
 ---
 
@@ -159,11 +159,11 @@ Nenhuma.
 **Modo sugerido:** agent-driven, porque são 5 tarefas, 11 arquivos de lógica e muda o contrato.
 
 ## Tarefas
-- [ ] 1. `WindowRateLimiter` com testes (janela cheia → `false`; janela seguinte → `true`).
-- [ ] 2. Porta `CepAddressProvider` e `BrasilApiCepProvider` (fetch injetável, timeout de 3 s, Zod, `''` → `null`, limiter, `warn` na falha), com testes de cada desfecho.
-- [ ] 3. Erros novos em `errors.ts` e no catálogo, `findLoadedUfs` no repositório e `findNearbyCeps` com `withAddress`, os ramos novos e `origin.address`, com testes do caso de uso (inclusive: sem `withAddress` e com o CEP na base, o provider não é chamado).
-- [ ] 4. Duas rotas (`toSummaryResponse` e `toDetailedResponse`), composição em `index.ts` e `app.test.ts` cobrindo os critérios 1 a 6 nas duas rotas.
-- [ ] 5. README e `docs/HISTORIAS.md` (US3 e US10). Conferir `npm test`, `npm run lint`, `npm run typecheck` e a medição de linhas.
+- [x] 1. `WindowRateLimiter` com testes (janela cheia → `false`; janela seguinte → `true`).
+- [x] 2. Porta `CepAddressProvider` e `BrasilApiCepProvider` (fetch injetável, timeout de 3 s, Zod, `''` → `null`, limiter, `warn` na falha), com testes de cada desfecho.
+- [x] 3. Erros novos em `errors.ts` e no catálogo, `findLoadedUfs` no repositório e `findNearbyCeps` com `withAddress`, os ramos novos e `origin.address`, com testes do caso de uso (inclusive: sem `withAddress` e com o CEP na base, o provider não é chamado).
+- [x] 4. Duas rotas (`toSummaryResponse` e `toDetailedResponse`), composição em `index.ts` e `app.test.ts` cobrindo os critérios 1 a 6 nas duas rotas.
+- [x] 5. README e `docs/HISTORIAS.md` (US3 e US10). Conferir `npm test`, `npm run lint`, `npm run typecheck` e a medição de linhas.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.
@@ -175,7 +175,18 @@ Não se aplica.
 - **Manual com `docker compose` e `SEED_UFS=SP`:** `curl` em `04551000` (rota simples) e `04551000/detalhes` (endereço preenchido); `00000001` (não encontrado; `99999999` **não** serve, porque o `open-cep` o resolve para Sarandi/PR); um CEP do RJ, ex.: `20040020` (fora da cobertura); `01001000` (Praça da Sé, removido como sujo → sem geolocalização); e um CEP da base com a rede da API cortada (endereço `null`).
 
 ## Verificação independente
-Preenchido no `/pato/verify`.
+Verificada em 2026-10-27 por subagente independente (contexto limpo), contra `main`.
+
+- **Suítes:** `npm test` 15 arquivos, 133 testes, 0 falhas; `npm run lint` e `npm run typecheck` limpos. Sem E2E (a US não tem telas).
+- **Critérios:** 1, 2, 2a, 3, 3a, 4, 5, 6, 7, 8, 9 e 10 atendidos.
+- **Entregável:** sim. A história funciona de ponta a ponta só com esta branch, que tem apenas commits da US a partir de `main`.
+- **Linhas medidas:** 304/500 na primeira medição; 260/500 depois de corrigir a formatação.
+- **Achados:**
+  1. (Média) `find-nearby-ceps.ts` reformatado com aspas duplas e quebras fora do padrão, o que inflava o diff. Corrigido. O `find-nearby-ceps.test.ts` já usava aspas duplas em `main`, então não precisou mudar.
+  2. (Baixa) `parseQueryNumber` reformatado em `nearby-ceps-route.ts`. Corrigido.
+  3. (Baixa) `lookupPromise` sem `await` se `findByCep` lançar com `withAddress`. Sem efeito prático, porque a porta nunca lança. Aceito como está.
+- **Decisão do usuário:** corrigir os achados 1 e 2 e aceitar o 3. Suítes rodadas de novo depois da correção, todas verdes.
+- **Não verificado:** teste manual com `docker compose` e `SEED_UFS=SP` contra a BrasilAPI real; `/docs` (Scalar).
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
