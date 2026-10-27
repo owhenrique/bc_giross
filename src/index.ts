@@ -1,5 +1,7 @@
+import { CachingCepAddressProvider } from './application/caching-cep-address-provider.js';
 import { findNearbyCeps } from './application/find-nearby-ceps.js';
 import { loadEnv, type Env } from './config/env.js';
+import { InMemoryCache } from './infrastructure/cache/in-memory-cache.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';
 import { PrismaCepRepository } from './infrastructure/db/prisma-cep-repository.js';
 import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provider.js';
@@ -17,9 +19,16 @@ try {
 const logger = createLogger(env.logLevel);
 const prisma = createPrismaClient(env.databaseUrl);
 const repository = new PrismaCepRepository(prisma);
-const addressProvider = new BrasilApiCepProvider({ logger });
+const cache = new InMemoryCache();
+const addressProvider = new CachingCepAddressProvider(new BrasilApiCepProvider({ logger }), cache, {
+  foundTtlSeconds: env.cacheTtl.addressSeconds,
+  notFoundTtlSeconds: env.cacheTtl.notFoundSeconds,
+});
 const app = createApp({
-  findNearbyCeps: findNearbyCeps(repository, addressProvider, env.searchRadiusKm),
+  findNearbyCeps: findNearbyCeps(repository, addressProvider, cache, {
+    radiusKm: env.searchRadiusKm,
+    resultTtlSeconds: env.cacheTtl.resultSeconds,
+  }),
   logger,
 });
 
