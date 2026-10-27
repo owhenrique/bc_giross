@@ -10,7 +10,7 @@ criada_em: 2026-10-27
 implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us8-error-middleware
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/3
 ---
 
 # US8 — Error middleware com catálogo de erros
