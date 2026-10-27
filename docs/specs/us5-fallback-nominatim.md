@@ -4,10 +4,10 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US4 (PR #6, mergeada)
 titulo: Fallback de coordenada (Nominatim)
-status: em implementação
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em:
 branch: feat/us5-fallback-nominatim
 merge_request:
