@@ -1,10 +1,12 @@
 import { CachingCepAddressProvider } from './application/caching-cep-address-provider.js';
 import { findNearbyCeps } from './application/find-nearby-ceps.js';
+import { OriginGeocoder } from './application/origin-geocoder.js';
 import { loadEnv, type Env } from './config/env.js';
 import { createRedisClient, RedisCache } from './infrastructure/cache/redis-cache.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';
 import { PrismaCepRepository } from './infrastructure/db/prisma-cep-repository.js';
 import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provider.js';
+import { NominatimGeocoder } from './infrastructure/http/nominatim-geocoder.js';
 import { createLogger } from './infrastructure/logger.js';
 import { createApp } from './presentation/http/app.js';
 
@@ -26,8 +28,13 @@ const addressProvider = new CachingCepAddressProvider(new BrasilApiCepProvider({
   foundTtlSeconds: env.cacheTtl.addressSeconds,
   notFoundTtlSeconds: env.cacheTtl.notFoundSeconds,
 });
+const originGeocoder = new OriginGeocoder(
+  new NominatimGeocoder({ baseUrl: env.nominatim.url, userAgent: env.nominatim.userAgent, logger }),
+  cache,
+  { foundTtlSeconds: env.cacheTtl.addressSeconds, noMatchTtlSeconds: env.cacheTtl.notFoundSeconds },
+);
 const app = createApp({
-  findNearbyCeps: findNearbyCeps(repository, addressProvider, cache, {
+  findNearbyCeps: findNearbyCeps(repository, addressProvider, originGeocoder, cache, {
     radiusKm: env.searchRadiusKm,
     resultTtlSeconds: env.cacheTtl.resultSeconds,
   }),

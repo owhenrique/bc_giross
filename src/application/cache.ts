@@ -20,3 +20,7 @@ export function resultKey(radiusKm: number, cep: string): string {
 export function addressKey(cep: string): string {
   return `address:${cep}`;
 }
+
+export function geocodeKey(cep: string): string {
+  return `geocode:${cep}`;
+}

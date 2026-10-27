@@ -9,6 +9,11 @@ const envSchema = z.object({
   CACHE_TTL_ADDRESS_SECONDS: z.coerce.number().int().positive().default(2592000),
   CACHE_TTL_RESULT_SECONDS: z.coerce.number().int().positive().default(604800),
   CACHE_TTL_NOT_FOUND_SECONDS: z.coerce.number().int().positive().default(3600),
+  NOMINATIM_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
+  NOMINATIM_USER_AGENT: z
+    .string()
+    .min(1)
+    .default('bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
@@ -21,6 +26,7 @@ export interface Env {
   logLevel: string;
   redisUrl: string;
   cacheTtl: { addressSeconds: number; resultSeconds: number; notFoundSeconds: number };
+  nominatim: { url: string; userAgent: string };
 }
 
 /** Parses and validates the environment. Throws the Zod error when invalid. */
@@ -38,5 +44,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       resultSeconds: parsed.CACHE_TTL_RESULT_SECONDS,
       notFoundSeconds: parsed.CACHE_TTL_NOT_FOUND_SECONDS,
     },
+    nominatim: { url: parsed.NOMINATIM_URL, userAgent: parsed.NOMINATIM_USER_AGENT },
   };
 }
