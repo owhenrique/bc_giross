@@ -18,7 +18,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US3 | Endereço da origem e erros claros | ~200 | US2 |
 | US11 | Formatação automática com Prettier (roda logo após a US3) | ~50 (reformatação) | US3 |
 | US4 | Cache | ~250 | US3 |
-| US5 | Fallback de coordenada (Nominatim) | ~150 | US4 |
+| US5 | Fallback de coordenada (Nominatim) | ~205 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
 | US7 | Rate limit da API | ~50 | US2 |
 | US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
@@ -106,6 +106,7 @@ Como **Giross**, quero resultados mesmo quando o CEP de referência não está n
 - Dado um CEP existente fora da base (ex.: `01001000`), então a coordenada vem do Nominatim, com `origem.fonte = "nominatim"`.
 - Dado que o Nominatim devolve uma cidade ou UF diferente da BrasilAPI, então o resultado é rejeitado e a resposta é `422 sem geolocalização`.
 - Limite de 1 req/s, `User-Agent` identificado e cache de 30 d.
+- Só para UF carregada: UF não carregada continua `422 CEP_FORA_DA_COBERTURA`. Sem rua na BrasilAPI → `422` sem consultar. Nominatim fora do ar → `503 PROVEDOR_INDISPONIVEL`. "Sem match" fica 1 h em cache. Spec: `docs/specs/us5-fallback-nominatim.md`.
 
 ## US6 — Limpeza de cache protegida
 Como **operador da API**, quero limpar o cache manualmente, de forma protegida, para forçar dados atualizados sem reiniciar o serviço.
