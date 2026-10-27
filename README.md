@@ -8,7 +8,7 @@ API que lista os CEPs num raio de um CEP de referência, com a distância de cad
 docker compose up --build
 ```
 
-Sobem o Postgres, o `seed` (aplica a migration, carrega a base e termina) e, só depois, a `api` em `http://localhost:3000`.
+Sobem o Postgres, o Redis, o `seed` (aplica a migration, carrega a base e termina) e, só depois, a `api` em `http://localhost:3000`.
 
 Para subir mais rápido, carregue só algumas UFs:
 
@@ -22,11 +22,28 @@ SEED_UFS=SP,RJ docker compose up --build
 
 | Variável | Padrão | Descrição |
 | --- | --- | --- |
-| `DATABASE_URL` | — | conexão Postgres (obrigatória; o compose já define) |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | — | credenciais do Postgres (obrigatórias no compose, que monta a `DATABASE_URL` dos contêineres a partir delas) |
+| `POSTGRES_PORT`, `API_PORT` | `5432`, `3000` | portas publicadas no host pelo compose |
+| `DATABASE_URL` | — | conexão Postgres (obrigatória; o compose a monta sozinho, defina à mão só para rodar fora do docker) |
 | `PORT` | `3000` | porta da API |
 | `SEARCH_RADIUS_KM` | `1` | raio de busca em km |
 | `SEED_UFS` | vazio | UFs a carregar, separadas por vírgula |
+| `REDIS_URL` | — | conexão Redis (obrigatória; o compose já define) |
+| `CACHE_TTL_ADDRESS_SECONDS` | `2592000` (30 d) | TTL do endereço (BrasilAPI) |
+| `CACHE_TTL_RESULT_SECONDS` | `604800` (7 d) | TTL do resultado (origem + lista de vizinhos) |
+| `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra |
 | `LOG_LEVEL` | `info` | nível do Pino |
+
+### Cache (Redis)
+
+O compose tem o serviço `redis` (`maxmemory` com política `allkeys-lru`, sem persistência), e a `api` e o `seed` só sobem com ele saudável. Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
+
+- **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
+- **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
+- **Redis fora do ar:** a API segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
+- **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
+
+**Atenção ao migrar à mão:** a tabela `loaded_uf` (UFs carregadas) é preenchida pelo seed. Depois de um `prisma migrate deploy`, rode o seed; sem ele, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O `docker compose up` já roda o seed antes da API.
 
 ## Contrato
 

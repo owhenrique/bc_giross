@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from './env.js';
 
-const base = { DATABASE_URL: 'postgresql://u:p@localhost:5432/db' };
+const base = {
+  DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  REDIS_URL: 'redis://localhost:6379',
+};
 
 describe('loadEnv', () => {
   it('applies defaults', () => {
@@ -11,6 +14,8 @@ describe('loadEnv', () => {
       searchRadiusKm: 1,
       seedUfs: '',
       logLevel: 'info',
+      redisUrl: base.REDIS_URL,
+      cacheTtl: { addressSeconds: 2592000, resultSeconds: 604800, notFoundSeconds: 3600 },
     });
   });
 
@@ -39,6 +44,15 @@ describe('loadEnv', () => {
   });
 
   it('rejects missing DATABASE_URL', () => {
-    expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => loadEnv({ REDIS_URL: base.REDIS_URL })).toThrow(/DATABASE_URL/);
+  });
+
+  it('rejects missing REDIS_URL', () => {
+    expect(() => loadEnv({ DATABASE_URL: base.DATABASE_URL })).toThrow(/REDIS_URL/);
+  });
+
+  it('reads cache TTLs and rejects non-positive ones', () => {
+    expect(loadEnv({ ...base, CACHE_TTL_RESULT_SECONDS: '60' }).cacheTtl.resultSeconds).toBe(60);
+    expect(() => loadEnv({ ...base, CACHE_TTL_ADDRESS_SECONDS: '0' })).toThrow();
   });
 });

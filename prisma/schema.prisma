@@ -16,3 +16,9 @@ model Cep {
   @@index([latitude, longitude])
   @@map("cep")
 }
+
+model LoadedUf {
+  uf String @id @db.Char(2)
+
+  @@map("loaded_uf")
+}

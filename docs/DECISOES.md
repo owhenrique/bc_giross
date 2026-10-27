@@ -18,7 +18,7 @@ Cada decisão tem o contexto, o que foi escolhido e o porquê. Alternativas desc
 | D10 | Artefato no git | `data/ceps.csv.gz` + relatório + script gerador (só leitura local) + seed | ✅ |
 | D11 | Coordenada da origem | Base primeiro; fallback BrasilAPI (endereço) → Nominatim, validando cidade/UF | ✅ |
 | D12 | Dados cadastrais do CEP | BrasilAPI v2 (sem usar a coordenada dela) | ✅ |
-| D13 | CEP fora da cobertura | UF da BrasilAPI fora das UFs carregadas (`DISTINCT uf` na tabela) → `422` | ✅ |
+| D13 | CEP fora da cobertura | UF da BrasilAPI fora das UFs carregadas (tabela `loaded_uf`) → `422` | ✅ |
 | D14 | Formato da resposta | Objeto com metadados; endereço só no bloco `origem`, origem fora da lista | ✅ |
 | D15 | Limite do raio | Distância exata ≤ raio; arredonda só na saída | ✅ |
 | D16 | Entrada | Aceita `00000-000` e normaliza | ✅ |
@@ -157,3 +157,25 @@ O critério é a frequência de mudança do dado contra o custo de servir um dad
 - **Inexistente (1 h):** protege a API externa de repetições, sem prender por muito tempo um CEP novo ou um falso `404`.
 
 O Redis roda com `maxmemory` e a política `allkeys-lru`.
+
+## D19 (cont.) — Cache na US4
+
+- **Cliente:** `redis` (node-redis v5), atrás da porta `Cache` (`RedisCache` em produção, `InMemoryCache` nos testes).
+- **`REDIS_URL` obrigatória:** o `loadEnv` falha sem ela, na API e no seed. O `InMemoryCache` só existe nos testes, para não haver um cache "silencioso" por processo em produção.
+- **Redis fora do ar, na API:** degrada. Erro ou timeout (500 ms) vira log `warn` e miss, e a consulta segue no banco e na BrasilAPI. O cliente reconecta sozinho, sem reiniciar a API. Isso bate com o `/saude`, que mostra o Redis fora como "degradado".
+- **Redis fora do ar, no seed:** o seed falha. Ele conecta e dá `PING` antes do `BEGIN`, então aborta com código ≠ 0 sem mexer no banco. Se a limpeza dos resultados falhar depois do `COMMIT`, ele também sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo, porque o cache antigo poderia servir resultado velho até o TTL.
+- **O que entra no cache de um CEP fora da base:** só o lookup da BrasilAPI (`found` 30 d, `not_found` 1 h). `unavailable` nunca entra. O desfecho (`404`/`422`) não é guardado, e a repetição ainda consulta o banco.
+- **Formato do resultado em cache:** a lista inteira de vizinhos, já filtrada e ordenada, mais a origem. A paginação sai dessa lista (por isso `pagina` e `limite` não entram na chave, como na D17), e o raio entra na chave (`result:<raio>:<cep>`) porque pode mudar por env. O endereço não faz parte do valor: vem do cache de endereço (`address:<cep>`).
+- **Limpeza no seed:** apaga `result:*` e mantém `address:*`, porque o endereço não depende da base carregada.
+
+## D13 (cont.) — Tabela `loaded_uf`
+
+O caminho `422` fazia `DISTINCT uf` sobre ~898 mil linhas de `cep`, sem índice em `uf`. Agora o seed grava as UFs que carregou na tabela `loaded_uf` (no máximo 27 linhas), na mesma transação da carga dos CEPs, e o `findLoadedUfs` lê dela. Descartadas: só pôr as UFs no cache (ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e índice + CTE recursiva em SQL à mão.
+
+Consequência: numa base migrada sem rodar o seed, a tabela fica vazia e todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O compose sempre roda o seed antes da API, e o README avisa para rodar o seed depois do `migrate deploy`.
+
+## D19 (cont.) — Credenciais do Postgres no `.env` do compose
+
+O `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do `.env` e monta a `DATABASE_URL` dos serviços `api` e `seed`, em vez de ter credenciais fixas no arquivo. `POSTGRES_PORT` e `API_PORT` definem as portas publicadas no host.
+
+Consequência: o `docker compose up` falha sem um `.env`, então o README manda copiar o `.env.example` antes. Fora do docker (`npm start`, `npm run seed`), a `DATABASE_URL` continua vindo do `.env`.

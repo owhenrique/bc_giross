@@ -17,7 +17,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US2 | Consultar CEPs próximos | ~370 | US1 |
 | US3 | Endereço da origem e erros claros | ~200 | US2 |
 | US11 | Formatação automática com Prettier (roda logo após a US3) | ~50 (reformatação) | US3 |
-| US4 | Cache | ~200 | US3 |
+| US4 | Cache | ~250 | US3 |
 | US5 | Fallback de coordenada (Nominatim) | ~150 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
 | US7 | Rate limit da API | ~50 | US2 |
@@ -96,6 +96,7 @@ Como **Giross**, quero respostas rápidas para CEPs já consultados, para não e
 - TTLs: endereço 30 d, resultado 7 d, inexistente 1 h, configuráveis. O seed limpa o cache de resultados.
 - Trocar de página usa a lista em cache.
 - Redis no compose com `maxmemory` + `allkeys-lru`. Implementação em memória para os testes.
+- Redis fora do ar → a API degrada (responde sem cache). `REDIS_URL` obrigatória; o seed falha sem Redis. CEP fora da base: só o lookup da BrasilAPI vai para o cache, e as UFs carregadas passam a vir da tabela `loaded_uf`, gravada pelo seed (sem `DISTINCT` sobre ~900 mil linhas). Spec: `docs/specs/us4-cache.md`.
 
 Fica para outra US: limpeza manual (US6).
 

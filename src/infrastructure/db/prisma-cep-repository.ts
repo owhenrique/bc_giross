@@ -22,7 +22,7 @@ export class PrismaCepRepository implements CepRepository {
   }
 
   async findLoadedUfs(): Promise<string[]> {
-    const rows = await this.prisma.cep.findMany({ distinct: ['uf'], select: { uf: true } });
+    const rows = await this.prisma.loadedUf.findMany({ select: { uf: true } });
     return rows.map((row) => row.uf);
   }
 }

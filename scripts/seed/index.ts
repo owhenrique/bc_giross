@@ -6,7 +6,10 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
+import { pino } from 'pino';
+import { RESULT_KEY_PREFIX, type Cache } from '../../src/application/cache.js';
 import { loadEnv } from '../../src/config/env.js';
+import { RedisCache, createRedisClient } from '../../src/infrastructure/cache/redis-cache.js';
 
 export const ALL_UFS = [
   'AC',
@@ -63,12 +66,31 @@ export function matchesUf(line: string, ufs: ReadonlySet<string>): boolean {
   return ufs.has(line.split(';')[1] ?? '');
 }
 
+/** UFs that got at least one CEP loaded. */
+export function ufsWithCeps(totals: ReadonlyMap<string, number>): string[] {
+  return [...totals].filter(([, count]) => count > 0).map(([uf]) => uf);
+}
+
+/** Drops every cached result (address lookups stay); the error says the base was already loaded. */
+export async function clearResultCache(cache: Pick<Cache, 'deleteByPrefix'>): Promise<void> {
+  try {
+    await cache.deleteByPrefix(RESULT_KEY_PREFIX);
+  } catch (error) {
+    throw new Error(
+      `Seed carregou a base, mas não limpou o cache de resultados: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const startedAt = Date.now();
   let ufs: string[];
   let databaseUrl: string;
+  let redisUrl: string;
   try {
     const env = loadEnv();
+    redisUrl = env.redisUrl;
     databaseUrl = env.databaseUrl;
     ufs = parseSeedUfs(env.seedUfs);
   } catch (error) {
@@ -76,6 +98,30 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const logger = pino({ level: 'warn' });
+  const redis = createRedisClient(redisUrl, logger, false);
+  try {
+    await redis.connect();
+    await redis.ping();
+  } catch (error) {
+    console.error(`Seed abortado: ${error instanceof Error ? error.message : String(error)}`);
+    await redis.destroy();
+    process.exit(1);
+  }
+
+  try {
+    await load(ufs, databaseUrl, new RedisCache(redis, logger), startedAt);
+  } finally {
+    await redis.close().catch(() => undefined);
+  }
+}
+
+async function load(
+  ufs: string[],
+  databaseUrl: string,
+  cache: Cache,
+  startedAt: number,
+): Promise<void> {
   const allowed = new Set(ufs);
   const totals = new Map<string, number>();
   async function* filteredLines(): AsyncGenerator<string> {
@@ -96,11 +142,14 @@ async function main(): Promise<void> {
   await client.connect();
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE cep');
+    await client.query('TRUNCATE cep, loaded_uf');
     const copy = client.query(
       copyFrom("COPY cep (cep, uf, latitude, longitude) FROM STDIN (FORMAT csv, DELIMITER ';')"),
     );
     await pipeline(Readable.from(filteredLines()), copy);
+    await client.query('INSERT INTO loaded_uf (uf) SELECT unnest($1::text[])', [
+      ufsWithCeps(totals),
+    ]);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -109,6 +158,14 @@ async function main(): Promise<void> {
     return;
   } finally {
     await client.end();
+  }
+
+  try {
+    await clearResultCache(cache);
+  } catch (error) {
+    console.error((error as Error).message);
+    process.exitCode = 1;
+    return;
   }
 
   let total = 0;

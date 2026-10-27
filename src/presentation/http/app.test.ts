@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
+import { InMemoryCache } from '../../infrastructure/cache/in-memory-cache.js';
 import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
 import type { AddressLookup } from '../../application/cep-address-provider.js';
 import { findNearbyCeps } from '../../application/find-nearby-ceps.js';
@@ -54,7 +55,10 @@ function appWith(repository: CepRepository, lookup: AddressLookup = { status: 'n
     },
   };
   const app = createApp({
-    findNearbyCeps: findNearbyCeps(repository, provider, 1),
+    findNearbyCeps: findNearbyCeps(repository, provider, new InMemoryCache(), {
+      radiusKm: 1,
+      resultTtlSeconds: 60,
+    }),
     logger: pino({ level: 'silent' }),
   });
   return Object.assign(app, { calls });
@@ -82,6 +86,26 @@ describe('GET /ceps-proximos/:cep (simple)', () => {
       ],
     });
     expect(app.calls.count).toBe(0);
+  });
+});
+
+describe('result cache', () => {
+  it('answers the second call without touching the repository', async () => {
+    const repository = inMemoryRepository(items());
+    let reads = 0;
+    const counting: CepRepository = {
+      ...repository,
+      findByCep: (cep) => {
+        reads += 1;
+        return repository.findByCep(cep);
+      },
+    };
+    const app = appWith(counting);
+    const first = await request(app).get('/ceps-proximos/04551000');
+    const second = await request(app).get('/ceps-proximos/04551000');
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual(first.body);
+    expect(reads).toBe(1);
   });
 });
 
