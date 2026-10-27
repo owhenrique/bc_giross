@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em:
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us4-cache
 merge_request:
 ---
@@ -193,7 +193,18 @@ Não se aplica.
   6. Conferir `SELECT * FROM loaded_uf` (só `SP`) e, com o log de queries do Postgres ligado, que um `422` não toca a tabela `cep` além do `findByCep`.
 
 ## Verificação independente
-Preenchido no `/pato/verify`.
+Data: 2026-10-27. Base: `main`.
+
+- **Suítes:** `npm test` com 18 arquivos e 159 testes, 0 falhas; `typecheck`, `lint` e `format:check` ok. Playwright não se aplica (sem telas).
+- **Critérios:** 1 a 7 e 9 atendidos. O 8 (compose com Redis) ficou parcial: lido, mas `docker compose up` não foi executado.
+- **Entregável:** sim, sem camada faltando e sem dependência de PR futuro.
+- **Tamanho:** 288 linhas de lógica contra o limite de 500.
+- **Achados:**
+  - Média: o commit `63bc080` (`fix(compose)`) mexeu em `docker-compose.yml`, `.env.example` e README fora da lista da spec. As credenciais do Postgres passam a vir do `.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`), com `POSTGRES_PORT` e `API_PORT`, e o `docker compose up` exige o `.env` copiado do exemplo.
+  - Baixa: `deleteByPrefix` do seed não tem timeout depois do `PING`.
+  - Baixa: a história diz "8 critérios", mas há 9.
+- **Não verificado:** `docker compose up` e o fluxo manual, reconexão do node-redis v5 com Redis real, migration e seed contra Postgres real.
+- **Decisão do usuário:** manter o commit `63bc080` e registrar a decisão aqui e no `DECISOES.md`; deixar os achados Baixa como estão.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.

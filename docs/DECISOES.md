@@ -173,3 +173,9 @@ O Redis roda com `maxmemory` e a política `allkeys-lru`.
 O caminho `422` fazia `DISTINCT uf` sobre ~898 mil linhas de `cep`, sem índice em `uf`. Agora o seed grava as UFs que carregou na tabela `loaded_uf` (no máximo 27 linhas), na mesma transação da carga dos CEPs, e o `findLoadedUfs` lê dela. Descartadas: só pôr as UFs no cache (ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e índice + CTE recursiva em SQL à mão.
 
 Consequência: numa base migrada sem rodar o seed, a tabela fica vazia e todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O compose sempre roda o seed antes da API, e o README avisa para rodar o seed depois do `migrate deploy`.
+
+## D19 (cont.) — Credenciais do Postgres no `.env` do compose
+
+O `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do `.env` e monta a `DATABASE_URL` dos serviços `api` e `seed`, em vez de ter credenciais fixas no arquivo. `POSTGRES_PORT` e `API_PORT` definem as portas publicadas no host.
+
+Consequência: o `docker compose up` falha sem um `.env`, então o README manda copiar o `.env.example` antes. Fora do docker (`npm start`, `npm run seed`), a `DATABASE_URL` continua vindo do `.env`.
