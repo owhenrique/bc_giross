@@ -23,7 +23,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 
 ## Critérios de aceite
 - [x] 1. Dado um CEP na base já consultado (em `/ceps-proximos/:cep` ou em `/detalhes`), quando consulto de novo dentro do TTL de resultado, então a resposta é idêntica à primeira e nem o banco nem a BrasilAPI são chamados. No `/detalhes`, o endereço vem do cache de endereço.
-- [ ] 2. Dado o resultado de um CEP em cache, quando peço outra `pagina` ou outro `limite`, então a página sai da lista em cache, com `total` e `total_paginas` corretos, sem ir ao banco.
+- [x] 2. Dado o resultado de um CEP em cache, quando peço outra `pagina` ou outro `limite`, então a página sai da lista em cache, com `total` e `total_paginas` corretos, sem ir ao banco.
 - [ ] 3. Dado um lookup da BrasilAPI com `found`, então ele fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Com `not_found`, fica por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Com `unavailable`, não entra no cache, e a chamada seguinte tenta a BrasilAPI de novo.
 - [ ] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
 - [ ] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 7 d) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
@@ -171,7 +171,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 
 ## Tarefas
 - [x] 1. Porta `Cache` (chaves e prefixos), `InMemoryCache` e o ambiente (`REDIS_URL` + TTLs), com testes.
-- [ ] 2. `CachingCepAddressProvider` (found 30 d, not_found 1 h, unavailable fora), com testes.
+- [x] 2. `CachingCepAddressProvider` (found 30 d, not_found 1 h, unavailable fora), com testes.
 - [ ] 3. Cache do resultado no `findNearbyCeps` (nova assinatura, paginação sobre a lista em cache), com testes do caso de uso e do `app.test.ts`.
 - [ ] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
 - [ ] 5. Tabela `loaded_uf`: model, migration, `findLoadedUfs` lendo dela e o seed gravando as UFs na mesma transação, com teste.
