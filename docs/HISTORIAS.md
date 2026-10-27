@@ -20,7 +20,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US5 | Fallback de coordenada (Nominatim) | ~150 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
 | US7 | Rate limit da API | ~50 | US2 |
-| US8 | Error middleware com catálogo de erros | ~120 | US3–US7 (migra os erros de todas) |
+| US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
 | US9 | Healthcheck (`/saude`) | ~110 | US8 |
 | US10 | Documentação da API com Scalar | ~40 | US8, US9 |
 
@@ -100,7 +100,7 @@ Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzido
 
 US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de erro continuam byte a byte iguais às de antes.
 
-- Dado um caso de uso que encontra um erro esperado (CEP inválido, paginação inválida, CEP não encontrado e os erros que a US3, a US5 e a US6 trouxerem), então ele lança uma subclasse de `AppError` com um `kind` estável em inglês (ex.: `CepNotFoundError`, `kind: 'cep_not_found'`).
+- Dado um caso de uso que encontra um erro esperado (CEP inválido, paginação inválida, CEP não encontrado; os erros da US3 em diante já nascem como `AppError`), então ele lança uma subclasse de `AppError` com um `kind` estável em inglês (ex.: `CepNotFoundError`, `kind: 'cep_not_found'`).
 - Dado um `AppError`, quando ele chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
 - Dado um erro que não é `AppError` ou um `kind` fora do catálogo, então `500 ERRO_INTERNO`, com log do erro e sem stack na resposta.
 - Dado as rotas existentes, então nenhuma tem `switch`/`if` de status de erro: a rota chama o caso de uso e devolve `toResponse(resultado)`. O Express 5 já encaminha a rejeição para o middleware.
@@ -109,7 +109,7 @@ US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de er
 
 Decisões: os erros esperados passam de union no retorno para exceção tipada, por pedido do usuário. A regra de dependência se mantém: `AppError` fica em `application` (ou em `domain`, se o erro for de domínio) e não conhece HTTP. O status HTTP existe só no catálogo.
 
-Fica para outra US: nada. Esta US migra todos os erros que existirem até a US7, incluindo o `429` do rate limit, se ele passar pelo middleware.
+Fica para outra US: os erros da US3 a US7 (incluindo o `429` do rate limit). Cada uma nasce como `AppError` mais uma linha no catálogo.
 
 ## US9 — Healthcheck (`/saude`)
 Como **operador da API**, quero um endpoint que diga se a API e as dependências dela estão de pé, para o orquestrador reiniciar o serviço e eu saber, sem abrir logs, qual peça caiu.
@@ -123,7 +123,7 @@ Como **operador da API**, quero um endpoint que diga se a API e as dependências
 - O serviço `api` do compose usa o `/saude` como `healthcheck`.
 - As checagens ficam atrás de uma porta `HealthIndicator` (`name`, `critical`, `check()`), registrada na composição: dependência nova = um indicador novo.
 
-A definir na spec: se o `/saude` fica fora do rate limit da US7.
+- Dado mais de 60 req/min do mesmo IP em `/saude`, então nenhuma recebe `429`: o `/saude` fica fora do rate limit da US7, para o healthcheck do orquestrador nunca marcar a API como fora do ar por causa do limite. As requisições ao `/saude` também não contam para o limite das outras rotas.
 
 ## US10 — Documentação da API com Scalar
 Como **integrador da Giross**, quero uma documentação navegável do contrato da API, com exemplos e erros, para integrar sem ler o código nem adivinhar os formatos.
