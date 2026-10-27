@@ -35,6 +35,9 @@ SEED_UFS=SP,RJ docker compose up --build
 | `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | base do Nominatim, usado como fallback de coordenada |
 | `NOMINATIM_USER_AGENT` | `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)` | `User-Agent` enviado ao Nominatim (a política de uso exige identificar o cliente) |
 | `CACHE_ADMIN_TOKEN` | vazio | token dos endpoints de limpeza de cache (mínimo de 12 caracteres; vazio desliga os endpoints) |
+| `RATE_LIMIT_MAX` | `60` | requisições por IP dentro da janela (inteiro ≥ 1) |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | janela do limite de entrada, em segundos (inteiro ≥ 1) |
+| `TRUST_PROXY` | vazio | de onde sai o IP do cliente atrás de proxy: número de saltos (`1`), `loopback`, lista de CIDRs. Vazio usa o IP do socket e ignora o `X-Forwarded-For` |
 | `LOG_LEVEL` | `info` | nível do Pino |
 
 ### Cache (Redis)
@@ -70,10 +73,17 @@ Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um 
 - **Sem rua, cidade ou UF** na BrasilAPI: `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. UF não carregada continua `422 CEP_FORA_DA_COBERTURA`.
 - **Nominatim fora do ar** (timeout de 3 s, erro, status ≠ 200, corpo inválido) ou limite de 1 req/s atingido: `503 PROVEDOR_INDISPONIVEL`.
 - **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra. O seed não apaga essas chaves.
-- **Política de uso do Nominatim público:** máximo de 1 req/s (a API aplica esse limite por processo), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
+- **Política de uso do Nominatim público:** máximo de 1 req/s (limite compartilhado entre as réplicas, via Redis), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
 - **Precisão:** em ruas longas o ponto devolvido é algum trecho da rua, não o centro do CEP.
 
 **Atenção ao migrar à mão:** a tabela `loaded_uf` (UFs carregadas) é preenchida pelo seed. Depois de um `prisma migrate deploy`, rode o seed; sem ele, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O `docker compose up` já roda o seed antes da API.
+
+### Rate limit
+
+- **Entrada:** 60 req/min por IP (`RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`), em todas as rotas. Passou do limite: `429 LIMITE_EXCEDIDO` com `Retry-After`. Toda resposta traz `RateLimit` e `RateLimit-Policy` (IETF draft-8). IPv6 conta por sub-rede /56. O contador fica no Redis (`ratelimit:api:<ip>`, janela fixa) e o `DELETE /cache` não o apaga.
+- **Atrás de proxy:** sem `TRUST_PROXY`, todos os clientes atrás do mesmo proxy dividem um contador. Prefira o número de saltos (`TRUST_PROXY=1`); `true` confia em qualquer `X-Forwarded-For`.
+- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) contam no Redis (`ratelimit:brasilapi`, `ratelimit:nominatim`), em janela deslizante, e o limite vale para todas as réplicas juntas.
+- **Redis fora do ar:** a entrada passa sem limite (fail-open, com log `warn`); a saída usa um limiter em memória do processo e volta ao Redis quando ele retorna.
 
 ## Contrato
 
@@ -137,6 +147,7 @@ Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
 | 404 | `NAO_ENCONTRADO` | rota ou método inexistente (inclui os endpoints de limpeza com `CACHE_ADMIN_TOKEN` vazio) |
 | 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
 | 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas nem a base nem o Nominatim dão a coordenada dele (ou o endereço não tem rua, cidade ou UF) |
+| 429 | `LIMITE_EXCEDIDO` | mais de `RATE_LIMIT_MAX` requisições do mesmo IP dentro da janela |
 | 503 | `CACHE_INDISPONIVEL` | Redis fora do ar ou com timeout durante a limpeza de cache |
 | 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP (BrasilAPI, limite de 5 req/s) ou o Nominatim (limite de 1 req/s) está fora do ar ou estourou o timeout |
 | 500 | `ERRO_INTERNO` | erro inesperado (sem detalhes na resposta) |

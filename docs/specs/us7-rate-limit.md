@@ -193,7 +193,7 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 Passos (commits) desta US. Todos entram no mesmo PR, e tarefa não é entregável.
 - [x] 1. Limiters de saída no Redis: interface `RateLimiter`, `WindowRateLimiter implements`, `RedisWindowRateLimiter` com fallback (+ `RedisCommandSender`, `withTimeout` exportado), providers com `await tryAcquire()` e montagem no `index.ts`. Testes: `redis-window-rate-limiter.test.ts`, mais os testes dos providers ajustados.
 - [x] 2. Limite de entrada: instalar `express-rate-limit` e `rate-limit-redis`; `RateLimitExceededError` + catálogo + `ErrorCode`; `createRedisRateLimitStore`; `rateLimitMiddleware` com `skip` de contagem única; `AppDeps.rateLimit`/`trustProxy` no `createApp`; `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` e `TRUST_PROXY` no `loadEnv` e no `index.ts`. Testes: `rate-limit.test.ts`, `redis-rate-limit-store.test.ts`, `env.test.ts` e os helpers de `app.test.ts`/`cache-route.test.ts`.
-- [ ] 3. Config e docs: `docker-compose.yml`, `.env.example`, README (limites, envs, `429`, `TRUST_PROXY`), DECISOES (D22 cont., D30 composição interna em processo, e a nota da D11 cont. sobre o limiter por processo) e HISTORIAS (US7).
+- [x] 3. Config e docs: `docker-compose.yml`, `.env.example`, README (limites, envs, `429`, `TRUST_PROXY`), DECISOES (D22 cont., D30 composição interna em processo, e a nota da D11 cont. sobre o limiter por processo) e HISTORIAS (US7).
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.
