@@ -4,10 +4,10 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US4 (PR #6, mergeada)
 titulo: Limpeza de cache protegida
-status: pendente
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us6-limpeza-de-cache
 merge_request:
@@ -24,20 +24,20 @@ A US4 colocou no Redis o resultado (`result:<raio>:<cep>`, 7 d), o endereço da 
 No mapa (`docs/HISTORIAS.md`), a US6 depende só da US4, que já está mergeada. A porta `Cache` já tem `deleteByPrefix`, que propaga erro e timeout, e o catálogo de erros da US8 já está pronto para receber os erros novos.
 
 ## Critérios de aceite
-- [ ] Dado `CACHE_ADMIN_TOKEN` definido e o header `Authorization: Bearer <token>` correto, quando chamo `DELETE /cache`, então todas as chaves `result:*`, `address:*` e `geocode:*` são apagadas e a resposta é `204` sem corpo.
-- [ ] Dado o mesmo cenário, então chaves fora desses prefixos (ex.: `outra:chave`) continuam no Redis.
-- [ ] Dado token correto, quando chamo `DELETE /cache/04551000`, então `address:04551000`, `geocode:04551000` e `result:<SEARCH_RADIUS_KM>:04551000` são apagadas, as chaves de outros CEPs continuam lá e a resposta é `204` sem corpo.
-- [ ] Dado `DELETE /cache/04551-000`, então o efeito é igual ao de `DELETE /cache/04551000`.
-- [ ] Dado um CEP sem nada em cache, quando chamo `DELETE /cache/:cep` ou `DELETE /cache` com token correto, então `204` (idempotente).
-- [ ] Dado token correto e `DELETE /cache/123`, então `400 CEP_INVALIDO`.
-- [ ] Dado `CACHE_ADMIN_TOKEN` definido, quando chamo qualquer um dos dois endpoints sem `Authorization`, com header sem o esquema `Bearer ` ou com token errado, então `401` com `{ erro: { codigo: "NAO_AUTORIZADO", mensagem: "Token de acesso inválido ou ausente" } }`, header `WWW-Authenticate: Bearer` e nada é apagado.
-- [ ] Dado token errado e `DELETE /cache/123`, então `401` (a autenticação vem antes da validação do CEP).
-- [ ] Dado `CACHE_ADMIN_TOKEN` ausente ou vazio, quando chamo `DELETE /cache` ou `DELETE /cache/:cep`, com ou sem header, então `404 NAO_ENCONTRADO` genérico, igual ao de qualquer rota inexistente.
-- [ ] Dado `CACHE_ADMIN_TOKEN` definido com menos de 12 caracteres, quando a API sobe, então o `loadEnv` falha e o processo sai com código ≠ 0.
-- [ ] Dado o Redis fora do ar ou estourando o timeout durante a limpeza, quando chamo um dos endpoints com token correto, então `503` com `{ erro: { codigo: "CACHE_INDISPONIVEL", mensagem: "Não foi possível limpar o cache" } }`.
-- [ ] Dado a comparação do token, então ela é feita em tempo constante (`crypto.timingSafeEqual` sobre digests de mesmo tamanho), e um token de tamanho diferente não lança exceção.
-- [ ] Dado o catálogo de erros, então `cache_unavailable` tem entrada nele, e o teste existente do catálogo continua passando.
-- [ ] O README documenta os dois endpoints, o token e os códigos de resposta, e o `docker-compose.yml` e o `.env.example` trazem `CACHE_ADMIN_TOKEN`.
+- [x] Dado `CACHE_ADMIN_TOKEN` definido e o header `Authorization: Bearer <token>` correto, quando chamo `DELETE /cache`, então todas as chaves `result:*`, `address:*` e `geocode:*` são apagadas e a resposta é `204` sem corpo.
+- [x] Dado o mesmo cenário, então chaves fora desses prefixos (ex.: `outra:chave`) continuam no Redis.
+- [x] Dado token correto, quando chamo `DELETE /cache/04551000`, então `address:04551000`, `geocode:04551000` e `result:<SEARCH_RADIUS_KM>:04551000` são apagadas, as chaves de outros CEPs continuam lá e a resposta é `204` sem corpo.
+- [x] Dado `DELETE /cache/04551-000`, então o efeito é igual ao de `DELETE /cache/04551000`.
+- [x] Dado um CEP sem nada em cache, quando chamo `DELETE /cache/:cep` ou `DELETE /cache` com token correto, então `204` (idempotente).
+- [x] Dado token correto e `DELETE /cache/123`, então `400 CEP_INVALIDO`.
+- [x] Dado `CACHE_ADMIN_TOKEN` definido, quando chamo qualquer um dos dois endpoints sem `Authorization`, com header sem o esquema `Bearer ` ou com token errado, então `401` com `{ erro: { codigo: "NAO_AUTORIZADO", mensagem: "Token de acesso inválido ou ausente" } }`, header `WWW-Authenticate: Bearer` e nada é apagado.
+- [x] Dado token errado e `DELETE /cache/123`, então `401` (a autenticação vem antes da validação do CEP).
+- [x] Dado `CACHE_ADMIN_TOKEN` ausente ou vazio, quando chamo `DELETE /cache` ou `DELETE /cache/:cep`, com ou sem header, então `404 NAO_ENCONTRADO` genérico, igual ao de qualquer rota inexistente.
+- [x] Dado `CACHE_ADMIN_TOKEN` definido com menos de 12 caracteres, quando a API sobe, então o `loadEnv` falha e o processo sai com código ≠ 0.
+- [x] Dado o Redis fora do ar ou estourando o timeout durante a limpeza, quando chamo um dos endpoints com token correto, então `503` com `{ erro: { codigo: "CACHE_INDISPONIVEL", mensagem: "Não foi possível limpar o cache" } }`.
+- [x] Dado a comparação do token, então ela é feita em tempo constante (`crypto.timingSafeEqual` sobre digests de mesmo tamanho), e um token de tamanho diferente não lança exceção.
+- [x] Dado o catálogo de erros, então `cache_unavailable` tem entrada nele, e o teste existente do catálogo continua passando.
+- [x] O README documenta os dois endpoints, o token e os códigos de resposta, e o `docker-compose.yml` e o `.env.example` trazem `CACHE_ADMIN_TOKEN`.
 
 ## Escopo
 **Dentro:**
@@ -189,6 +189,9 @@ Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (230/230, 23 arquivos), typecheck, lint e format:check | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | Henrique | local (docker compose) | `DELETE /cache` e `/cache/:cep` com token (204), sem token (401) e com Redis parado (503) | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Listas de vizinhos desatualizadas:** depois de um `DELETE /cache/:cep`, os resultados em cache de outros CEPs ainda podem listar o CEP limpo. Para invalidar tudo de uma vez existe o `DELETE /cache`. Fica documentado no README.
