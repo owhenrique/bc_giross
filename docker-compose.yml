@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: giross
-      POSTGRES_PASSWORD: giross
-      POSTGRES_DB: giross
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U giross -d giross']
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 3s
       timeout: 3s
       retries: 20
@@ -30,7 +30,7 @@ services:
     build: .
     command: sh -c "npx prisma migrate deploy && npm run seed"
     environment:
-      DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SEED_UFS: ${SEED_UFS:-}
       REDIS_URL: redis://redis:6379
     depends_on:
@@ -42,9 +42,9 @@ services:
   api:
     build: .
     ports:
-      - '3000:3000'
+      - '${API_PORT:-3000}:3000'
     environment:
-      DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       PORT: 3000
       SEARCH_RADIUS_KM: ${SEARCH_RADIUS_KM:-1}

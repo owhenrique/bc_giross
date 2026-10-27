@@ -22,7 +22,9 @@ SEED_UFS=SP,RJ docker compose up --build
 
 | Variável | Padrão | Descrição |
 | --- | --- | --- |
-| `DATABASE_URL` | — | conexão Postgres (obrigatória; o compose já define) |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | — | credenciais do Postgres (obrigatórias no compose, que monta a `DATABASE_URL` dos contêineres a partir delas) |
+| `POSTGRES_PORT`, `API_PORT` | `5432`, `3000` | portas publicadas no host pelo compose |
+| `DATABASE_URL` | — | conexão Postgres (obrigatória; o compose a monta sozinho, defina à mão só para rodar fora do docker) |
 | `PORT` | `3000` | porta da API |
 | `SEARCH_RADIUS_KM` | `1` | raio de busca em km |
 | `SEED_UFS` | vazio | UFs a carregar, separadas por vírgula |
