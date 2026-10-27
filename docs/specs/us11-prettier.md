@@ -4,10 +4,10 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US3 (PR #4, mergeada)
 titulo: Formatação automática com Prettier
-status: em-andamento
+status: implementado
 modo: direto
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: us11-prettier
 merge_request:
@@ -170,6 +170,9 @@ Data: 2026-10-27. Verificador: subagente em contexto limpo, só reportou. Base: 
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (15 arquivos, 133 testes), `typecheck`, `lint`, `format:check` | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes + `prettier --write` sobre o commit de config + teste negativo + blame | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | — | — | — | Não realizado | — |
 
 ## Riscos e pontos em aberto
 - Squash ou rebase no merge invalidam o `.git-blame-ignore-revs`. O PR precisa ser mergeado com merge commit.
