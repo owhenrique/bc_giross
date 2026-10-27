@@ -1,14 +1,22 @@
+import { normalizeCep } from '../domain/cep/cep-code.js';
 import { boundingBox } from '../domain/geo/bounding-box.js';
 import { haversineKm } from '../domain/geo/haversine.js';
 import type { CepRepository } from './cep-repository.js';
 
+export const DEFAULT_LIMIT = 50;
+export const MAX_LIMIT = 200;
+
 export interface FindNearbyCepsInput {
   cep: string;
-  page: number;
-  limit: number;
+  page?: number;
+  limit?: number;
 }
 
+const isIntegerAtLeast = (value: number, min: number) => Number.isInteger(value) && value >= min;
+
 export type NearbyCepsResult =
+  | { status: 'invalid_cep' }
+  | { status: 'invalid_pagination'; field: 'page' | 'limit' }
   | { status: 'not_found' }
   | {
       status: 'found';
@@ -19,7 +27,13 @@ export type NearbyCepsResult =
     };
 
 export function findNearbyCeps(repository: CepRepository, radiusKm: number) {
-  return async ({ cep, page, limit }: FindNearbyCepsInput): Promise<NearbyCepsResult> => {
+  return async (input: FindNearbyCepsInput): Promise<NearbyCepsResult> => {
+    const { page = 1, limit = DEFAULT_LIMIT } = input;
+    const cep = normalizeCep(input.cep);
+    if (!cep) return { status: 'invalid_cep' };
+    if (!isIntegerAtLeast(page, 1)) return { status: 'invalid_pagination', field: 'page' };
+    if (!isIntegerAtLeast(limit, 1) || limit > MAX_LIMIT) return { status: 'invalid_pagination', field: 'limit' };
+
     const stored = await repository.findByCep(cep);
     if (!stored) return { status: 'not_found' };
 

@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import type { findNearbyCeps, NearbyCepsResult } from '../../application/find-nearby-ceps.js';
-import { normalizeCep } from '../../domain/cep/cep-code.js';
 import { ErrorCode, sendError } from './errors.js';
 
-export const querySchema = z
-  .object({
-    pagina: z.coerce.number().int().min(1).default(1),
-    limite: z.coerce.number().int().min(1).max(200).default(50),
-  })
-  .transform(({ pagina, limite }) => ({ page: pagina, limit: limite }));
+const PAGINATION_MESSAGES = {
+  page: 'pagina deve ser um inteiro maior ou igual a 1',
+  limit: 'limite deve ser um inteiro entre 1 e 200',
+};
+
+// Query values arrive as strings; anything that is not a plain number becomes NaN and is rejected by the use case.
+const parseQueryNumber = (value: unknown) =>
+  value === undefined ? undefined : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -31,15 +31,21 @@ export function toResponse(result: Extract<NearbyCepsResult, { status: 'found' }
 export function nearbyCepsRouter(find: ReturnType<typeof findNearbyCeps>): Router {
   const router = Router();
   router.get('/ceps-proximos/:cep', async (req, res) => {
-    const cep = normalizeCep(req.params.cep);
-    if (!cep) return sendError(res, 400, ErrorCode.InvalidCep, 'CEP inválido');
-    const query = querySchema.safeParse(req.query);
-    if (!query.success) {
-      return sendError(res, 400, ErrorCode.InvalidParameter, query.error.issues[0]?.message ?? 'Parâmetro inválido');
+    const result = await find({
+      cep: req.params.cep,
+      page: parseQueryNumber(req.query.pagina),
+      limit: parseQueryNumber(req.query.limite),
+    });
+    switch (result.status) {
+      case 'invalid_cep':
+        return sendError(res, 400, ErrorCode.InvalidCep, 'CEP inválido');
+      case 'invalid_pagination':
+        return sendError(res, 400, ErrorCode.InvalidParameter, PAGINATION_MESSAGES[result.field]);
+      case 'not_found':
+        return sendError(res, 404, ErrorCode.CepNotFound, 'CEP não encontrado');
+      case 'found':
+        return res.json(toResponse(result));
     }
-    const result = await find({ cep, ...query.data });
-    if (result.status === 'not_found') return sendError(res, 404, ErrorCode.CepNotFound, 'CEP não encontrado');
-    res.json(toResponse(result));
   });
   return router;
 }

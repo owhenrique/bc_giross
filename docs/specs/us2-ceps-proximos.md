@@ -78,6 +78,7 @@ Decisões que valem aqui: D1, D2, D3, D8, D9, D10, D14, D15, D16, D17, D18, D24,
 - P (revisão da spec): rota inexistente com `ROTA_NAO_ENCONTRADA`? → R: Trocar por uma mensagem genérica que não exponha quais rotas existem. Ficou `404 NAO_ENCONTRADO` / "Recurso não encontrado", com corpo idêntico para qualquer caminho ou método e sem `X-Powered-By`. O `503` foi descartado porque diz ao cliente que o serviço caiu e que ele deve tentar de novo, e dispara alerta de indisponibilidade.
 - P (revisão da spec): nome da tabela `ceps`? → R: Tabelas no singular (`cep`, `user`...). A tabela é `cep` (`@@map("cep")`), e qualquer tabela futura segue a mesma regra.
 - P (revisão da spec): lat/lon não devem ficar em decimal no Postgres, por performance. → R: `double precision` explícito (`@db.DoublePrecision`), nunca `numeric`/`Decimal`. O motivo está em "Design técnico › Modelo".
+- P (pós-implementação): a rota estava com regra de negócio? → R: Sim (normalização do CEP e limites de paginação). Movidos para `findNearbyCeps`; a rota só faz HTTP (parse da query, mapeamento de status e tradução do contrato).
 - P (revisão da spec): seguir a regra de inglês no código. → R: a spec segue o `AGENTS.md`. Os identificadores ficam em inglês (`origin`, `radiusKm`, `page`/`limit`, `totalPages`, `neighbors`, `distanceKm`, `ErrorCode.*`, `sendError(res, status, code, message)`), e a tradução para o contrato em português fica só em `presentation`. `cep`/`uf` seguem como termos do domínio, como na US1.
 
 ## Premissas
@@ -133,8 +134,8 @@ Entrada: `{ cep, page, limit }`, com a configuração `radiusKm`.
 `cep` e `uf` seguem como termos do domínio, iguais à US1 (`src/domain/cep/`, `assessCep`, `ufFromZip`) e às colunas do D8.
 
 **HTTP**
-- `GET /ceps-proximos/:cep`. Param: `normalizeCep` do domínio (aceita `^\d{5}-?\d{3}$`), senão `400 CEP_INVALIDO`. Query via Zod: `pagina` int ≥ 1 (padrão 1) e `limite` int 1–200 (padrão 50), senão `400 PARAMETRO_INVALIDO` com a mensagem do primeiro erro.
-- Contrato em português, código em inglês (D27): o schema Zod lê `pagina`/`limite` e entrega `page`/`limit`. A resposta é montada pela tabela de tradução acima, numa função `toResponse` da rota.
+- `GET /ceps-proximos/:cep`. A rota só lida com HTTP: converte `pagina`/`limite` de string para número e passa tudo ao caso de uso. A normalização do CEP (`normalizeCep`) e as regras de paginação (`pagina` inteiro ≥ 1, padrão 1; `limite` inteiro 1–200, padrão 50) ficam em `findNearbyCeps`, que devolve `invalid_cep` ou `invalid_pagination`. A rota mapeia: `invalid_cep` → `400 CEP_INVALIDO`, `invalid_pagination` → `400 PARAMETRO_INVALIDO`, `not_found` → `404 CEP_NAO_ENCONTRADO`.
+- Contrato em português, código em inglês (D27): a rota lê `pagina`/`limite` e entrega `page`/`limit` ao caso de uso. A resposta é montada pela tabela de tradução acima, numa função `toResponse` da rota.
 - Rota ou método desconhecido → `404 NAO_ENCONTRADO` com a mensagem fixa "Recurso não encontrado", sem ecoar o caminho. `app.disable('x-powered-by')`. JSON malformado e outros erros do Express também caem no formato `{ erro }`, nunca no HTML padrão. Handler de erro final → `500 ERRO_INTERNO`, com log via `req.log.error`.
 - `createApp({ findNearbyCeps, radiusKm, logger })` recebe as dependências, o que permite o Supertest sem banco.
 

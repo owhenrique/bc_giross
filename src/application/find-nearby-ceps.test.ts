@@ -89,3 +89,31 @@ describe('findNearbyCeps', () => {
     });
   });
 });
+
+describe('findNearbyCeps input validation', () => {
+  const run = (input: { cep: string; page?: number; limit?: number }) =>
+    findNearbyCeps(inMemoryRepository([ORIGIN]), 1)(input);
+
+  it('normalizes a cep with hyphen', async () => {
+    expect(found(await run({ cep: '04551-000' })).origin.cep).toBe('04551000');
+  });
+
+  it('returns invalid_cep for a malformed cep', async () => {
+    expect(await run({ cep: '123' })).toEqual({ status: 'invalid_cep' });
+  });
+
+  it('applies default page and limit', async () => {
+    expect(found(await run({ cep: ORIGIN.cep })).pagination).toMatchObject({ page: 1, limit: 50 });
+  });
+
+  it.each([
+    [{ page: 0 }, 'page'],
+    [{ page: 1.5 }, 'page'],
+    [{ page: NaN }, 'page'],
+    [{ limit: 0 }, 'limit'],
+    [{ limit: 201 }, 'limit'],
+    [{ limit: NaN }, 'limit'],
+  ] as const)('returns invalid_pagination for %j', async (params, field) => {
+    expect(await run({ cep: ORIGIN.cep, ...params })).toEqual({ status: 'invalid_pagination', field });
+  });
+});
