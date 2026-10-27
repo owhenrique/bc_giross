@@ -18,8 +18,8 @@ services:
   redis:
     image: redis:8-alpine
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
-    # ports:
-    #   - '6379:6379'
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 3s
