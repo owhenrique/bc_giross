@@ -1,0 +1,6 @@
+data/
+graphify-out/
+src/generated/
+prisma/migrations/
+package-lock.json
+*.md

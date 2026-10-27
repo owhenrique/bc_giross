@@ -5,9 +5,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   SEARCH_RADIUS_KM: z.coerce.number().positive().default(1),
   SEED_UFS: z.string().default(''),
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .default('info'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
 export interface Env {

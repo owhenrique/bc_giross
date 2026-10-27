@@ -14,7 +14,9 @@
     "start": "tsx --env-file-if-exists=.env src/index.ts",
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "seed": "tsx --env-file-if-exists=.env scripts/seed/index.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -26,6 +28,8 @@
     "@types/yauzl": "^3.4.0",
     "@types/yazl": "^3.3.1",
     "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
     "prisma": "^7.10.1",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",

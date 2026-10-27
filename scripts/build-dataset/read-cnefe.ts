@@ -50,7 +50,8 @@ export async function* readCnefe(zipPath: string): AsyncGenerator<CnefeRecord | 
       const fields = line.split(';');
       if (!indexes) {
         indexes = COLUMNS.map((c) => fields.indexOf(c));
-        if (indexes.includes(-1)) throw new Error(`Cabeçalho do CNEFE sem colunas ${COLUMNS.join(', ')}: ${zipPath}`);
+        if (indexes.includes(-1))
+          throw new Error(`Cabeçalho do CNEFE sem colunas ${COLUMNS.join(', ')}: ${zipPath}`);
         continue;
       }
       yield parseLine(fields, indexes);

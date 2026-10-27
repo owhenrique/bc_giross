@@ -40,7 +40,12 @@ describe('buildDataset', () => {
 
     const gz = gunzipSync(readFileSync(join(s1, 'ceps.csv.gz'))).toString();
     expect(gz).toBe(
-      ['cep;uf;latitude;longitude', '01310100;SP;-23.561400;-46.655900', '69900126;AC;-9.000000;-67.000200', ''].join('\n'),
+      [
+        'cep;uf;latitude;longitude',
+        '01310100;SP;-23.561400;-46.655900',
+        '69900126;AC;-9.000000;-67.000200',
+        '',
+      ].join('\n'),
     );
     const removidos = readFileSync(join(s1, 'ceps-removidos.csv'), 'utf8');
     expect(removidos).toMatch(/^cep;uf;latitude;longitude;p90_km\n01001000;SP;/);
@@ -50,7 +55,9 @@ describe('buildDataset', () => {
     expect(rel).toContain('| SP | 1 | 1 | 0 | 0 |');
     expect(rel).toContain('Tempo de execução');
 
-    expect(readFileSync(join(s2, 'ceps.csv.gz')).equals(readFileSync(join(s1, 'ceps.csv.gz')))).toBe(true);
+    expect(
+      readFileSync(join(s2, 'ceps.csv.gz')).equals(readFileSync(join(s1, 'ceps.csv.gz'))),
+    ).toBe(true);
     expect(readFileSync(join(s2, 'ceps-removidos.csv'), 'utf8')).toBe(removidos);
   });
 
@@ -65,8 +72,12 @@ describe('buildDataset', () => {
     const out = join(base, 'dup-out');
     await buildDataset(input, out);
     const gz = gunzipSync(readFileSync(join(out, 'ceps.csv.gz'))).toString();
-    expect(gz).toBe(['cep;uf;latitude;longitude', '69900126;SP;-23.550000;-46.630050', ''].join('\n'));
-    expect(readFileSync(join(out, 'relatorio.md'), 'utf8')).toContain('CEP 69900126 presente em AC e SP; mantida SP');
+    expect(gz).toBe(
+      ['cep;uf;latitude;longitude', '69900126;SP;-23.550000;-46.630050', ''].join('\n'),
+    );
+    expect(readFileSync(join(out, 'relatorio.md'), 'utf8')).toContain(
+      'CEP 69900126 presente em AC e SP; mantida SP',
+    );
   });
 
   it('folder without ZIPs throws', async () => {

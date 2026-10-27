@@ -45,7 +45,9 @@ describe('errorHandler', () => {
     }
     const { res, json, error } = run(new UnknownError());
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(json).toHaveBeenCalledWith({ erro: { codigo: 'ERRO_INTERNO', mensagem: 'Erro interno' } });
+    expect(json).toHaveBeenCalledWith({
+      erro: { codigo: 'ERRO_INTERNO', mensagem: 'Erro interno' },
+    });
     expect(error).toHaveBeenCalled();
   });
 
