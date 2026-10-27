@@ -8,7 +8,7 @@ status: pendente
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em:
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us6-limpeza-de-cache
 merge_request:
 ---
@@ -175,14 +175,14 @@ Não se aplica.
 ## Verificação independente
 Preenchido no `/pato/verify`; o `/pato/close-spec` não começa sem esta seção.
 
-- **Data:**
-- **Verificador:**
-- **Suítes rodadas:**
-- **Critérios de aceite:**
-- **Entregável:**
-- **Linhas de lógica:**
-- **Achados:**
-- **Decisão do usuário:**
+- **Data:** 2026-10-27 (duas rodadas: a segunda depois das correções do commit `5fd83c3`)
+- **Verificador:** subagente em contexto limpo, só leitura
+- **Suítes rodadas:** `npm test` 230/230 (23 arquivos), `typecheck`, `lint` e `format:check` sem erros. Sem Redis real: o 503 e o `unlink`/`SCAN` foram cobertos só por fake e teste unitário.
+- **Critérios de aceite:** 14 de 14 atendidos, com evidência em arquivo:linha. O `loadEnv` com token de 11 caracteres foi rodado de verdade e saiu com código 1.
+- **Entregável:** sim. Funciona só com esta branch, que parte de `main` e só tem commits da US6. Sem migração nem dependência nova.
+- **Linhas de lógica:** 140 / 500 (comando da spec; estimativa ~123).
+- **Achados:** nenhum Alto ou Médio. Na 1ª rodada, 4 Baixos: (1) redact do `Authorization` sem teste, (2) cast em `cache-route.ts`, (3) sem teste de `DELETE /cache/`, (4) `Bearer  token` com dois espaços dá 401. Corrigidos 1 a 3; o 4 ficou como está, por ser estrito conforme o RFC 6750. Na 2ª rodada, 3 Baixos informativos: `createLogger` ganhou o parâmetro opcional `destination` (usado no teste do redact), `Bearer ` seguido de qualquer string vai para a comparação de digests (resultado correto) e o front-matter ainda pendente (esperado antes do close-spec).
+- **Decisão do usuário:** corrigir os achados da 1ª rodada. Teste manual com docker compose e Redis real fica para o `/pato/close-spec`.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
