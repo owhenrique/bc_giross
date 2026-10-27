@@ -10,7 +10,7 @@ criada_em: 2026-10-27
 implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us5-fallback-nominatim
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/7
 ---
 
 # US5 — Fallback de coordenada (Nominatim)
