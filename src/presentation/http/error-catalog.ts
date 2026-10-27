@@ -35,4 +35,9 @@ export const ERROR_CATALOG: Record<AppErrorKind, ErrorCatalogEntry> = {
     codigo: 'PROVEDOR_INDISPONIVEL',
     mensagem: 'Serviço de consulta de CEP indisponível',
   },
+  cache_unavailable: {
+    status: 503,
+    codigo: 'CACHE_INDISPONIVEL',
+    mensagem: 'Não foi possível limpar o cache',
+  },
 };
