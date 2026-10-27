@@ -16,6 +16,10 @@ describe('loadEnv', () => {
       logLevel: 'info',
       redisUrl: base.REDIS_URL,
       cacheTtl: { addressSeconds: 2592000, resultSeconds: 604800, notFoundSeconds: 3600 },
+      nominatim: {
+        url: 'https://nominatim.openstreetmap.org',
+        userAgent: 'bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)',
+      },
     });
   });
 
@@ -54,5 +58,16 @@ describe('loadEnv', () => {
   it('reads cache TTLs and rejects non-positive ones', () => {
     expect(loadEnv({ ...base, CACHE_TTL_RESULT_SECONDS: '60' }).cacheTtl.resultSeconds).toBe(60);
     expect(() => loadEnv({ ...base, CACHE_TTL_ADDRESS_SECONDS: '0' })).toThrow();
+  });
+
+  it('reads the Nominatim overrides and rejects an invalid URL', () => {
+    const env = loadEnv({
+      ...base,
+      NOMINATIM_URL: 'http://localhost:8080',
+      NOMINATIM_USER_AGENT: 'custom/2.0',
+    });
+    expect(env.nominatim).toEqual({ url: 'http://localhost:8080', userAgent: 'custom/2.0' });
+    expect(() => loadEnv({ ...base, NOMINATIM_URL: 'not a url' })).toThrow();
+    expect(() => loadEnv({ ...base, NOMINATIM_USER_AGENT: '' })).toThrow();
   });
 });

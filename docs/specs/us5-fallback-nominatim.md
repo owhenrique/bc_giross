@@ -149,7 +149,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 **Modo sugerido:** agent-driven, porque são 5 tarefas, 8 arquivos de lógica, ~205 linhas e uma mudança de contrato.
 
 ## Tarefas
-- [ ] 1. Porta `Geocoder` e `NominatimGeocoder` (URL, `User-Agent`, 1 req/s, timeout, mapeamento cidade/UF), mais `NOMINATIM_URL`/`NOMINATIM_USER_AGENT` no `env.ts`, com testes.
+- [x] 1. Porta `Geocoder` e `NominatimGeocoder` (URL, `User-Agent`, 1 req/s, timeout, mapeamento cidade/UF), mais `NOMINATIM_URL`/`NOMINATIM_USER_AGENT` no `env.ts`, com testes.
 - [ ] 2. `OriginGeocoder` e `geocodeKey` (validação de cidade/UF normalizada, cache de `found` 30 d e `no_match` 1 h), com testes.
 - [ ] 3. Fallback no `findNearbyCeps` (nova assinatura, vizinhos a partir da origem, `source` no resultado em cache) e `fonte` na rota, com testes do caso de uso e do `app.test.ts`.
 - [ ] 4. Composição em `src/index.ts`, mais as variáveis no `docker-compose.yml` e no `.env.example`.
