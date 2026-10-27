@@ -117,4 +117,17 @@ describe('unknown routes and unexpected errors', () => {
     expect(res.body.erro.codigo).toBe('ERRO_INTERNO');
     expect(res.text).not.toMatch(/db down|stack|\.ts/);
   });
+
+  it('maps any 4xx error raised by the stack to 400 PARAMETRO_INVALIDO', async () => {
+    const tooLarge: CepRepository = {
+      findByCep: async () => {
+        throw Object.assign(new Error('payload too large'), { status: 413 });
+      },
+      findInBox: async () => [],
+    };
+    const res = await request(appWith(tooLarge)).get('/ceps-proximos/04551000');
+    expect(res.status).toBe(400);
+    expect(res.body.erro.codigo).toBe('PARAMETRO_INVALIDO');
+    expect(res.text).not.toMatch(/payload too large/);
+  });
 });

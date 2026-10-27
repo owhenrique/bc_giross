@@ -136,8 +136,8 @@ Entrada: `{ cep, page, limit }`, com a configuração `radiusKm`.
 **HTTP**
 - `GET /ceps-proximos/:cep`. A rota só lida com HTTP: converte `pagina`/`limite` de string para número e passa tudo ao caso de uso. A normalização do CEP (`normalizeCep`) e as regras de paginação (`pagina` inteiro ≥ 1, padrão 1; `limite` inteiro 1–200, padrão 50) ficam em `findNearbyCeps`, que devolve `invalid_cep` ou `invalid_pagination`. A rota mapeia: `invalid_cep` → `400 CEP_INVALIDO`, `invalid_pagination` → `400 PARAMETRO_INVALIDO`, `not_found` → `404 CEP_NAO_ENCONTRADO`.
 - Contrato em português, código em inglês (D27): a rota lê `pagina`/`limite` e entrega `page`/`limit` ao caso de uso. A resposta é montada pela tabela de tradução acima, numa função `toResponse` da rota.
-- Rota ou método desconhecido → `404 NAO_ENCONTRADO` com a mensagem fixa "Recurso não encontrado", sem ecoar o caminho. `app.disable('x-powered-by')`. JSON malformado e outros erros do Express também caem no formato `{ erro }`, nunca no HTML padrão. Handler de erro final → `500 ERRO_INTERNO`, com log via `req.log.error`.
-- `createApp({ findNearbyCeps, radiusKm, logger })` recebe as dependências, o que permite o Supertest sem banco.
+- Rota ou método desconhecido → `404 NAO_ENCONTRADO` com a mensagem fixa "Recurso não encontrado", sem ecoar o caminho. `app.disable('x-powered-by')`. JSON malformado e qualquer outro erro 4xx do Express (inclusive 413) caem em `400 PARAMETRO_INVALIDO` com a mensagem fixa "Requisição inválida", nunca no HTML padrão. Handler de erro final → `500 ERRO_INTERNO`, com log via `req.log.error`.
+- `createApp({ findNearbyCeps, logger })` recebe as dependências, o que permite o Supertest sem banco. O raio entra em `findNearbyCeps(repository, radiusKm)`, na composição em `src/index.ts`.
 
 **Config (Zod, `src/config/env.ts`)**
 
