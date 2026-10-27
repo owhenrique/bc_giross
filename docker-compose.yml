@@ -28,7 +28,7 @@ services:
 
   seed:
     build: .
-    command: sh -c "npx prisma migrate deploy && npm run seed"
+    command: sh -c "npx prisma migrate deploy && npm run seed:container"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SEED_UFS: ${SEED_UFS:-}

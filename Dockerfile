@@ -6,4 +6,4 @@ COPY prisma.config.ts ./
 RUN npm ci
 COPY . .
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["npm", "run", "start:container"]
