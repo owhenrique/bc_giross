@@ -84,4 +84,17 @@ describe('RedisCache', () => {
     });
     await expect(cache.deleteByPrefix('result:')).rejects.toThrow('down');
   });
+
+  it('times out deleteByPrefix when a step hangs', async () => {
+    vi.useFakeTimers();
+    const { cache } = setup({
+      scanIterator: vi.fn(async function* () {
+        yield ['k'];
+      }),
+      unlink: vi.fn(() => new Promise<never>(() => {})),
+    });
+    const result = expect(cache.deleteByPrefix('result:')).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(CACHE_OPERATION_TIMEOUT_MS);
+    await result;
+  });
 });

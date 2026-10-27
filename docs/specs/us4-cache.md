@@ -201,10 +201,10 @@ Data: 2026-10-27. Base: `main`.
 - **Tamanho:** 288 linhas de lógica contra o limite de 500.
 - **Achados:**
   - Média: o commit `63bc080` (`fix(compose)`) mexeu em `docker-compose.yml`, `.env.example` e README fora da lista da spec. As credenciais do Postgres passam a vir do `.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`), com `POSTGRES_PORT` e `API_PORT`, e o `docker compose up` exige o `.env` copiado do exemplo.
-  - Baixa: `deleteByPrefix` do seed não tem timeout depois do `PING`.
+  - Baixa (corrigido): `deleteByPrefix` do seed não tinha timeout depois do `PING`. Agora cada passo (página do SCAN e UNLINK) tem o timeout de 500 ms.
   - Baixa: a história diz "8 critérios", mas há 9.
 - **Não verificado:** `docker compose up` e o fluxo manual, reconexão do node-redis v5 com Redis real, migration e seed contra Postgres real.
-- **Decisão do usuário:** manter o commit `63bc080` e registrar a decisão aqui e no `DECISOES.md`; deixar os achados Baixa como estão.
+- **Decisão do usuário:** manter o commit `63bc080` e registrar a decisão aqui e no `DECISOES.md`; depois pediu para corrigir o timeout do `deleteByPrefix`; a redação dos "8 critérios" fica como está. Suítes após a correção: 160 testes, 0 falhas.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.

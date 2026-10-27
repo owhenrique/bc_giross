@@ -28,7 +28,7 @@ export function createRedisClient(url: string, logger: Pick<Logger, 'warn'>, rec
   return client;
 }
 
-/** Redis-backed cache. `get`/`set` degrade to miss/no-op; `deleteByPrefix` propagates errors. */
+/** Redis-backed cache. `get`/`set` degrade to miss/no-op; `deleteByPrefix` propagates errors and timeouts. */
 export class RedisCache implements Cache {
   constructor(
     private readonly client: RedisClientLike,
@@ -54,8 +54,18 @@ export class RedisCache implements Cache {
   }
 
   async deleteByPrefix(prefix: string): Promise<void> {
-    for await (const keys of this.client.scanIterator({ MATCH: `${prefix}*`, COUNT: SCAN_COUNT })) {
-      if (keys.length > 0) await this.client.unlink(keys);
+    const iterator = this.client
+      .scanIterator({ MATCH: `${prefix}*`, COUNT: SCAN_COUNT })
+      [Symbol.asyncIterator]();
+    try {
+      // The timeout is per step (one SCAN page or one UNLINK), not for the whole sweep.
+      for (let page = await withTimeout(iterator.next()); !page.done;) {
+        const keys = page.value;
+        if (keys.length > 0) await withTimeout(this.client.unlink(keys));
+        page = await withTimeout(iterator.next());
+      }
+    } finally {
+      await iterator.return?.();
     }
   }
 }
