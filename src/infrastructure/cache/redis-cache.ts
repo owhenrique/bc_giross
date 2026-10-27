@@ -75,7 +75,7 @@ export class RedisCache implements Cache {
   }
 }
 
-function withTimeout<T>(operation: Promise<T>): Promise<T> {
+export function withTimeout<T>(operation: Promise<T>): Promise<T> {
   let timer: NodeJS.Timeout;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
