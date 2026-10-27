@@ -6,6 +6,8 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 - **Giross** (time de operações/logística, consumindo a API): consulta CEPs próximos a um CEP de referência.
 - **Operador da API**: mantém o serviço no ar (cache, proteção contra abuso).
 - **Mantenedor da API**: gera e audita a base de CEPs.
+- **Time de desenvolvimento**: evolui a API (US técnicas, só quando se sustentam sozinhas).
+- **Integrador da Giross**: o desenvolvedor que lê o contrato para integrar com a API.
 
 ## Visão geral
 
@@ -18,6 +20,9 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US5 | Fallback de coordenada (Nominatim) | ~150 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
 | US7 | Rate limit da API | ~50 | US2 |
+| US8 | Error middleware com catálogo de erros | ~120 | US3–US7 (migra os erros de todas) |
+| US9 | Healthcheck (`/saude`) | ~110 | US8 |
+| US10 | Documentação da API com Scalar | ~40 | US8, US9 |
 
 ---
 
@@ -89,6 +94,48 @@ Como **operador da API**, quero limpar o cache manualmente, de forma protegida, 
 Como **operador da API**, quero limitar as requisições por cliente, para proteger o serviço e as APIs externas de abuso.
 
 - Mais de 60 req/min do mesmo IP → `429` em JSON com `Retry-After`. O contador fica no Redis e o limite é configurável.
+
+## US8 — Error middleware com catálogo de erros
+Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzidos para HTTP num único middleware, a partir de um catálogo, para que um erro novo custe uma classe e uma linha no catálogo, e não um `case` em cada rota.
+
+US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de erro continuam byte a byte iguais às de antes.
+
+- Dado um caso de uso que encontra um erro esperado (CEP inválido, paginação inválida, CEP não encontrado e os erros que a US3, a US5 e a US6 trouxerem), então ele lança uma subclasse de `AppError` com um `kind` estável em inglês (ex.: `CepNotFoundError`, `kind: 'cep_not_found'`).
+- Dado um `AppError`, quando ele chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
+- Dado um erro que não é `AppError` ou um `kind` fora do catálogo, então `500 ERRO_INTERNO`, com log do erro e sem stack na resposta.
+- Dado as rotas existentes, então nenhuma tem `switch`/`if` de status de erro: a rota chama o caso de uso e devolve `toResponse(resultado)`. O Express 5 já encaminha a rejeição para o middleware.
+- Dado o catálogo, então um teste garante que todo `kind` de `AppError` tem entrada nele. Erro novo sem entrada quebra o teste, não a produção.
+- Os testes HTTP existentes passam sem alterar nenhuma asserção de corpo ou de status.
+
+Decisões: os erros esperados passam de union no retorno para exceção tipada, por pedido do usuário. A regra de dependência se mantém: `AppError` fica em `application` (ou em `domain`, se o erro for de domínio) e não conhece HTTP. O status HTTP existe só no catálogo.
+
+Fica para outra US: nada. Esta US migra todos os erros que existirem até a US7, incluindo o `429` do rate limit, se ele passar pelo middleware.
+
+## US9 — Healthcheck (`/saude`)
+Como **operador da API**, quero um endpoint que diga se a API e as dependências dela estão de pé, para o orquestrador reiniciar o serviço e eu saber, sem abrir logs, qual peça caiu.
+
+- Dado tudo de pé, quando chamo `GET /saude`, então `200` com `{ status: "ok", componentes: { banco: "ok", cache: "ok", provedor_cep: "ok" } }`.
+- Dado o Postgres fora do ar, então `503` com `status: "indisponivel"` e `banco: "falha"`, porque sem a base a API não responde nada.
+- Dado o Redis ou o provider de CEP (BrasilAPI) fora, então `200` com `status: "degradado"` e o componente em `"falha"`, porque a API ainda responde (D29).
+- Cada checagem tem timeout de 1 s e todas rodam em paralelo: uma dependência travada não trava o `/saude`.
+- O status do provider vem da última chamada real à BrasilAPI (sucesso ou falha registrados pelo client). O `/saude` não chama a BrasilAPI, para não gastar o limite de 5 req/s (D22). Sem nenhuma chamada ainda, o componente aparece como `"desconhecido"` e não degrada o status.
+- A resposta traz só o status de cada componente: nenhuma mensagem de erro, host, versão ou stack.
+- O serviço `api` do compose usa o `/saude` como `healthcheck`.
+- As checagens ficam atrás de uma porta `HealthIndicator` (`name`, `critical`, `check()`), registrada na composição: dependência nova = um indicador novo.
+
+A definir na spec: se o `/saude` fica fora do rate limit da US7.
+
+## US10 — Documentação da API com Scalar
+Como **integrador da Giross**, quero uma documentação navegável do contrato da API, com exemplos e erros, para integrar sem ler o código nem adivinhar os formatos.
+
+- Dado `NODE_ENV` diferente de `production`, quando abro `/docs`, então vejo a UI do Scalar com todos os endpoints existentes: `GET /ceps-proximos/:cep`, `GET /saude`, `DELETE /cache` e `DELETE /cache/:cep` (com o esquema Bearer).
+- Dado o mesmo ambiente, então `GET /docs/openapi.json` devolve o documento OpenAPI 3.1.
+- Dado `NODE_ENV=production`, então `/docs` e `/docs/openapi.json` caem no `404 NAO_ENCONTRADO` genérico, sem revelar as rotas.
+- O OpenAPI vem de um `openapi.yaml` escrito à mão, em português (contrato), com os parâmetros, os exemplos de resposta e todos os códigos de erro do catálogo da US8.
+- Um teste de contrato valida as respostas dos testes Supertest (sucesso e cada erro) contra os schemas do `openapi.yaml`. Se o contrato e o código divergirem, o teste quebra.
+- O README aponta para `/docs`.
+
+Fica para outra US: nada. A partir daqui, toda US que mexer no contrato atualiza o `openapi.yaml`, e o teste de contrato cobra isso.
 
 ---
 
