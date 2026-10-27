@@ -30,9 +30,11 @@ SEED_UFS=SP,RJ docker compose up --build
 
 ## Contrato
 
-`GET /ceps-proximos/:cep` — `:cep` aceita `04551000` ou `04551-000`.
+Duas rotas. `:cep` aceita `04551000` ou `04551-000`. Query (nas duas): `pagina` (inteiro ≥ 1, padrão 1) e `limite` (inteiro 1–200, padrão 50).
 
-Query: `pagina` (inteiro ≥ 1, padrão 1) e `limite` (inteiro 1–200, padrão 50).
+### `GET /ceps-proximos/:cep` (resumo)
+
+Só a origem e a lista. Com o CEP na base, não consulta nenhum serviço de CEP.
 
 ```bash
 curl "localhost:3000/ceps-proximos/04551000?pagina=1&limite=50"
@@ -40,14 +42,40 @@ curl "localhost:3000/ceps-proximos/04551000?pagina=1&limite=50"
 
 ```json
 {
-  "origem": { "cep": "04551000", "latitude": -23.59, "longitude": -46.68, "fonte": "base" },
+  "origem": "04551000",
+  "paginacao": { "pagina": 1, "limite": 50, "total": 174, "total_paginas": 4 },
+  "ceps": [{ "cep": "04551010", "distancia_km": 0.12 }]
+}
+```
+
+### `GET /ceps-proximos/:cep/detalhes` (completa)
+
+Traz a origem com coordenada e endereço (BrasilAPI v2), o raio e a lista.
+
+```bash
+curl "localhost:3000/ceps-proximos/04551000/detalhes?pagina=1&limite=50"
+```
+
+```json
+{
+  "origem": {
+    "cep": "04551000",
+    "latitude": -23.59,
+    "longitude": -46.68,
+    "fonte": "base",
+    "endereco": { "rua": "Rua Funchal", "bairro": "Vila Olímpia", "cidade": "São Paulo", "uf": "SP" }
+  },
   "raio_km": 1,
   "paginacao": { "pagina": 1, "limite": 50, "total": 174, "total_paginas": 4 },
   "ceps": [{ "cep": "04551010", "distancia_km": 0.12 }]
 }
 ```
 
-`ceps` vem ordenado por distância (empate por CEP), sem a própria origem. Página além da última devolve `ceps: []`.
+`origem.endereco` é `null` quando a BrasilAPI está fora do ar, estoura o timeout (3 s) ou não acha o CEP; a lista vem normalmente. Campos vazios do endereço saem como `null`.
+
+Nas duas rotas, `ceps` vem ordenado por distância (empate por CEP), sem a própria origem. Página além da última devolve `ceps: []`.
+
+**Migração:** quem usava `/ceps-proximos/:cep` com o contrato completo (`origem` objeto, `raio_km`) deve passar a usar `/ceps-proximos/:cep/detalhes`.
 
 ### Erros
 
@@ -57,8 +85,11 @@ Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
 | --- | --- | --- |
 | 400 | `CEP_INVALIDO` | `:cep` fora do formato `00000000`/`00000-000` |
 | 400 | `PARAMETRO_INVALIDO` | `pagina` ou `limite` inválidos |
-| 404 | `CEP_NAO_ENCONTRADO` | CEP com formato válido que não está na base |
+| 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
 | 404 | `NAO_ENCONTRADO` | rota ou método inexistente |
+| 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
+| 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas a base não tem a coordenada dele |
+| 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP está fora do ar, estourou o timeout ou o limite de 5 req/s |
 | 500 | `ERRO_INTERNO` | erro inesperado (sem detalhes na resposta) |
 
 ## Testes

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { AddressLookup, CepAddressProvider } from "./cep-address-provider.js";
 import type { CepRepository, StoredCep } from "./cep-repository.js";
 import {
+  AddressProviderUnavailableError,
   CepNotFoundError,
+  CepOutOfCoverageError,
+  CepWithoutLocationError,
   InvalidCepError,
   InvalidLimitError,
   InvalidPageError,
@@ -25,8 +29,27 @@ function cepAt(cep: string, km: number): StoredCep {
   };
 }
 
-function inMemoryRepository(items: StoredCep[]): CepRepository {
+const ADDRESS = {
+  street: "Av. Teste",
+  neighborhood: "Centro",
+  city: "São Paulo",
+  uf: "SP",
+};
+
+function fakeProvider(result: AddressLookup = { status: "not_found" }) {
+  const calls: string[] = [];
+  const provider: CepAddressProvider = {
+    lookup: async (cep) => {
+      calls.push(cep);
+      return result;
+    },
+  };
+  return { provider, calls };
+}
+
+function inMemoryRepository(items: StoredCep[], ufs: string[] = ["SP"]): CepRepository {
   return {
+    findLoadedUfs: async () => ufs,
     findByCep: async (cep) => items.find((item) => item.cep === cep) ?? null,
     findInBox: async (box) =>
       items.filter(
@@ -47,6 +70,7 @@ function search(
 ): Promise<NearbyCepsResult> {
   return findNearbyCeps(
     inMemoryRepository([ORIGIN, ...items]),
+    fakeProvider().provider,
     radiusKm,
   )({ cep: ORIGIN.cep, page, limit });
 }
@@ -56,6 +80,7 @@ describe("findNearbyCeps", () => {
     await expect(
       findNearbyCeps(
         inMemoryRepository([]),
+        fakeProvider().provider,
         1,
       )({ cep: "99999999", page: 1, limit: 50 }),
     ).rejects.toBeInstanceOf(CepNotFoundError);
@@ -68,6 +93,7 @@ describe("findNearbyCeps", () => {
       lat: ORIGIN.latitude,
       lon: ORIGIN.longitude,
       source: "dataset",
+      address: null,
     });
     expect(result.radiusKm).toBe(1);
     expect(result.neighbors.map((n) => n.cep)).toEqual(["04551010"]);
@@ -146,7 +172,7 @@ describe("findNearbyCeps", () => {
 
 describe("findNearbyCeps input validation", () => {
   const run = (input: { cep: string; page?: number; limit?: number }) =>
-    findNearbyCeps(inMemoryRepository([ORIGIN]), 1)(input);
+    findNearbyCeps(inMemoryRepository([ORIGIN]), fakeProvider().provider, 1)(input);
 
   it("normalizes a cep with hyphen", async () => {
     expect((await run({ cep: "04551-000" })).origin.cep).toBe("04551000");
@@ -174,5 +200,76 @@ describe("findNearbyCeps input validation", () => {
     await expect(run({ cep: ORIGIN.cep, ...params })).rejects.toBeInstanceOf(
       field === "page" ? InvalidPageError : InvalidLimitError,
     );
+  });
+});
+
+describe("findNearbyCeps address", () => {
+  const found: AddressLookup = { status: "found", address: ADDRESS };
+  const run = (
+    lookup: AddressLookup,
+    options: { withAddress?: boolean; items?: StoredCep[]; ufs?: string[] } = {},
+  ) => {
+    const { provider, calls } = fakeProvider(lookup);
+    const result = findNearbyCeps(
+      inMemoryRepository(options.items ?? [ORIGIN], options.ufs),
+      provider,
+      1,
+    )({ cep: "04551000", withAddress: options.withAddress });
+    return { result, calls };
+  };
+  const missing = (lookup: AddressLookup, ufs?: string[]) =>
+    run(lookup, { items: [], ufs }).result;
+
+  it("does not call the provider when the cep is stored and withAddress is off", async () => {
+    const { result, calls } = run(found);
+    expect((await result).origin.address).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
+  it("returns the address when stored, withAddress is on and lookup is found", async () => {
+    const { result, calls } = run(found, { withAddress: true });
+    expect((await result).origin.address).toEqual(ADDRESS);
+    expect(calls).toEqual(["04551000"]);
+  });
+
+  it.each(["not_found", "unavailable"] as const)(
+    "returns a null address when stored, withAddress is on and lookup is %s",
+    async (status) => {
+      const { result } = run({ status }, { withAddress: true });
+      const value = await result;
+      expect(value.origin.address).toBeNull();
+      expect(value.neighbors).toEqual([]);
+    },
+  );
+
+  it.each([false, true])(
+    "throws CepNotFoundError when missing and lookup is not_found (withAddress=%s)",
+    async (withAddress) => {
+      await expect(
+        run({ status: "not_found" }, { items: [], withAddress }).result,
+      ).rejects.toBeInstanceOf(CepNotFoundError);
+    },
+  );
+
+  it.each([false, true])(
+    "throws AddressProviderUnavailableError when missing and lookup is unavailable (withAddress=%s)",
+    async (withAddress) => {
+      await expect(
+        run({ status: "unavailable" }, { items: [], withAddress }).result,
+      ).rejects.toBeInstanceOf(AddressProviderUnavailableError);
+    },
+  );
+
+  it("throws CepWithoutLocationError when missing and the uf is loaded", async () => {
+    await expect(missing(found, ["SP", "RJ"])).rejects.toBeInstanceOf(CepWithoutLocationError);
+  });
+
+  it("throws CepOutOfCoverageError when missing and the uf is not loaded", async () => {
+    await expect(missing(found, ["RJ"])).rejects.toBeInstanceOf(CepOutOfCoverageError);
+  });
+
+  it("throws CepOutOfCoverageError when the provider returns no uf", async () => {
+    const noUf: AddressLookup = { status: "found", address: { ...ADDRESS, uf: null } };
+    await expect(missing(noUf)).rejects.toBeInstanceOf(CepOutOfCoverageError);
   });
 });

@@ -23,4 +23,9 @@ export class PrismaCepRepository implements CepRepository {
       select,
     });
   }
+
+  async findLoadedUfs(): Promise<string[]> {
+    const rows = await this.prisma.cep.findMany({ distinct: ['uf'], select: { uf: true } });
+    return rows.map((row) => row.uf);
+  }
 }

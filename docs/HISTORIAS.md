@@ -58,12 +58,16 @@ Fica para outra US: endereço e erros da BrasilAPI (US3), cache (US4), fallback 
 ## US3 — Endereço da origem e erros claros
 Como **Giross**, quero ver o endereço do CEP consultado e receber erros claros para CEP inexistente ou fora da cobertura, para confiar na resposta e entender por que ela falhou.
 
-- Dado um CEP válido, então `origem.endereco` traz rua, bairro, cidade e UF da BrasilAPI v2.
-- Dado que a BrasilAPI responde `404`, então `404 CEP inexistente`.
-- Dado um CEP de UF não carregada, então `422 fora da cobertura`.
-- Dado um CEP existente fora da base, então `422 sem geolocalização` (refinado na US5).
-- Dado que a BrasilAPI está fora do ar ou estoura o timeout (3 s), com o CEP na base, então a lista vem com `origem.endereco: null`.
+- Dado um CEP válido, quando chamo `GET /ceps-proximos/:cep/detalhes`, então `origem.endereco` traz rua, bairro, cidade e UF da BrasilAPI v2 (campos vazios como `null`).
+- Dado `GET /ceps-proximos/:cep` (resumo), então a resposta é enxuta (`origem` é só o CEP, sem raio nem endereço) e, com o CEP na base, não chama a BrasilAPI.
+- Dado um CEP fora da base que a BrasilAPI também não acha, então `404 CEP_NAO_ENCONTRADO`.
+- Dado um CEP fora da base que existe, com UF não carregada, então `422 CEP_FORA_DA_COBERTURA`.
+- Dado um CEP fora da base que existe, com UF carregada, então `422 CEP_SEM_GEOLOCALIZACAO` (refinado na US5).
+- Dado um CEP fora da base e a BrasilAPI fora do ar, com timeout (3 s) ou sem vaga no limite, então `503 PROVEDOR_INDISPONIVEL`.
+- Dado um CEP na base e a BrasilAPI fora do ar, estourando o timeout ou respondendo `404`, então `/detalhes` responde `200` com `origem.endereco: null`.
 - As chamadas à BrasilAPI ficam limitadas a 5 req/s.
+
+Decisões: duas rotas, a simples (`/ceps-proximos/:cep`) e a completa (`/ceps-proximos/:cep/detalhes`); quem usava o contrato completo migra para `/detalhes`. O `404` da BrasilAPI só vale como "não encontrado" se algum item de `errors[]` disser isso; senão é indisponível. O adapter traduz os erros da BrasilAPI para um resultado neutro, sem tocar o domínio.
 
 Fica para outra US: cache (US4), fallback Nominatim (US5).
 
@@ -128,7 +132,7 @@ Como **operador da API**, quero um endpoint que diga se a API e as dependências
 ## US10 — Documentação da API com Scalar
 Como **integrador da Giross**, quero uma documentação navegável do contrato da API, com exemplos e erros, para integrar sem ler o código nem adivinhar os formatos.
 
-- Dado `NODE_ENV` diferente de `production`, quando abro `/docs`, então vejo a UI do Scalar com todos os endpoints existentes: `GET /ceps-proximos/:cep`, `GET /saude`, `DELETE /cache` e `DELETE /cache/:cep` (com o esquema Bearer).
+- Dado `NODE_ENV` diferente de `production`, quando abro `/docs`, então vejo a UI do Scalar com todos os endpoints existentes: `GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `GET /saude`, `DELETE /cache` e `DELETE /cache/:cep` (com o esquema Bearer).
 - Dado o mesmo ambiente, então `GET /docs/openapi.json` devolve o documento OpenAPI 3.1.
 - Dado `NODE_ENV=production`, então `/docs` e `/docs/openapi.json` caem no `404 NAO_ENCONTRADO` genérico, sem revelar as rotas.
 - O OpenAPI vem de um `openapi.yaml` escrito à mão, em português (contrato), com os parâmetros, os exemplos de resposta e todos os códigos de erro do catálogo da US8.

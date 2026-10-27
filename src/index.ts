@@ -2,6 +2,7 @@ import { findNearbyCeps } from './application/find-nearby-ceps.js';
 import { loadEnv, type Env } from './config/env.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';
 import { PrismaCepRepository } from './infrastructure/db/prisma-cep-repository.js';
+import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provider.js';
 import { createLogger } from './infrastructure/logger.js';
 import { createApp } from './presentation/http/app.js';
 
@@ -16,7 +17,11 @@ try {
 const logger = createLogger(env.logLevel);
 const prisma = createPrismaClient(env.databaseUrl);
 const repository = new PrismaCepRepository(prisma);
-const app = createApp({ findNearbyCeps: findNearbyCeps(repository, env.searchRadiusKm), logger });
+const addressProvider = new BrasilApiCepProvider({ logger });
+const app = createApp({
+  findNearbyCeps: findNearbyCeps(repository, addressProvider, env.searchRadiusKm),
+  logger,
+});
 
 const server = app.listen(env.port, () => logger.info({ port: env.port }, 'api listening'));
 

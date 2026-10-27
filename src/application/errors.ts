@@ -1,4 +1,12 @@
-export const APP_ERROR_KINDS = ['invalid_cep', 'invalid_page', 'invalid_limit', 'cep_not_found'] as const;
+export const APP_ERROR_KINDS = [
+  'invalid_cep',
+  'invalid_page',
+  'invalid_limit',
+  'cep_not_found',
+  'cep_out_of_coverage',
+  'cep_without_location',
+  'address_provider_unavailable',
+] as const;
 
 export type AppErrorKind = (typeof APP_ERROR_KINDS)[number];
 
@@ -24,4 +32,19 @@ export class InvalidLimitError extends AppError {
 export class CepNotFoundError extends AppError {
   readonly kind = 'cep_not_found';
   override readonly name = 'CepNotFoundError';
+}
+
+export class CepOutOfCoverageError extends AppError {
+  readonly kind = 'cep_out_of_coverage';
+  override readonly name = 'CepOutOfCoverageError';
+}
+
+export class CepWithoutLocationError extends AppError {
+  readonly kind = 'cep_without_location';
+  override readonly name = 'CepWithoutLocationError';
+}
+
+export class AddressProviderUnavailableError extends AppError {
+  readonly kind = 'address_provider_unavailable';
+  override readonly name = 'AddressProviderUnavailableError';
 }
