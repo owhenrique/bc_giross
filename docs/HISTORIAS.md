@@ -16,6 +16,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US1 | Base de CEPs com coordenadas | ~200 | — |
 | US2 | Consultar CEPs próximos | ~370 | US1 |
 | US3 | Endereço da origem e erros claros | ~200 | US2 |
+| US11 | Formatação automática com Prettier (roda logo após a US3) | ~50 (reformatação) | US3 |
 | US4 | Cache | ~200 | US3 |
 | US5 | Fallback de coordenada (Nominatim) | ~150 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
@@ -70,6 +71,23 @@ Como **Giross**, quero ver o endereço do CEP consultado e receber erros claros 
 Decisões: duas rotas, a simples (`/ceps-proximos/:cep`) e a completa (`/ceps-proximos/:cep/detalhes`); quem usava o contrato completo migra para `/detalhes`. O `404` da BrasilAPI só vale como "não encontrado" se algum item de `errors[]` disser isso; senão é indisponível. O adapter traduz os erros da BrasilAPI para um resultado neutro, sem tocar o domínio.
 
 Fica para outra US: cache (US4), fallback Nominatim (US5).
+
+## US11 — Formatação automática com Prettier
+Como **time de desenvolvimento**, quero que o código seja formatado por uma ferramenta, com um estilo único, para que revisão e diff mostrem só mudança de comportamento, e não idas e vindas de formatação (como o `refactor(us3): volta ao estilo de formatação do projeto`).
+
+US técnica, pedida explicitamente. Roda logo depois da US3 e antes da US4: o número 11 é só de cadastro, e a ordem é a da tabela.
+
+- Dado o projeto, então existe `.prettierrc.json` com `singleQuote: true`, `semi: true`, `trailingComma: "all"`, `arrowParens: "always"`, `endOfLine: "lf"` e `printWidth: 100`.
+- O `printWidth: 100` equilibra leitura e tokens: a 80, 137 linhas do código atual quebrariam e cada chamada viraria 3–5 linhas; a 120, as linhas ficam longas demais para diff lado a lado. Hoje só 17 linhas passam de 100.
+- Dado `npm run format`, então o Prettier formata o projeto inteiro (`prettier --write .`), TS/JS, JSON e YAML, menos o que está no `.prettierignore`. Dado `npm run format:check`, então ele sai com código ≠ 0 se algum arquivo estiver fora do padrão.
+- Dado `.prettierignore`, então ficam de fora `data/`, `graphify-out/`, `src/generated/`, `prisma/migrations/`, `package-lock.json` e os `*.md` (docs em português, com tabelas, que não mudam de formato nesta US).
+- Dado o ESLint, então `eslint-config-prettier` desliga as regras de estilo que brigam com o Prettier, e `npm run lint` passa.
+- Dado o código existente, então a reformatação vai num commit só, sem nenhuma outra mudança, e o hash dele entra em `.git-blame-ignore-revs`, para o `git blame` pular esse commit.
+- Dado a reformatação, então `npm test` e `npm run typecheck` passam sem alterar nenhum teste, porque não há mudança de comportamento.
+
+Tamanho: medido de novo com `prettier@3` sobre a main com a US3, a reformatação altera ~156 linhas em 13 arquivos de código: ~51 de produção, que contam no limite, e ~105 de testes, que não contam. Além disso, 3 linhas do `docker-compose.yml`, que é config. Não há lógica nova. Spec: `docs/specs/us11-prettier.md`.
+
+Fica para outra US: hook de pre-commit (husky/lint-staged) e CI com `format:check`.
 
 ## US4 — Cache
 Como **Giross**, quero respostas rápidas para CEPs já consultados, para não esperar nem depender das APIs externas a cada chamada.
