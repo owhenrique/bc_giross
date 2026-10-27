@@ -184,8 +184,8 @@ Verificada em 2026-10-27 por subagente independente (contexto limpo), contra `ma
 - **Achados:**
   1. (Média) `find-nearby-ceps.ts` reformatado com aspas duplas e quebras fora do padrão, o que inflava o diff. Corrigido. O `find-nearby-ceps.test.ts` já usava aspas duplas em `main`, então não precisou mudar.
   2. (Baixa) `parseQueryNumber` reformatado em `nearby-ceps-route.ts`. Corrigido.
-  3. (Baixa) `lookupPromise` sem `await` se `findByCep` lançar com `withAddress`. Sem efeito prático, porque a porta nunca lança. Aceito como está.
-- **Decisão do usuário:** corrigir os achados 1 e 2 e aceitar o 3. Suítes rodadas de novo depois da correção, todas verdes.
+  3. (Baixa) `lookupPromise` sem `await` se `findByCep` lançar com `withAddress`. Sem efeito prático hoje, porque a porta nunca lança, mas corrigido a pedido do usuário com um `.catch(() => {})` na promessa.
+- **Decisão do usuário:** corrigir os achados 1 e 2; o 3 também foi corrigido depois. Suítes rodadas de novo depois da correção, todas verdes.
 - **Não verificado:** teste manual com `docker compose` e `SEED_UFS=SP` contra a BrasilAPI real; `/docs` (Scalar).
 
 ## Registro de testes
