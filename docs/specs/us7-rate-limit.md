@@ -7,7 +7,7 @@ titulo: Rate limit da API
 status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em:
 branch: feat/us7-rate-limit
 merge_request:
@@ -29,28 +29,28 @@ No mapa (`docs/HISTORIAS.md`), a US7 depende só da US2. A branch parte da `main
 
 ## Critérios de aceite
 **Entrada (nossa API)**
-- [ ] Dado 60 requisições do mesmo IP dentro da janela de 60 s, quando chega a 61ª, em qualquer rota (incluindo `DELETE /cache` e rotas inexistentes), então `429` com `{ erro: { codigo: "LIMITE_EXCEDIDO", mensagem: "Limite de requisições excedido" } }` e o header `Retry-After` com os segundos que faltam para a janela virar.
-- [ ] Dado um IP que estourou o limite, quando outro IP chama, então o outro é atendido normalmente: os contadores são por IP. IPv6 conta por sub-rede /56 (padrão do `express-rate-limit`).
-- [ ] Dado uma resposta dentro ou fora do limite, então ela traz os headers `RateLimit` e `RateLimit-Policy` (IETF draft-8). Os headers legados `X-RateLimit-*` não são enviados.
-- [ ] Dado `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS` (padrão 60 e 60), então o limite e a janela seguem a env. Valor não inteiro ou < 1 faz o `loadEnv` falhar.
-- [ ] Dado o Redis fora do ar ou estourando o timeout (500 ms) ao contar a requisição, então ela passa sem limite (fail-open) e o erro é logado como `warn`. A API não cai, nem na subida com o Redis fora.
-- [ ] Dado o contador no Redis, então a chave é `ratelimit:api:<ip>`, e um `DELETE /cache` não a apaga (fica fora dos `CACHE_KEY_PREFIXES`).
-- [ ] Dado `TRUST_PROXY` definido (ex.: `1`, `loopback`), então o IP do cliente sai do `X-Forwarded-For` conforme o `trust proxy` do Express. Sem a env (ou vazia), vale o IP do socket, e o `X-Forwarded-For` é ignorado.
-- [ ] Dado o catálogo de erros, então `rate_limit_exceeded` tem entrada nele, e o teste existente do catálogo continua passando.
+- [x] Dado 60 requisições do mesmo IP dentro da janela de 60 s, quando chega a 61ª, em qualquer rota (incluindo `DELETE /cache` e rotas inexistentes), então `429` com `{ erro: { codigo: "LIMITE_EXCEDIDO", mensagem: "Limite de requisições excedido" } }` e o header `Retry-After` com os segundos que faltam para a janela virar.
+- [x] Dado um IP que estourou o limite, quando outro IP chama, então o outro é atendido normalmente: os contadores são por IP. IPv6 conta por sub-rede /56 (padrão do `express-rate-limit`).
+- [x] Dado uma resposta dentro ou fora do limite, então ela traz os headers `RateLimit` e `RateLimit-Policy` (IETF draft-8). Os headers legados `X-RateLimit-*` não são enviados.
+- [x] Dado `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS` (padrão 60 e 60), então o limite e a janela seguem a env. Valor não inteiro ou < 1 faz o `loadEnv` falhar.
+- [x] Dado o Redis fora do ar ou estourando o timeout (500 ms) ao contar a requisição, então ela passa sem limite (fail-open) e o erro é logado como `warn`. A API não cai, nem na subida com o Redis fora.
+- [x] Dado o contador no Redis, então a chave é `ratelimit:api:<ip>`, e um `DELETE /cache` não a apaga (fica fora dos `CACHE_KEY_PREFIXES`).
+- [x] Dado `TRUST_PROXY` definido (ex.: `1`, `loopback`), então o IP do cliente sai do `X-Forwarded-For` conforme o `trust proxy` do Express. Sem a env (ou vazia), vale o IP do socket, e o `X-Forwarded-For` é ignorado.
+- [x] Dado o catálogo de erros, então `rate_limit_exceeded` tem entrada nele, e o teste existente do catálogo continua passando.
 
 **Requisição que gera outra internamente**
-- [ ] Dado uma requisição que passa pelo middleware de rate limit mais de uma vez (o mesmo `req` atravessa um router ou sub-app que monta o middleware de novo, ou é repassado internamente), então ela conta **uma vez só** e não recebe `429` por causa da própria passagem extra: o middleware pula quando `req.rateLimit` já está definido.
-- [ ] Dado a regra de arquitetura D30, então a composição interna (um caso de uso que precisa do resultado de outro) chama o caso de uso direto, em processo, e nunca faz HTTP para a própria API. Assim, a chamada interna não gasta o limite do cliente, não divide contador com `127.0.0.1` e não consome duas vezes a vaga da BrasilAPI ou do Nominatim. A regra fica registrada em `docs/DECISOES.md` (D30) e num comentário no `rateLimitMiddleware`.
-- [ ] Dado um teste com o middleware montado duas vezes no mesmo caminho (app e router) e limite 2, quando o mesmo IP faz 2 requisições, então as duas são `200` e o `RateLimit` mostra 0 restante. Um middleware que contasse em dobro bloquearia a 2ª, e o teste quebra.
+- [x] Dado uma requisição que passa pelo middleware de rate limit mais de uma vez (o mesmo `req` atravessa um router ou sub-app que monta o middleware de novo, ou é repassado internamente), então ela conta **uma vez só** e não recebe `429` por causa da própria passagem extra: o middleware pula quando `req.rateLimit` já está definido.
+- [x] Dado a regra de arquitetura D30, então a composição interna (um caso de uso que precisa do resultado de outro) chama o caso de uso direto, em processo, e nunca faz HTTP para a própria API. Assim, a chamada interna não gasta o limite do cliente, não divide contador com `127.0.0.1` e não consome duas vezes a vaga da BrasilAPI ou do Nominatim. A regra fica registrada em `docs/DECISOES.md` (D30) e num comentário no `rateLimitMiddleware`.
+- [x] Dado um teste com o middleware montado duas vezes no mesmo caminho (app e router) e limite 2, quando o mesmo IP faz 2 requisições, então as duas são `200` e o `RateLimit` mostra 0 restante. Um middleware que contasse em dobro bloquearia a 2ª, e o teste quebra.
 
 **Saída (BrasilAPI e Nominatim)**
 - [ ] Dado duas instâncias da API apontando para o mesmo Redis, então as duas juntas fazem no máximo 5 chamadas por segundo à BrasilAPI e 1 ao Nominatim: as chaves `ratelimit:brasilapi` e `ratelimit:nominatim` são compartilhadas.
 - [ ] Dado a janela de 1 s, então ela é deslizante: o Nominatim nunca recebe 2 chamadas a menos de 1 s uma da outra, nem na virada do segundo.
-- [ ] Dado o limite de saída atingido, então o comportamento é o de hoje: BrasilAPI → `unavailable` (`503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` em `/detalhes` para CEP na base); Nominatim → `503 PROVEDOR_INDISPONIVEL`.
-- [ ] Dado o Redis fora do ar ou estourando o timeout ao pedir vaga, então a vaga é pedida ao `WindowRateLimiter` em memória do processo (mesmo limite), com log `warn`. Quando o Redis volta, a contagem volta para ele sem reiniciar o serviço.
+- [x] Dado o limite de saída atingido, então o comportamento é o de hoje: BrasilAPI → `unavailable` (`503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` em `/detalhes` para CEP na base); Nominatim → `503 PROVEDOR_INDISPONIVEL`.
+- [x] Dado o Redis fora do ar ou estourando o timeout ao pedir vaga, então a vaga é pedida ao `WindowRateLimiter` em memória do processo (mesmo limite), com log `warn`. Quando o Redis volta, a contagem volta para ele sem reiniciar o serviço.
 
 **Docs**
-- [ ] O README documenta o limite de entrada, as envs `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` e `TRUST_PROXY`, o `429 LIMITE_EXCEDIDO` na tabela de erros e os limites de saída compartilhados no Redis. O `docker-compose.yml` e o `.env.example` trazem as três envs.
+- [x] O README documenta o limite de entrada, as envs `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS` e `TRUST_PROXY`, o `429 LIMITE_EXCEDIDO` na tabela de erros e os limites de saída compartilhados no Redis. O `docker-compose.yml` e o `.env.example` trazem as três envs.
 
 ## Escopo
 **Dentro:**
