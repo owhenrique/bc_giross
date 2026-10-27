@@ -113,6 +113,7 @@ Como **operador da API**, quero limpar o cache manualmente, de forma protegida, 
 
 - `DELETE /cache` e `DELETE /cache/:cep`, com `Authorization: Bearer <CACHE_ADMIN_TOKEN>`. Token errado → `401`.
 - Sem `CACHE_ADMIN_TOKEN`, os endpoints respondem `404`.
+- `DELETE /cache` apaga só os prefixos da API (`result:`, `address:`, `geocode:`). `DELETE /cache/:cep` apaga só as chaves do próprio CEP. Sucesso → `204`. Redis fora → `503 CACHE_INDISPONIVEL`. Header ausente, malformado ou token errado → `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`, antes da validação do CEP. Token com menos de 12 caracteres faz o `loadEnv` falhar. Spec: `docs/specs/us6-limpeza-de-cache.md`.
 
 ## US7 — Rate limit da API
 Como **operador da API**, quero limitar as requisições por cliente, para proteger o serviço e as APIs externas de abuso.
