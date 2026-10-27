@@ -4,11 +4,7 @@ import type { findNearbyCeps, NearbyCepsResult } from '../../application/find-ne
 
 // Query values arrive as strings; anything that is not a plain number becomes NaN and is rejected by the use case.
 const parseQueryNumber = (value: unknown) =>
-  value === undefined
-    ? undefined
-    : typeof value === 'string' && value.trim() !== ''
-      ? Number(value)
-      : NaN;
+  value === undefined ? undefined : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
