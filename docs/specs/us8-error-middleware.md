@@ -4,10 +4,10 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US2 (PR #2, mergeada)
 titulo: Error middleware com catálogo de erros
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
-implementada_em:
+implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us8-error-middleware
 merge_request:
@@ -141,10 +141,12 @@ Em 2026-10-27, subagente em contexto limpo, base `e4fc4e9` (merge do PR #2; `mai
 - **Não verificado:** curl contra servidor real com Postgres.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (13 arquivos, 89 testes), `npm run lint`, `npm run typecheck` | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | Henrique | local | `curl` em `/ceps-proximos/123`, `?pagina=0`, `?limite=999` e CEP inexistente; respostas idênticas às da US2 | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - A US2 (PR #2) ainda não foi mergeada; a branch da US8 parte dela ou de `main` depois do merge. O `/pato/implement` só começa quando a base tiver a US2.
