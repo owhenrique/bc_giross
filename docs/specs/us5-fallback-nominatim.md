@@ -8,7 +8,7 @@ status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em: 2026-10-27
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us5-fallback-nominatim
 merge_request:
 ---
@@ -169,7 +169,14 @@ Não se aplica.
   5. Um CEP de UF não carregada (ex.: `20040020`, RJ) → `422 CEP_FORA_DA_COBERTURA`, sem chamada ao Nominatim no log.
 
 ## Verificação independente
-Preenchido no `/pato/verify`; o `/pato/close-spec` não começa sem esta seção.
+- **Data:** 2026-10-27, subagente em contexto limpo, base `main`.
+- **Suítes:** `npm test` 199/199 (20 arquivos), `typecheck`, `lint` e `format:check` sem erros.
+- **Critérios:** 1 a 7 atendidos (testes de unidade e `app.test.ts`).
+- **Entregável:** sim. Os dois endpoints funcionam só com esta branch, que parte de `main` e tem só commits da US5.
+- **Linhas medidas:** 229 de 500 (`bc_giross`).
+- **Achados:** nenhum (Alta, Média ou Baixa).
+- **Não verificado:** teste manual (docker compose, Nominatim real, Redis), que fica para o `/pato/close-spec`; texto do README.
+- **Decisão do usuário:** aceitar como está e registrar.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
