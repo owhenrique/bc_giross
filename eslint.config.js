@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['node_modules', 'data', 'graphify-out'] },
+  { ignores: ['node_modules', 'data', 'graphify-out', 'src/generated'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
 );

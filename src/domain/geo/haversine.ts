@@ -3,7 +3,7 @@ export interface Point {
   lon: number;
 }
 
-const EARTH_RADIUS_KM = 6371.0088;
+export const EARTH_RADIUS_KM = 6371.0088;
 
 const toRad = (degrees: number): number => (degrees * Math.PI) / 180;
 
