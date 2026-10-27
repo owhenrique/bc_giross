@@ -27,7 +27,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 3. Dado um lookup da BrasilAPI com `found`, então ele fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Com `not_found`, fica por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Com `unavailable`, não entra no cache, e a chamada seguinte tenta a BrasilAPI de novo.
 - [x] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
 - [x] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 7 d) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
-- [ ] 6. Dado o Redis fora do ar (na subida ou durante a execução), então as consultas respondem normalmente, só sem cache, e cada falha vira log `warn`. Uma operação de cache que trava não segura a requisição por mais de 500 ms. Quando o Redis volta, o cache volta a funcionar sem reiniciar a API.
+- [x] 6. Dado o Redis fora do ar (na subida ou durante a execução), então as consultas respondem normalmente, só sem cache, e cada falha vira log `warn`. Uma operação de cache que trava não segura a requisição por mais de 500 ms. Quando o Redis volta, o cache volta a funcionar sem reiniciar a API.
 - [ ] 7. Dado o seed, quando a carga termina, então todas as chaves de resultado são apagadas e as de endereço ficam. Dado o Redis inacessível, então o seed sai com código ≠ 0 antes de mexer no banco. Se a limpeza falhar depois do `COMMIT`, ele também sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
 - [ ] 8. Dado o `docker compose up`, então sobe um serviço `redis` com `maxmemory` e `maxmemory-policy allkeys-lru`, com healthcheck. A `api` e o `seed` recebem `REDIS_URL` e só sobem com o Redis saudável.
 - [ ] 9. Dado um CEP fora da base com UF existente (caminho `422`), quando a API decide entre `CEP_FORA_DA_COBERTURA` e `CEP_SEM_GEOLOCALIZACAO`, então as UFs carregadas vêm da tabela `loaded_uf` (no máximo 27 linhas), sem ler a tabela `cep`. Dado o seed, então ele grava em `loaded_uf` as UFs que carregou, na mesma transação da carga dos CEPs.
@@ -175,7 +175,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 3. Cache do resultado no `findNearbyCeps` (nova assinatura, paginação sobre a lista em cache), com testes do caso de uso e do `app.test.ts`.
 - [x] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
 - [x] 5. Tabela `loaded_uf`: model, migration, `findLoadedUfs` lendo dela e o seed gravando as UFs na mesma transação, com teste.
-- [ ] 6. Seed: conecta no Redis antes da carga e limpa os resultados depois do `COMMIT`, falhando nos dois casos, com teste.
+- [x] 6. Seed: conecta no Redis antes da carga e limpa os resultados depois do `COMMIT`, falhando nos dois casos, com teste.
 - [ ] 7. README e `DECISOES.md`.
 
 ## Telas e fluxos E2E (Playwright)

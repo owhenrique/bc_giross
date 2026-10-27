@@ -15,10 +15,15 @@ export interface RedisClientLike {
 
 /**
  * Creates a node-redis client that fails commands fast while disconnected
- * (no offline queue), reconnects on its own and never crashes on 'error'.
+ * (no offline queue), reconnects on its own (unless `reconnect` is false) and
+ * never crashes on 'error'.
  */
-export function createRedisClient(url: string, logger: Pick<Logger, 'warn'>) {
-  const client = createClient({ url, disableOfflineQueue: true });
+export function createRedisClient(url: string, logger: Pick<Logger, 'warn'>, reconnect = true) {
+  const client = createClient({
+    url,
+    disableOfflineQueue: true,
+    ...(reconnect ? {} : { socket: { reconnectStrategy: false as const } }),
+  });
   client.on('error', (error) => logger.warn({ err: error }, 'redis client error'));
   return client;
 }
