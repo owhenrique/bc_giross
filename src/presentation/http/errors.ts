@@ -6,6 +6,9 @@ export const ErrorCode = {
   InvalidCep: 'CEP_INVALIDO',
   InvalidParameter: 'PARAMETRO_INVALIDO',
   CepNotFound: 'CEP_NAO_ENCONTRADO',
+  CepOutOfCoverage: 'CEP_FORA_DA_COBERTURA',
+  CepWithoutLocation: 'CEP_SEM_GEOLOCALIZACAO',
+  ProviderUnavailable: 'PROVEDOR_INDISPONIVEL',
   NotFound: 'NAO_ENCONTRADO',
   Internal: 'ERRO_INTERNO',
 } as const;

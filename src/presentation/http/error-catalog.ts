@@ -20,4 +20,19 @@ export const ERROR_CATALOG: Record<AppErrorKind, ErrorCatalogEntry> = {
     mensagem: 'limite deve ser um inteiro entre 1 e 200',
   },
   cep_not_found: { status: 404, codigo: 'CEP_NAO_ENCONTRADO', mensagem: 'CEP não encontrado' },
+  cep_out_of_coverage: {
+    status: 422,
+    codigo: 'CEP_FORA_DA_COBERTURA',
+    mensagem: 'CEP fora da cobertura da base',
+  },
+  cep_without_location: {
+    status: 422,
+    codigo: 'CEP_SEM_GEOLOCALIZACAO',
+    mensagem: 'Não foi possível obter a coordenada do CEP',
+  },
+  address_provider_unavailable: {
+    status: 503,
+    codigo: 'PROVEDOR_INDISPONIVEL',
+    mensagem: 'Serviço de consulta de CEP indisponível',
+  },
 };

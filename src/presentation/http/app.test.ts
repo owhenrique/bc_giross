@@ -14,6 +14,7 @@ function cepAt(cep: string, km: number): StoredCep {
 
 function inMemoryRepository(items: StoredCep[]): CepRepository {
   return {
+    findLoadedUfs: async () => ['SP'],
     findByCep: async (cep) => items.find((item) => item.cep === cep) ?? null,
     findInBox: async (box) =>
       items.filter(
@@ -27,7 +28,7 @@ function inMemoryRepository(items: StoredCep[]): CepRepository {
 }
 
 function appWith(repository: CepRepository) {
-  return createApp({ findNearbyCeps: findNearbyCeps(repository, 1), logger: pino({ level: 'silent' }) });
+  return createApp({ findNearbyCeps: findNearbyCeps(repository, { lookup: async () => ({ status: 'not_found' }) }, 1), logger: pino({ level: 'silent' }) });
 }
 
 const defaultApp = () => appWith(inMemoryRepository([ORIGIN, cepAt('04551010', 0.1234), cepAt('04551020', 0.5)]));
@@ -111,6 +112,7 @@ describe('unknown routes and unexpected errors', () => {
         throw new Error('db down');
       },
       findInBox: async () => [],
+      findLoadedUfs: async () => [],
     };
     const res = await request(appWith(failing)).get('/ceps-proximos/04551000');
     expect(res.status).toBe(500);
@@ -124,6 +126,7 @@ describe('unknown routes and unexpected errors', () => {
         throw Object.assign(new Error('payload too large'), { status: 413 });
       },
       findInBox: async () => [],
+      findLoadedUfs: async () => [],
     };
     const res = await request(appWith(tooLarge)).get('/ceps-proximos/04551000');
     expect(res.status).toBe(400);

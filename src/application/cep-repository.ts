@@ -10,4 +10,5 @@ export interface StoredCep {
 export interface CepRepository {
   findByCep(cep: string): Promise<StoredCep | null>;
   findInBox(box: BoundingBox): Promise<StoredCep[]>;
+  findLoadedUfs(): Promise<string[]>;
 }

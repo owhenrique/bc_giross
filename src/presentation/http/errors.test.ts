@@ -2,7 +2,10 @@ import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AppError,
+  AddressProviderUnavailableError,
   CepNotFoundError,
+  CepOutOfCoverageError,
+  CepWithoutLocationError,
   InvalidCepError,
   InvalidLimitError,
   InvalidPageError,
@@ -25,6 +28,9 @@ describe('errorHandler', () => {
     new InvalidPageError(),
     new InvalidLimitError(),
     new CepNotFoundError(),
+    new CepOutOfCoverageError(),
+    new CepWithoutLocationError(),
+    new AddressProviderUnavailableError(),
   ])('maps $kind to its catalog entry', (err) => {
     const { res, json, error } = run(err);
     const entry = ERROR_CATALOG[err.kind];
