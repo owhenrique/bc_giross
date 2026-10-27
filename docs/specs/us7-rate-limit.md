@@ -123,6 +123,7 @@ Nenhuma.
   - `TRUST_PROXY` opcional: vazio ou ausente → `false`, `true`/`false` → boolean, só dígitos → número de saltos, outro texto → string (ex.: `loopback, 10.0.0.0/8`). Exposto como `Env.trustProxy`;
   - no compose, `${RATE_LIMIT_MAX:-60}`, `${RATE_LIMIT_WINDOW_SECONDS:-60}` e `${TRUST_PROXY:-}`.
 - **`src/index.ts`:**
+  - a conexão inicial com o Redis é aguardada antes do `createApp`, com teto de `REDIS_CONNECT_TIMEOUT_MS` (2 s): sem isso, o `init` da `RedisStore` corria contra o `connect()` e logava `NOSCRIPT … client is offline` em toda subida, mesmo com o Redis de pé. Com o Redis fora, o `connect()` do node-redis nunca resolve (fica reconectando), então o teto deixa a API subir e degradar. O `withTimeout` passou a aceitar o tempo como parâmetro;
   - `createApp({ ..., trustProxy: env.trustProxy, rateLimit: { limit: env.rateLimit.max, windowMs: env.rateLimit.windowSeconds * 1000, store: createRedisRateLimitStore(redis) } })`;
   - BrasilAPI com `limiter: new RedisWindowRateLimiter(redis, { key: 'ratelimit:brasilapi', max: 5, windowMs: 1000, fallback: new WindowRateLimiter(5, 1000), logger })`;
   - Nominatim igual, com `ratelimit:nominatim` e 1/1000.

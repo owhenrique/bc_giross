@@ -3,7 +3,12 @@ import { clearCache } from './application/clear-cache.js';
 import { findNearbyCeps } from './application/find-nearby-ceps.js';
 import { OriginGeocoder } from './application/origin-geocoder.js';
 import { loadEnv, type Env } from './config/env.js';
-import { createRedisClient, RedisCache } from './infrastructure/cache/redis-cache.js';
+import {
+  createRedisClient,
+  RedisCache,
+  REDIS_CONNECT_TIMEOUT_MS,
+  withTimeout,
+} from './infrastructure/cache/redis-cache.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';
 import { PrismaCepRepository } from './infrastructure/db/prisma-cep-repository.js';
 import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provider.js';
@@ -26,7 +31,11 @@ const logger = createLogger(env.logLevel);
 const prisma = createPrismaClient(env.databaseUrl);
 const repository = new PrismaCepRepository(prisma);
 const redis = createRedisClient(env.redisUrl, logger);
-redis.connect().catch((error: unknown) => logger.warn({ err: error }, 'redis connect failed'));
+// Awaited (bounded) so the rate limit store loads its scripts on a connected client;
+// with Redis down, `connect()` never settles, so the API starts after the timeout and degrades.
+await withTimeout(redis.connect(), REDIS_CONNECT_TIMEOUT_MS).catch((error: unknown) =>
+  logger.warn({ err: error }, 'redis connect failed'),
+);
 const cache = new RedisCache(redis, logger);
 const addressProvider = new CachingCepAddressProvider(
   new BrasilApiCepProvider({
