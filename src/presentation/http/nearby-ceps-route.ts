@@ -45,7 +45,7 @@ export function toDetailedResponse(result: NearbyCepsResult) {
       cep: origin.cep,
       latitude: origin.lat,
       longitude: origin.lon,
-      fonte: 'base',
+      fonte: origin.source === 'nominatim' ? 'nominatim' : 'base',
       endereco: toAddress(origin.address),
     },
     raio_km: result.radiusKm,

@@ -4,6 +4,7 @@ import { haversineKm } from '../domain/geo/haversine.js';
 import { resultKey, type Cache } from './cache.js';
 import type { AddressLookup, CepAddress, CepAddressProvider } from './cep-address-provider.js';
 import type { CepRepository } from './cep-repository.js';
+import type { OriginGeocoder } from './origin-geocoder.js';
 import {
   AddressProviderUnavailableError,
   CepNotFoundError,
@@ -26,8 +27,16 @@ export interface FindNearbyCepsInput {
 
 const isIntegerAtLeast = (value: number, min: number) => Number.isInteger(value) && value >= min;
 
+export type OriginSource = 'dataset' | 'nominatim';
+
 export interface NearbyCepsResult {
-  origin: { cep: string; lat: number; lon: number; source: 'dataset'; address: CepAddress | null };
+  origin: {
+    cep: string;
+    lat: number;
+    lon: number;
+    source: OriginSource;
+    address: CepAddress | null;
+  };
   radiusKm: number;
   pagination: { page: number; limit: number; total: number; totalPages: number };
   neighbors: { cep: string; distanceKm: number }[];
@@ -39,7 +48,8 @@ interface Neighbor {
 }
 
 interface CachedResult {
-  origin: { cep: string; lat: number; lon: number };
+  // `source` is absent in results cached before the Nominatim fallback existed; those came from the dataset.
+  origin: { cep: string; lat: number; lon: number; source?: OriginSource };
   neighbors: Neighbor[];
 }
 
@@ -51,6 +61,7 @@ export interface FindNearbyCepsOptions {
 export function findNearbyCeps(
   repository: CepRepository,
   addressProvider: CepAddressProvider,
+  originGeocoder: OriginGeocoder,
   cache: Cache,
   { radiusKm, resultTtlSeconds }: FindNearbyCepsOptions,
 ) {
@@ -59,18 +70,27 @@ export function findNearbyCeps(
     lookupPromise: Promise<AddressLookup> | null,
   ): Promise<CachedResult> {
     const stored = await repository.findByCep(cep);
-    if (!stored) {
+    let origin: { lat: number; lon: number };
+    let source: OriginSource = 'dataset';
+    if (stored) {
+      origin = { lat: stored.latitude, lon: stored.longitude };
+    } else {
       const lookup = await (lookupPromise ?? addressProvider.lookup(cep));
       if (lookup.status === 'not_found') throw new CepNotFoundError();
       if (lookup.status === 'unavailable') throw new AddressProviderUnavailableError();
       const loadedUfs = await repository.findLoadedUfs();
-      const covered = lookup.address.uf !== null && loadedUfs.includes(lookup.address.uf);
-      throw covered ? new CepWithoutLocationError() : new CepOutOfCoverageError();
+      if (lookup.address.uf === null || !loadedUfs.includes(lookup.address.uf)) {
+        throw new CepOutOfCoverageError();
+      }
+      const located = await originGeocoder.locate(cep, lookup.address);
+      if (located.status === 'no_match') throw new CepWithoutLocationError();
+      if (located.status === 'unavailable') throw new AddressProviderUnavailableError();
+      origin = { lat: located.lat, lon: located.lon };
+      source = 'nominatim';
     }
-    const origin = { lat: stored.latitude, lon: stored.longitude };
     const candidates = await repository.findInBox(boundingBox(origin, radiusKm));
     const neighbors = candidates
-      .filter((candidate) => candidate.cep !== stored.cep)
+      .filter((candidate) => candidate.cep !== cep)
       .map((candidate) => ({
         cep: candidate.cep,
         distanceKm: haversineKm(origin, { lat: candidate.latitude, lon: candidate.longitude }),
@@ -78,7 +98,7 @@ export function findNearbyCeps(
       .filter((neighbor) => neighbor.distanceKm <= radiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm || a.cep.localeCompare(b.cep));
 
-    return { origin: { cep: stored.cep, ...origin }, neighbors };
+    return { origin: { cep, ...origin, source }, neighbors };
   }
 
   return async (input: FindNearbyCepsInput): Promise<NearbyCepsResult> => {
@@ -103,7 +123,7 @@ export function findNearbyCeps(
     const all = result.neighbors;
     const total = all.length;
     return {
-      origin: { ...result.origin, source: 'dataset', address },
+      origin: { ...result.origin, source: result.origin.source ?? 'dataset', address },
       radiusKm,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       neighbors: all.slice((page - 1) * limit, page * limit),

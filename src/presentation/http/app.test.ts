@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../infrastructure/cache/in-memory-cache.js';
 import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
 import type { AddressLookup } from '../../application/cep-address-provider.js';
+import type { GeocodeLookup } from '../../application/geocoder.js';
+import { OriginGeocoder } from '../../application/origin-geocoder.js';
 import { findNearbyCeps } from '../../application/find-nearby-ceps.js';
 import { createApp } from './app.js';
 
@@ -46,8 +48,23 @@ const ADDRESS = {
   uf: 'SP',
 };
 
-function appWith(repository: CepRepository, lookup: AddressLookup = { status: 'not_found' }) {
-  const calls = { count: 0 };
+function appWith(
+  repository: CepRepository,
+  lookup: AddressLookup = { status: 'not_found' },
+  geocode: GeocodeLookup = { status: 'found', candidates: [] },
+) {
+  const calls = { count: 0, geocoder: 0 };
+  const cache = new InMemoryCache();
+  const originGeocoder = new OriginGeocoder(
+    {
+      search: async () => {
+        calls.geocoder += 1;
+        return geocode;
+      },
+    },
+    cache,
+    { foundTtlSeconds: 60, noMatchTtlSeconds: 60 },
+  );
   const provider = {
     lookup: async () => {
       calls.count += 1;
@@ -55,7 +72,7 @@ function appWith(repository: CepRepository, lookup: AddressLookup = { status: 'n
     },
   };
   const app = createApp({
-    findNearbyCeps: findNearbyCeps(repository, provider, new InMemoryCache(), {
+    findNearbyCeps: findNearbyCeps(repository, provider, originGeocoder, cache, {
       radiusKm: 1,
       resultTtlSeconds: 60,
     }),
@@ -273,5 +290,50 @@ describe('unknown routes and unexpected errors', () => {
     expect(res.status).toBe(400);
     expect(res.body.erro.codigo).toBe('PARAMETRO_INVALIDO');
     expect(res.text).not.toMatch(/payload too large/);
+  });
+});
+
+describe('Nominatim fallback', () => {
+  const hit: GeocodeLookup = {
+    status: 'found',
+    candidates: [{ lat: ORIGIN.latitude, lon: ORIGIN.longitude, city: 'São Paulo', uf: 'SP' }],
+  };
+  const fallbackApp = (geocode: GeocodeLookup) =>
+    appWith(inMemoryRepository(items()), { status: 'found', address: ADDRESS }, geocode);
+
+  it('returns fonte nominatim in the detailed route', async () => {
+    const app = fallbackApp(hit);
+    const res = await request(app).get('/ceps-proximos/01001000/detalhes');
+    expect(res.status).toBe(200);
+    expect(res.body.origem).toMatchObject({
+      cep: '01001000',
+      latitude: ORIGIN.latitude,
+      longitude: ORIGIN.longitude,
+      fonte: 'nominatim',
+    });
+    expect(res.body.ceps).toHaveLength(3);
+    const again = await request(app).get('/ceps-proximos/01001000/detalhes');
+    expect(again.body.origem.fonte).toBe('nominatim');
+    expect(app.calls.geocoder).toBe(1);
+  });
+
+  it('answers the summary route with the same neighbors', async () => {
+    const res = await request(fallbackApp(hit)).get('/ceps-proximos/01001000');
+    expect(res.status).toBe(200);
+    expect(res.body.ceps).toHaveLength(3);
+  });
+
+  it.each(ROUTES)('returns 422 on no match (%s)', async (_name, path) => {
+    const res = await request(fallbackApp({ status: 'found', candidates: [] })).get(
+      path('01001000'),
+    );
+    expect(res.status).toBe(422);
+    expect(res.body.erro.codigo).toBe('CEP_SEM_GEOLOCALIZACAO');
+  });
+
+  it.each(ROUTES)('returns 503 when the geocoder is unavailable (%s)', async (_name, path) => {
+    const res = await request(fallbackApp({ status: 'unavailable' })).get(path('01001000'));
+    expect(res.status).toBe(503);
+    expect(res.body.erro.codigo).toBe('PROVEDOR_INDISPONIVEL');
   });
 });

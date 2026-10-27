@@ -12,6 +12,8 @@ import {
   InvalidPageError,
 } from './errors.js';
 import { findNearbyCeps, type NearbyCepsResult } from './find-nearby-ceps.js';
+import type { GeocodeLookup, Geocoder } from './geocoder.js';
+import { OriginGeocoder } from './origin-geocoder.js';
 
 const KM_PER_DEGREE = 111.195;
 const ORIGIN = {
@@ -63,12 +65,28 @@ function inMemoryRepository(items: StoredCep[], ufs: string[] = ['SP']): CepRepo
   };
 }
 
+function fakeGeocoder(result: GeocodeLookup = { status: 'found', candidates: [] }) {
+  const calls: unknown[] = [];
+  const geocoder: Geocoder = {
+    search: async (query) => {
+      calls.push(query);
+      return result;
+    },
+  };
+  const originGeocoder = new OriginGeocoder(geocoder, new InMemoryCache(), {
+    foundTtlSeconds: 60,
+    noMatchTtlSeconds: 60,
+  });
+  return { originGeocoder, calls };
+}
+
 const cacheOptions = (radiusKm = 1) => ({ radiusKm, resultTtlSeconds: 60 });
 
 function search(items: StoredCep[], page = 1, limit = 50, radiusKm = 1): Promise<NearbyCepsResult> {
   return findNearbyCeps(
     inMemoryRepository([ORIGIN, ...items]),
     fakeProvider().provider,
+    fakeGeocoder().originGeocoder,
     new InMemoryCache(),
     cacheOptions(radiusKm),
   )({ cep: ORIGIN.cep, page, limit });
@@ -80,6 +98,7 @@ describe('findNearbyCeps', () => {
       findNearbyCeps(
         inMemoryRepository([]),
         fakeProvider().provider,
+        fakeGeocoder().originGeocoder,
         new InMemoryCache(),
         cacheOptions(),
       )({ cep: '99999999', page: 1, limit: 50 }),
@@ -167,6 +186,7 @@ describe('findNearbyCeps input validation', () => {
     findNearbyCeps(
       inMemoryRepository([ORIGIN]),
       fakeProvider().provider,
+      fakeGeocoder().originGeocoder,
       new InMemoryCache(),
       cacheOptions(),
     )(input);
@@ -210,6 +230,7 @@ describe('findNearbyCeps address', () => {
     const result = findNearbyCeps(
       inMemoryRepository(options.items ?? [ORIGIN], options.ufs),
       provider,
+      fakeGeocoder().originGeocoder,
       new InMemoryCache(),
       cacheOptions(),
     )({ cep: '04551000', withAddress: options.withAddress });
@@ -288,7 +309,13 @@ describe('findNearbyCeps result cache', () => {
     };
     const { provider, calls } = fakeProvider(lookup);
     const cache = new InMemoryCache();
-    const run = findNearbyCeps(repository, provider, cache, cacheOptions());
+    const run = findNearbyCeps(
+      repository,
+      provider,
+      fakeGeocoder().originGeocoder,
+      cache,
+      cacheOptions(),
+    );
     return { run, counts, calls, cache };
   }
 
@@ -336,5 +363,82 @@ describe('findNearbyCeps result cache', () => {
     await expect(run({ cep: '99999999' })).rejects.toBeInstanceOf(CepNotFoundError);
     expect(counts.findByCep).toBe(2);
     expect(await cache.get('result:1:99999999')).toBeNull();
+  });
+});
+
+describe('findNearbyCeps Nominatim fallback', () => {
+  const MISSING = '01001000';
+  const found: AddressLookup = { status: 'found', address: ADDRESS };
+  const hit = (lat: number, lon: number): GeocodeLookup => ({
+    status: 'found',
+    candidates: [{ lat, lon, city: 'São Paulo', uf: 'SP' }],
+  });
+
+  function setup(geocode: GeocodeLookup, lookup: AddressLookup = found, ufs?: string[]) {
+    const { provider } = fakeProvider(lookup);
+    const { originGeocoder, calls } = fakeGeocoder(geocode);
+    const cache = new InMemoryCache();
+    const items = [ORIGIN, cepAt('04551010', 0.3), cepAt('04551020', 0.1), cepAt('04551030', 3)];
+    const run = findNearbyCeps(
+      inMemoryRepository(items, ufs),
+      provider,
+      originGeocoder,
+      cache,
+      cacheOptions(),
+    );
+    return { run, calls, cache };
+  }
+
+  it('computes neighbors from the geocoded coordinate with source nominatim', async () => {
+    const { run, calls } = setup(hit(ORIGIN.latitude, ORIGIN.longitude));
+    const result = await run({ cep: MISSING });
+    expect(result.origin).toMatchObject({
+      cep: MISSING,
+      lat: ORIGIN.latitude,
+      lon: ORIGIN.longitude,
+      source: 'nominatim',
+    });
+    expect(result.neighbors.map((n) => n.cep)).toEqual(['04551000', '04551020', '04551010']);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('throws CepWithoutLocationError on no match', async () => {
+    const { run } = setup({ status: 'found', candidates: [] });
+    await expect(run({ cep: MISSING })).rejects.toBeInstanceOf(CepWithoutLocationError);
+  });
+
+  it('throws AddressProviderUnavailableError when the geocoder is unavailable', async () => {
+    const { run } = setup({ status: 'unavailable' });
+    await expect(run({ cep: MISSING })).rejects.toBeInstanceOf(AddressProviderUnavailableError);
+  });
+
+  it('does not call the geocoder when the uf is not loaded', async () => {
+    const { run, calls } = setup(hit(0, 0), found, ['RJ']);
+    await expect(run({ cep: MISSING })).rejects.toBeInstanceOf(CepOutOfCoverageError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('does not call the geocoder when the cep is in the dataset', async () => {
+    const { run, calls } = setup(hit(0, 0));
+    expect((await run({ cep: ORIGIN.cep })).origin.source).toBe('dataset');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('caches the result with its source and skips the geocoder on repeat', async () => {
+    const { run, calls } = setup(hit(ORIGIN.latitude, ORIGIN.longitude));
+    await run({ cep: MISSING });
+    const second = await run({ cep: MISSING });
+    expect(second.origin.source).toBe('nominatim');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('treats a cached result without source as dataset', async () => {
+    const { run, cache } = setup(hit(0, 0));
+    await cache.set(
+      'result:1:04551000',
+      { origin: { cep: '04551000', lat: -23.59, lon: -46.68 }, neighbors: [] },
+      60,
+    );
+    expect((await run({ cep: '04551000' })).origin.source).toBe('dataset');
   });
 });
