@@ -4,10 +4,10 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US1 (mergeada em main, PR #1)
 titulo: Consultar CEPs próximos
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-26
-implementada_em: 2026-10-26
+implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us2-ceps-proximos
 merge_request:
@@ -243,10 +243,12 @@ Em 2026-10-27, por subagente em contexto limpo, base `main`.
 - **Decisão do usuário:** corrigir os achados Baixa e registrar.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (10 arquivos, 75 testes), lint e typecheck | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec, suítes e curls na stack em execução | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | Henrique | local (Docker) | US2 na stack do compose, relatado pelo usuário (sem detalhamento por fluxo) | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Prisma 7 (driver adapter, `prisma.config.ts`, client gerado fora de `node_modules`)**: a configuração muda entre versões. Fixar a versão estável no `package.json` e seguir a documentação dela. Se o client gerado cair em `src/`, ignorá-lo no ESLint e no git.
