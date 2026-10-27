@@ -6,6 +6,7 @@ export const APP_ERROR_KINDS = [
   'cep_out_of_coverage',
   'cep_without_location',
   'address_provider_unavailable',
+  'cache_unavailable',
 ] as const;
 
 export type AppErrorKind = (typeof APP_ERROR_KINDS)[number];
@@ -47,4 +48,9 @@ export class CepWithoutLocationError extends AppError {
 export class AddressProviderUnavailableError extends AppError {
   readonly kind = 'address_provider_unavailable';
   override readonly name = 'AddressProviderUnavailableError';
+}
+
+export class CacheUnavailableError extends AppError {
+  readonly kind = 'cache_unavailable';
+  override readonly name = 'CacheUnavailableError';
 }

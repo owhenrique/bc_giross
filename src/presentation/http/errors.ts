@@ -9,6 +9,8 @@ export const ErrorCode = {
   CepOutOfCoverage: 'CEP_FORA_DA_COBERTURA',
   CepWithoutLocation: 'CEP_SEM_GEOLOCALIZACAO',
   ProviderUnavailable: 'PROVEDOR_INDISPONIVEL',
+  CacheUnavailable: 'CACHE_INDISPONIVEL',
+  Unauthorized: 'NAO_AUTORIZADO',
   NotFound: 'NAO_ENCONTRADO',
   Internal: 'ERRO_INTERNO',
 } as const;

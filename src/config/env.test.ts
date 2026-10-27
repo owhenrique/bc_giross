@@ -60,6 +60,18 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...base, CACHE_TTL_ADDRESS_SECONDS: '0' })).toThrow();
   });
 
+  it('treats a missing or empty CACHE_ADMIN_TOKEN as disabled', () => {
+    expect(loadEnv(base).cacheAdminToken).toBeUndefined();
+    expect(loadEnv({ ...base, CACHE_ADMIN_TOKEN: '' }).cacheAdminToken).toBeUndefined();
+  });
+
+  it('requires CACHE_ADMIN_TOKEN to have at least 12 characters', () => {
+    expect(() => loadEnv({ ...base, CACHE_ADMIN_TOKEN: 'x'.repeat(11) })).toThrow();
+    expect(loadEnv({ ...base, CACHE_ADMIN_TOKEN: 'x'.repeat(12) }).cacheAdminToken).toBe(
+      'x'.repeat(12),
+    );
+  });
+
   it('reads the Nominatim overrides and rejects an invalid URL', () => {
     const env = loadEnv({
       ...base,

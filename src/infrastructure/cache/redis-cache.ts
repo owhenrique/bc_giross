@@ -28,7 +28,7 @@ export function createRedisClient(url: string, logger: Pick<Logger, 'warn'>, rec
   return client;
 }
 
-/** Redis-backed cache. `get`/`set` degrade to miss/no-op; `deleteByPrefix` propagates errors and timeouts. */
+/** Redis-backed cache. `get`/`set` degrade to miss/no-op; `deleteByPrefix`/`delete` propagate errors and timeouts. */
 export class RedisCache implements Cache {
   constructor(
     private readonly client: RedisClientLike,
@@ -67,6 +67,11 @@ export class RedisCache implements Cache {
     } finally {
       await iterator.return?.();
     }
+  }
+
+  async delete(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+    await withTimeout(this.client.unlink(keys));
   }
 }
 

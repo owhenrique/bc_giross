@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AppError,
   AddressProviderUnavailableError,
+  CacheUnavailableError,
   CepNotFoundError,
   CepOutOfCoverageError,
   CepWithoutLocationError,
@@ -23,6 +24,7 @@ describe('application errors', () => {
       AddressProviderUnavailableError,
       'address_provider_unavailable',
     ],
+    ['CacheUnavailableError', CacheUnavailableError, 'cache_unavailable'],
   ] as const)('%s has a fixed kind and is an AppError', (name, ErrorClass, kind) => {
     const error = new ErrorClass('message');
     expect(error.kind).toBe(kind);
