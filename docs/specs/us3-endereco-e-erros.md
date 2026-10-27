@@ -66,6 +66,7 @@ Decisões que valem aqui: D11, D12, D13, D14, D22, D23, D24, D26, D27, D28, D29.
 - P: A rota simples chama a BrasilAPI? → R: só com o CEP fora da base, para dar os mesmos erros claros. Com o CEP na base, não chama (mais rápida e não gasta as 5 req/s).
 - P (revisão): `cep_nonexistent` / `CEP_INEXISTENTE`? → R: vira `cep_not_found`, com `404 CEP_NAO_ENCONTRADO` "CEP não encontrado", a entrada que já existe no catálogo. Não achar o CEP não prova que ele não existe, porque as bases de CEP são atualizadas de tempos em tempos.
 - P (revisão): o `404` da BrasilAPI pode ser serviço indisponível → R: na chamada real de `00000001` (2026-10-27), o `404` (`type: "service_error"`) trouxe em `errors[]` uma mistura de falhas de conexão (ViaCEP, WideNet), de parse (Correios) e um "CEP não encontrado na base dos Correios." (correios-alt). Regra: o `404` só vale como não encontrado se pelo menos um item de `errors[]` disser "não encontrado"; senão, indisponível.
+- P: Quem trata os erros do provider? Trocar de provedor obriga a mudar o domínio? → R: não. O adapter traduz os erros da BrasilAPI para o resultado neutro da porta (`found`/`not_found`/`unavailable`). O caso de uso só aplica a regra de negócio sobre esse resultado, e `src/domain` não é tocado. A fronteira está no design técnico.
 
 ## Premissas
 Nenhuma.
@@ -78,6 +79,7 @@ Nenhuma.
   interface CepAddressProvider { lookup(cep: string): Promise<AddressLookup> }
   ```
   A porta nunca lança: indisponibilidade é um resultado, porque o caso de uso decide entre `endereco: null` e `503`.
+  **Fronteira:** tudo o que é específico da BrasilAPI fica no adapter: URL, timeout, limiter, status HTTP, formato de `errors[]`, `NOT_FOUND_PATTERN` e os nomes `street`/`state`. Nada disso aparece em `application`, `domain` ou `presentation`, e os nomes fora do adapter são neutros (`address_provider_unavailable`, `PROVEDOR_INDISPONIVEL`). Trocar de provedor é criar outro `CepAddressProvider` e mudar uma linha em `src/index.ts`, sem tocar no caso de uso, no catálogo nem nas rotas.
 - **`findNearbyCeps(repository, addressProvider, radiusKm)`:** `FindNearbyCepsInput` ganha `withAddress?: boolean` (padrão `false`). O caso de uso valida a entrada como hoje. Com `withAddress`, inicia o `lookup` junto com o `findByCep` (em paralelo); sem ele, só chama o `lookup` se o CEP não estiver na base.
   - Com o CEP na base: `address` = o endereço se `withAddress` e `found`, senão `null`. Segue o cálculo atual.
   - Sem o CEP na base (as duas rotas): `not_found` → `CepNotFoundError` (a que já existe); `unavailable` → `AddressProviderUnavailableError`; `found` → `findLoadedUfs()`, e a UF fora da lista → `CepOutOfCoverageError`, senão `CepWithoutLocationError`.
