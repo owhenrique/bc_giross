@@ -10,7 +10,7 @@ criada_em: 2026-10-26
 implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us2-ceps-proximos
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/2
 ---
 
 # US2 — Consultar CEPs próximos
