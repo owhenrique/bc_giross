@@ -29,10 +29,10 @@ Decisões que valem aqui: D26, D27, D28.
 - [x] 1. Dado um CEP inválido, paginação inválida ou CEP inexistente, quando o caso de uso roda, então ele lança `InvalidCepError` (`invalid_cep`), `InvalidPageError` (`invalid_page`), `InvalidLimitError` (`invalid_limit`) ou `CepNotFoundError` (`cep_not_found`), todas subclasses de `AppError` com `kind` estável em inglês.
 - [x] 2. Dado um `AppError`, quando chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
 - [x] 3. Dado um erro que não é `AppError`, ou um `kind` fora do catálogo, então `500 ERRO_INTERNO`, com log do erro e sem stack na resposta.
-- [ ] 4. Dado um erro da pilha com `status` 4xx que não é `AppError` (ex.: JSON malformado), então continua `400 PARAMETRO_INVALIDO` / `Requisição inválida`.
-- [ ] 5. Dado as rotas, então nenhuma tem `switch`/`if` de status de erro: a rota chama o caso de uso e devolve `toResponse(resultado)`; a rejeição vai ao middleware pelo Express 5.
-- [ ] 6. Dado o catálogo, então um teste garante que todo `kind` de `AppError` tem entrada nele (erro novo sem entrada quebra o teste e o typecheck, não a produção).
-- [ ] 7. Dado os testes HTTP existentes de `app.test.ts`, então passam sem alterar nenhuma asserção de corpo ou de status.
+- [x] 4. Dado um erro da pilha com `status` 4xx que não é `AppError` (ex.: JSON malformado), então continua `400 PARAMETRO_INVALIDO` / `Requisição inválida`.
+- [x] 5. Dado as rotas, então nenhuma tem `switch`/`if` de status de erro: a rota chama o caso de uso e devolve `toResponse(resultado)`; a rejeição vai ao middleware pelo Express 5.
+- [x] 6. Dado o catálogo, então um teste garante que todo `kind` de `AppError` tem entrada nele (erro novo sem entrada quebra o teste e o typecheck, não a produção).
+- [x] 7. Dado os testes HTTP existentes de `app.test.ts`, então passam sem alterar nenhuma asserção de corpo ou de status.
 
 ## Escopo
 **Dentro:**
@@ -115,10 +115,10 @@ Nenhuma.
 **Modo sugerido:** agent-driven — 4 tarefas e 5 arquivos de lógica, acima do limite do modo direto (1 tarefa, ≤ 3 arquivos, ≤ 50 linhas).
 
 ## Tarefas
-- [ ] 1. `application/errors.ts`: `AppError`, `APP_ERROR_KINDS` e as quatro subclasses, com teste de `kind`.
-- [ ] 2. `error-catalog.ts` e `errorHandler` consultando o catálogo (AppError, 4xx da pilha, 500), com testes do catálogo e do middleware.
-- [ ] 3. `findNearbyCeps` lança os erros e retorna só o sucesso; a rota perde o `switch`; testes do caso de uso ajustados.
-- [ ] 4. Conferir `npm test`, `npm run lint`, `npm run typecheck`, `app.test.ts` sem alterar asserts de corpo/status, e a medição de linhas.
+- [x] 1. `application/errors.ts`: `AppError`, `APP_ERROR_KINDS` e as quatro subclasses, com teste de `kind`.
+- [x] 2. `error-catalog.ts` e `errorHandler` consultando o catálogo (AppError, 4xx da pilha, 500), com testes do catálogo e do middleware.
+- [x] 3. `findNearbyCeps` lança os erros e retorna só o sucesso; a rota perde o `switch`; testes do caso de uso ajustados.
+- [x] 4. Conferir `npm test`, `npm run lint`, `npm run typecheck`, `app.test.ts` sem alterar asserts de corpo/status, e a medição de linhas.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.
