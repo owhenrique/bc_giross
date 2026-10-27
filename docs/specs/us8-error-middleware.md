@@ -5,7 +5,7 @@ mapa: docs/HISTORIAS.md
 depende_de: US2 (PR #2, mergeada)
 titulo: Error middleware com catálogo de erros
 status: em-andamento
-modo:
+modo: agent-driven
 criada_em: 2026-10-27
 implementada_em:
 verificada_em:
