@@ -125,6 +125,16 @@ A coordenada da BrasilAPI **não é usada**, porque é a da cidade.
 
 O token vem da variável `CACHE_ADMIN_TOKEN` e vai no header `Authorization: Bearer <token>`, comparado em tempo constante. Sem a variável definida, os endpoints ficam desabilitados.
 
+## D21 (cont.) — Limpeza de cache na US6
+
+- **Rotas:** `DELETE /cache` (tudo) e `DELETE /cache/:cep` (um CEP), com `204` sem corpo e idempotentes.
+- **Desligamento:** sem `CACHE_ADMIN_TOKEN` (ausente ou vazio) as rotas nem são registradas e caem no `404 NAO_ENCONTRADO` genérico, sem revelar que existem. Token com menos de 12 caracteres faz o `loadEnv` falhar, para não subir com um token fraco.
+- **Autenticação:** `Authorization: Bearer <token>`, esquema sem diferença de maiúsculas (RFC 6750). Sem header, esquema errado ou token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`, sempre com o mesmo corpo, e antes da validação do CEP. A comparação é `timingSafeEqual` sobre `sha256` dos dois lados: os digests têm o mesmo tamanho, então um token de tamanho diferente não lança exceção nem vaza o tamanho. O 401 não é `AppError`, porque é preocupação de HTTP e não há caso de uso por trás.
+- **O que apaga:** `DELETE /cache` roda `deleteByPrefix` só nos prefixos da API (`result:`, `address:`, `geocode:`). `FLUSHDB` foi descartado porque zeraria chaves de outras features, como o contador do rate limit da US7, no mesmo Redis. `DELETE /cache/:cep` apaga `address:<cep>`, `geocode:<cep>` e `result:<raio atual>:<cep>`; resultados de raios antigos já são inalcançáveis e saem por TTL/LRU.
+- **Redis fora do ar:** `503 CACHE_INDISPONIVEL` (`CacheUnavailableError`, `kind: 'cache_unavailable'`). Ao contrário das leituras, que degradam (D19), aqui a falha precisa aparecer para o operador. Falha no meio do `DELETE /cache` deixa a limpeza parcial, e repetir é seguro.
+- **Limitação aceita:** `DELETE /cache/:cep` não invalida o CEP limpo dentro das listas de vizinhos de outros CEPs. Essas listas saem por TTL (7 d) ou por um `DELETE /cache`. Varrer todas as listas para achar o CEP custaria mais do que a limpeza vale.
+- **Logs:** o `redact` do logger oculta o header `Authorization`, para o token não aparecer nos logs.
+
 ## D11 (cont.) — Nominatim como fallback de coordenada
 
 Teste com os mesmos 25 CEPs: endereço da BrasilAPI → Nominatim (busca estruturada por rua, cidade e UF), comparado com o centróide do CNEFE.

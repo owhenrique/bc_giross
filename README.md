@@ -34,6 +34,7 @@ SEED_UFS=SP,RJ docker compose up --build
 | `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra |
 | `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | base do Nominatim, usado como fallback de coordenada |
 | `NOMINATIM_USER_AGENT` | `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)` | `User-Agent` enviado ao Nominatim (a política de uso exige identificar o cliente) |
+| `CACHE_ADMIN_TOKEN` | vazio | token dos endpoints de limpeza de cache (mínimo de 12 caracteres; vazio desliga os endpoints) |
 | `LOG_LEVEL` | `info` | nível do Pino |
 
 ### Cache (Redis)
@@ -44,6 +45,22 @@ O compose tem o serviço `redis` (`maxmemory` com política `allkeys-lru`, sem p
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
 - **Redis fora do ar:** a API segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
 - **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
+
+### Limpeza de cache
+
+Dois endpoints protegidos por token, para forçar dados atualizados sem reiniciar a API. Ficam ligados só quando `CACHE_ADMIN_TOKEN` está definido (mínimo de 12 caracteres; menos que isso faz a API falhar ao subir). Vazio ou ausente, eles respondem `404 NAO_ENCONTRADO`, como qualquer rota inexistente.
+
+```bash
+export TOKEN=troque-por-um-token-longo
+curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:3000/cache
+curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:3000/cache/04551000
+```
+
+- **`DELETE /cache`:** apaga todas as chaves `result:*`, `address:*` e `geocode:*`. Outras chaves do Redis ficam.
+- **`DELETE /cache/:cep`:** apaga `address:<cep>`, `geocode:<cep>` e `result:<raio>:<cep>` (o raio atual). `:cep` aceita `04551000` ou `04551-000`.
+- **Autenticação:** header `Authorization: Bearer <token>` (esquema sem diferença de maiúsculas). Sem header, com outro esquema ou com token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`. A autenticação vem antes da validação do CEP.
+- **Respostas:** `204` sem corpo (idempotente, também para CEP sem nada em cache), `400 CEP_INVALIDO`, `401 NAO_AUTORIZADO`, `404 NAO_ENCONTRADO` (endpoints desligados) e `503 CACHE_INDISPONIVEL` (Redis fora do ar ou timeout; pode ter apagado só parte, e repetir é seguro).
+- **Limitação:** o `DELETE /cache/:cep` não tira o CEP limpo das listas de vizinhos de outros CEPs. Essas listas (`result:*`) só saem por TTL ou por um `DELETE /cache`.
 
 ### Fallback de coordenada (Nominatim)
 
@@ -116,9 +133,11 @@ Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
 | 400 | `CEP_INVALIDO` | `:cep` fora do formato `00000000`/`00000-000` |
 | 400 | `PARAMETRO_INVALIDO` | `pagina` ou `limite` inválidos |
 | 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
-| 404 | `NAO_ENCONTRADO` | rota ou método inexistente |
+| 401 | `NAO_AUTORIZADO` | token ausente ou inválido nos endpoints de limpeza de cache |
+| 404 | `NAO_ENCONTRADO` | rota ou método inexistente (inclui os endpoints de limpeza com `CACHE_ADMIN_TOKEN` vazio) |
 | 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
 | 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas nem a base nem o Nominatim dão a coordenada dele (ou o endereço não tem rua, cidade ou UF) |
+| 503 | `CACHE_INDISPONIVEL` | Redis fora do ar ou com timeout durante a limpeza de cache |
 | 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP (BrasilAPI, limite de 5 req/s) ou o Nominatim (limite de 1 req/s) está fora do ar ou estourou o timeout |
 | 500 | `ERRO_INTERNO` | erro inesperado (sem detalhes na resposta) |
 
