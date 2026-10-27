@@ -1,4 +1,5 @@
 import { CachingCepAddressProvider } from './application/caching-cep-address-provider.js';
+import { clearCache } from './application/clear-cache.js';
 import { findNearbyCeps } from './application/find-nearby-ceps.js';
 import { OriginGeocoder } from './application/origin-geocoder.js';
 import { loadEnv, type Env } from './config/env.js';
@@ -39,6 +40,12 @@ const app = createApp({
     resultTtlSeconds: env.cacheTtl.resultSeconds,
   }),
   logger,
+  cacheAdmin: env.cacheAdminToken
+    ? {
+        clearCache: clearCache(cache, { radiusKm: env.searchRadiusKm }),
+        token: env.cacheAdminToken,
+      }
+    : undefined,
 });
 
 const server = app.listen(env.port, () => logger.info({ port: env.port }, 'api listening'));

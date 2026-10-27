@@ -14,6 +14,12 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default('bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)'),
+  // Empty (compose passes `${CACHE_ADMIN_TOKEN:-}`) disables the cache admin endpoints.
+  CACHE_ADMIN_TOKEN: z
+    .string()
+    .optional()
+    .transform((value) => value || undefined)
+    .pipe(z.string().min(12).optional()),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
@@ -27,6 +33,8 @@ export interface Env {
   redisUrl: string;
   cacheTtl: { addressSeconds: number; resultSeconds: number; notFoundSeconds: number };
   nominatim: { url: string; userAgent: string };
+  /** Undefined disables the cache admin endpoints. */
+  cacheAdminToken?: string;
 }
 
 /** Parses and validates the environment. Throws the Zod error when invalid. */
@@ -45,5 +53,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       notFoundSeconds: parsed.CACHE_TTL_NOT_FOUND_SECONDS,
     },
     nominatim: { url: parsed.NOMINATIM_URL, userAgent: parsed.NOMINATIM_USER_AGENT },
+    cacheAdminToken: parsed.CACHE_ADMIN_TOKEN,
   };
 }

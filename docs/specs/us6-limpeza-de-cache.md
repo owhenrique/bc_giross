@@ -146,7 +146,7 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 Passos (commits) desta US. Todos entram no mesmo PR, e tarefa não é entregável.
 - [x] 1. Porta `Cache`: `delete(keys)` em Redis e memória, constantes de prefixo, testes dos adapters.
 - [x] 2. Caso de uso `clearCache` + `CacheUnavailableError` + entrada no catálogo + `ErrorCode`s, com `clear-cache.test.ts`.
-- [ ] 3. HTTP: `requireBearerToken`, `cacheRouter`, registro condicional no `createApp`, `CACHE_ADMIN_TOKEN` no `loadEnv` e no `index.ts`, redact do header no logger; `cache-route.test.ts` e `env.test.ts`.
+- [x] 3. HTTP: `requireBearerToken`, `cacheRouter`, registro condicional no `createApp`, `CACHE_ADMIN_TOKEN` no `loadEnv` e no `index.ts`, redact do header no logger; `cache-route.test.ts` e `env.test.ts`.
 - [ ] 4. Config e docs: `docker-compose.yml`, `.env.example`, README (endpoints, token, códigos), DECISOES (D21 cont.) e HISTORIAS (US6).
 
 ## Telas e fluxos E2E (Playwright)
