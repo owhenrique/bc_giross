@@ -5,7 +5,7 @@ mapa: docs/HISTORIAS.md
 depende_de: US3 (PR #4, mergeada)
 titulo: Formatação automática com Prettier
 status: em-andamento
-modo:
+modo: direto
 criada_em: 2026-10-27
 implementada_em:
 verificada_em:
@@ -129,7 +129,7 @@ A lista da reformatação é a medida de hoje. A fonte de verdade é a saída do
 **Modo sugerido:** agent-driven — são 3 tarefas e há dependência nova. O trabalho, porém, é mecânico, e o modo direto é uma escolha razoável no `/pato/implement`.
 
 ## Tarefas
-- [ ] 1. `chore(us11)`: spec + `docs/HISTORIAS.md`, `prettier` e `eslint-config-prettier` em devDependencies, `.prettierrc.json`, `.prettierignore`, scripts `format`/`format:check` e `eslint.config.js`. Sem reformatar nada. `npm run lint` passa.
+- [x] 1. `chore(us11)`: spec + `docs/HISTORIAS.md`, `prettier` e `eslint-config-prettier` em devDependencies, `.prettierrc.json`, `.prettierignore`, scripts `format`/`format:check` e `eslint.config.js`. Sem reformatar nada. `npm run lint` passa.
 - [ ] 2. `style(us11)`: `npm run format` e commit só da saída dele. Antes do commit: `npm test`, `npm run typecheck`, `npm run lint` e `npm run format:check` passam.
 - [ ] 3. `chore(us11)`: `.git-blame-ignore-revs` com o hash completo do commit da tarefa 2 e README (seção "Testes" com `npm run format:check`, e a linha do `blame.ignoreRevsFile`).
 
