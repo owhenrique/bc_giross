@@ -77,6 +77,7 @@ function appWith(
       resultTtlSeconds: 60,
     }),
     logger: pino({ level: 'silent' }),
+    rateLimit: { limit: 1000, windowMs: 60_000 },
   });
   return Object.assign(app, { calls });
 }

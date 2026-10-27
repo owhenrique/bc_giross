@@ -10,6 +10,7 @@ export const ErrorCode = {
   CepWithoutLocation: 'CEP_SEM_GEOLOCALIZACAO',
   ProviderUnavailable: 'PROVEDOR_INDISPONIVEL',
   CacheUnavailable: 'CACHE_INDISPONIVEL',
+  RateLimitExceeded: 'LIMITE_EXCEDIDO',
   Unauthorized: 'NAO_AUTORIZADO',
   NotFound: 'NAO_ENCONTRADO',
   Internal: 'ERRO_INTERNO',
