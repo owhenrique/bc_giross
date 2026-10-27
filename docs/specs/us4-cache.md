@@ -5,7 +5,7 @@ mapa: docs/HISTORIAS.md
 depende_de: US3 (PR #4, mergeada) e US11 (PR #5, mergeada)
 titulo: Cache
 status: em-andamento
-modo:
+modo: agent-driven
 criada_em: 2026-10-27
 implementada_em:
 verificada_em:
