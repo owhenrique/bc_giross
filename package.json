@@ -11,9 +11,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts",
-    "seed": "tsx scripts/seed/index.ts",
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "seed": "tsx --env-file-if-exists=.env scripts/seed/index.ts",
     "postinstall": "prisma generate"
   },
   "devDependencies": {
