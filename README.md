@@ -99,4 +99,7 @@ npm ci
 npm test
 npm run lint
 npm run typecheck
+npm run format:check
 ```
+
+Para formatar o código, rode `npm run format`. Para o `git blame` ignorar o commit de reformatação com Prettier, rode uma vez `git config blame.ignoreRevsFile .git-blame-ignore-revs` (o GitHub já lê o arquivo sozinho).

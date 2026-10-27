@@ -24,13 +24,13 @@ Hoje o estilo do código depende de quem escreve, ou do agente. Na US3, um commi
 No mapa (`docs/HISTORIAS.md`), ela roda logo depois da US3 e antes da US4. O número 11 é só de cadastro; a ordem é a da tabela.
 
 ## Critérios de aceite
-- [ ] Dado o projeto, então existe `.prettierrc.json` com `singleQuote: true`, `semi: true`, `trailingComma: "all"`, `arrowParens: "always"`, `endOfLine: "lf"` e `printWidth: 100`.
-- [ ] Dado `npm run format`, então o Prettier formata o projeto inteiro (`prettier --write .`) menos o que está no `.prettierignore`. Dado `npm run format:check`, então ele sai com código ≠ 0 se algum arquivo estiver fora do padrão, e com 0 na branch final.
-- [ ] Dado o `.prettierignore`, então ficam de fora `data/`, `graphify-out/`, `src/generated/`, `prisma/migrations/`, `package-lock.json` e `*.md`. TS/JS, JSON e YAML (ex.: `docker-compose.yml`) são formatados.
-- [ ] Dado o ESLint, então `eslint-config-prettier` entra por último no `eslint.config.js` e desliga as regras de estilo que brigam com o Prettier, e `npm run lint` passa.
-- [ ] Dado o código existente, então a reformatação vai num commit só, só com a saída de `npm run format` e mais nenhuma mudança, e o hash dele entra em `.git-blame-ignore-revs`.
-- [ ] Dado a reformatação, então `npm test` e `npm run typecheck` passam sem nenhuma mudança manual em teste, porque não há mudança de comportamento.
-- [ ] Dado o README, então a seção "Testes" lista `npm run format:check`, e há uma linha explicando `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+- [x] Dado o projeto, então existe `.prettierrc.json` com `singleQuote: true`, `semi: true`, `trailingComma: "all"`, `arrowParens: "always"`, `endOfLine: "lf"` e `printWidth: 100`.
+- [x] Dado `npm run format`, então o Prettier formata o projeto inteiro (`prettier --write .`) menos o que está no `.prettierignore`. Dado `npm run format:check`, então ele sai com código ≠ 0 se algum arquivo estiver fora do padrão, e com 0 na branch final.
+- [x] Dado o `.prettierignore`, então ficam de fora `data/`, `graphify-out/`, `src/generated/`, `prisma/migrations/`, `package-lock.json` e `*.md`. TS/JS, JSON e YAML (ex.: `docker-compose.yml`) são formatados.
+- [x] Dado o ESLint, então `eslint-config-prettier` entra por último no `eslint.config.js` e desliga as regras de estilo que brigam com o Prettier, e `npm run lint` passa.
+- [x] Dado o código existente, então a reformatação vai num commit só, só com a saída de `npm run format` e mais nenhuma mudança, e o hash dele entra em `.git-blame-ignore-revs`.
+- [x] Dado a reformatação, então `npm test` e `npm run typecheck` passam sem nenhuma mudança manual em teste, porque não há mudança de comportamento.
+- [x] Dado o README, então a seção "Testes" lista `npm run format:check`, e há uma linha explicando `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
 ## Escopo
 **Dentro:**
@@ -130,8 +130,8 @@ A lista da reformatação é a medida de hoje. A fonte de verdade é a saída do
 
 ## Tarefas
 - [x] 1. `chore(us11)`: spec + `docs/HISTORIAS.md`, `prettier` e `eslint-config-prettier` em devDependencies, `.prettierrc.json`, `.prettierignore`, scripts `format`/`format:check` e `eslint.config.js`. Sem reformatar nada. `npm run lint` passa.
-- [ ] 2. `style(us11)`: `npm run format` e commit só da saída dele. Antes do commit: `npm test`, `npm run typecheck`, `npm run lint` e `npm run format:check` passam.
-- [ ] 3. `chore(us11)`: `.git-blame-ignore-revs` com o hash completo do commit da tarefa 2 e README (seção "Testes" com `npm run format:check`, e a linha do `blame.ignoreRevsFile`).
+- [x] 2. `style(us11)`: `npm run format` e commit só da saída dele. Antes do commit: `npm test`, `npm run typecheck`, `npm run lint` e `npm run format:check` passam.
+- [x] 3. `chore(us11)`: `.git-blame-ignore-revs` com o hash completo do commit da tarefa 2 e README (seção "Testes" com `npm run format:check`, e a linha do `blame.ignoreRevsFile`).
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.
