@@ -10,7 +10,7 @@ criada_em: 2026-10-27
 implementada_em: 2026-10-27
 verificada_em: 2026-10-27
 branch: feat/us6-limpeza-de-cache
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/8
 ---
 
 # US6 — Limpeza de cache protegida
