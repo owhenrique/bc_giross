@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em: 2026-10-27
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us7-rate-limit
 merge_request:
 ---
@@ -44,8 +44,8 @@ No mapa (`docs/HISTORIAS.md`), a US7 depende só da US2. A branch parte da `main
 - [x] Dado um teste com o middleware montado duas vezes no mesmo caminho (app e router) e limite 2, quando o mesmo IP faz 2 requisições, então as duas são `200` e o `RateLimit` mostra 0 restante. Um middleware que contasse em dobro bloquearia a 2ª, e o teste quebra.
 
 **Saída (BrasilAPI e Nominatim)**
-- [ ] Dado duas instâncias da API apontando para o mesmo Redis, então as duas juntas fazem no máximo 5 chamadas por segundo à BrasilAPI e 1 ao Nominatim: as chaves `ratelimit:brasilapi` e `ratelimit:nominatim` são compartilhadas.
-- [ ] Dado a janela de 1 s, então ela é deslizante: o Nominatim nunca recebe 2 chamadas a menos de 1 s uma da outra, nem na virada do segundo.
+- [x] Dado duas instâncias da API apontando para o mesmo Redis, então as duas juntas fazem no máximo 5 chamadas por segundo à BrasilAPI e 1 ao Nominatim: as chaves `ratelimit:brasilapi` e `ratelimit:nominatim` são compartilhadas.
+- [x] Dado a janela de 1 s, então ela é deslizante: o Nominatim nunca recebe 2 chamadas a menos de 1 s uma da outra, nem na virada do segundo.
 - [x] Dado o limite de saída atingido, então o comportamento é o de hoje: BrasilAPI → `unavailable` (`503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` em `/detalhes` para CEP na base); Nominatim → `503 PROVEDOR_INDISPONIVEL`.
 - [x] Dado o Redis fora do ar ou estourando o timeout ao pedir vaga, então a vaga é pedida ao `WindowRateLimiter` em memória do processo (mesmo limite), com log `warn`. Quando o Redis volta, a contagem volta para ele sem reiniciar o serviço.
 
@@ -229,14 +229,15 @@ Não se aplica.
 ## Verificação independente
 Preenchido no `/pato/verify`; o `/pato/close-spec` não começa sem esta seção.
 
-- **Data:**
-- **Verificador:**
-- **Suítes rodadas:**
-- **Critérios de aceite:**
-- **Entregável:**
-- **Linhas de lógica:**
-- **Achados:**
-- **Decisão do usuário:**
+- **Data:** 2026-10-27
+- **Verificador:** subagente em contexto limpo (general-purpose)
+- **Suítes rodadas:** `npm test` (26 arquivos, 258 testes, 0 falhas), `npm run typecheck`, `npm run lint`, `npm run format:check`: todas OK. Sem telas (sem Playwright).
+- **Critérios de aceite:** todos atendidos. Os dois critérios de saída (compartilhamento entre instâncias e janela deslizante) foram validados com um Redis real (`redis:8-alpine`, teste temporário já removido): duas conexões com a mesma chave e `max=5` deram exatamente 5 `true` em 8 tentativas, passando de novo após 1,01 s; Nominatim (`max=1`) passou em t=0, foi bloqueado em t=0,6 s e passou em t≈1,05 s. Entrada com `RedisStore` real e limite 3: 200, 200, 200, 429, com chave `ratelimit:api:*` e TTL > 50 s.
+- **Entregável:** sim. A branch parte da `main`, tem só commits da US7, sem TODO nem flag escondida.
+- **Linhas de lógica:** 221 / 500 (estimativa 153; inclui 5 linhas do `.env.example`, que o awk não exclui, e `index.ts` com 49 contra ~20 estimadas).
+- **Achados:** (Média) critérios de saída desmarcados na spec: corrigido, marcados `[x]`. (Média) `index.ts` espera até 2 s pelo Redis na subida: documentado na spec, aceito. (Baixa) cast em `rate-limit.ts:25`: o verificador sugeriu removê-lo, mas o tipo `Request` não declara `rateLimit` aqui (TS2339), então o cast fica. (Baixa) medição acima da estimativa por causa do `.env.example`: sem ação.
+- **Decisão do usuário:** corrigir os achados menores; aplicado o que cabia.
+- **Não verificado:** `docker compose up` e passos manuais 1 a 4 da spec (incluindo `DELETE /cache` real e Redis parado no meio da execução), 429 com o `errorHandler` real via Redis, `TRUST_PROXY=true` e o aviso `ERR_ERL_PERMISSIVE_TRUST_PROXY`.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
