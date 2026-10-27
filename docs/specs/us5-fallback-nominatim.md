@@ -22,13 +22,13 @@ Como **Giross**, quero resultados mesmo quando o CEP de referência não está n
 Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/application/find-nearby-ceps.ts`) e termina em `404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA`, `422 CEP_SEM_GEOLOCALIZACAO` ou `503 PROVEDOR_INDISPONIVEL`. O `422 CEP_SEM_GEOLOCALIZACAO` aparece quando o CEP existe e é de uma UF carregada, mas não está na base: é um CEP novo, ou um "sujo" removido pelo `build-dataset` (p90 > 2 km, D4/D11). Esta US troca esse `422` por uma tentativa de achar a coordenada no Nominatim, a partir do endereço da BrasilAPI, validando a cidade e a UF, como definem a D11 (e a continuação dela) e a D22. No mapa (`docs/HISTORIAS.md`), ela vem depois da US4, cujo cache ela reusa.
 
 ## Critérios de aceite
-- [ ] 1. Dado um CEP fora da base, de UF carregada, com rua, cidade e UF na BrasilAPI (ex.: `01001000` com `SEED_UFS=SP`), quando chamo `GET /ceps-proximos/:cep/detalhes`, então recebo `200` com `origem.fonte = "nominatim"`, `latitude`/`longitude` do Nominatim, o endereço da BrasilAPI e os vizinhos da base calculados a partir dessa coordenada (ordem, raio, paginação e 2 casas, como hoje). O resumo `GET /ceps-proximos/:cep` também responde `200`, com o mesmo `ceps`.
-- [ ] 2. Dado que o Nominatim não devolve nenhum candidato, ou só devolve candidatos de outra cidade ou outra UF que a BrasilAPI (comparação sem acento, sem diferença de maiúsculas e sem espaços extras), então `422 CEP_SEM_GEOLOCALIZACAO`.
-- [ ] 3. Dado um endereço da BrasilAPI sem rua, sem cidade ou sem UF, então `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim.
-- [ ] 4. Dado o Nominatim fora do ar (timeout de 3 s, erro de rede, status ≠ 200, corpo inválido) ou o limite de 1 req/s atingido, então `503 PROVEDOR_INDISPONIVEL`, e nada vai para o cache de geocoding.
-- [ ] 5. Dado uma coordenada aceita, então ela fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Dado "sem match" (critério 2), ele fica em cache por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Dentro do TTL, a mesma consulta não chama o Nominatim. O resultado com os vizinhos entra no `result:<raio>:<cep>` junto com a fonte, então a repetição responde `fonte = "nominatim"` sem ir ao banco nem ao Nominatim.
-- [ ] 6. Dado qualquer chamada ao Nominatim, então ela leva o header `User-Agent` com o valor de `NOMINATIM_USER_AGENT` (padrão `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)`) e vai para `NOMINATIM_URL` (padrão `https://nominatim.openstreetmap.org`). As chamadas ficam limitadas a 1 req/s.
-- [ ] 7. Dado um CEP fora da base de UF **não** carregada, então continua `422 CEP_FORA_DA_COBERTURA`, sem chamar o Nominatim. Dado um CEP na base, então continua `fonte = "base"`, também sem chamar o Nominatim.
+- [x] 1. Dado um CEP fora da base, de UF carregada, com rua, cidade e UF na BrasilAPI (ex.: `01001000` com `SEED_UFS=SP`), quando chamo `GET /ceps-proximos/:cep/detalhes`, então recebo `200` com `origem.fonte = "nominatim"`, `latitude`/`longitude` do Nominatim, o endereço da BrasilAPI e os vizinhos da base calculados a partir dessa coordenada (ordem, raio, paginação e 2 casas, como hoje). O resumo `GET /ceps-proximos/:cep` também responde `200`, com o mesmo `ceps`.
+- [x] 2. Dado que o Nominatim não devolve nenhum candidato, ou só devolve candidatos de outra cidade ou outra UF que a BrasilAPI (comparação sem acento, sem diferença de maiúsculas e sem espaços extras), então `422 CEP_SEM_GEOLOCALIZACAO`.
+- [x] 3. Dado um endereço da BrasilAPI sem rua, sem cidade ou sem UF, então `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim.
+- [x] 4. Dado o Nominatim fora do ar (timeout de 3 s, erro de rede, status ≠ 200, corpo inválido) ou o limite de 1 req/s atingido, então `503 PROVEDOR_INDISPONIVEL`, e nada vai para o cache de geocoding.
+- [x] 5. Dado uma coordenada aceita, então ela fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Dado "sem match" (critério 2), ele fica em cache por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Dentro do TTL, a mesma consulta não chama o Nominatim. O resultado com os vizinhos entra no `result:<raio>:<cep>` junto com a fonte, então a repetição responde `fonte = "nominatim"` sem ir ao banco nem ao Nominatim.
+- [x] 6. Dado qualquer chamada ao Nominatim, então ela leva o header `User-Agent` com o valor de `NOMINATIM_USER_AGENT` (padrão `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)`) e vai para `NOMINATIM_URL` (padrão `https://nominatim.openstreetmap.org`). As chamadas ficam limitadas a 1 req/s.
+- [x] 7. Dado um CEP fora da base de UF **não** carregada, então continua `422 CEP_FORA_DA_COBERTURA`, sem chamar o Nominatim. Dado um CEP na base, então continua `fonte = "base"`, também sem chamar o Nominatim.
 
 ## Escopo
 **Dentro:**
@@ -179,10 +179,11 @@ Não se aplica.
 - **Decisão do usuário:** aceitar como está e registrar.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
-
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (199 testes em 20 arquivos), typecheck, lint e format:check | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | usuário | local (docker compose) | roteiro da seção "Testes": fallback `nominatim` no `/detalhes`, cache `geocode:*`, `503` com Nominatim fora, `422 CEP_FORA_DA_COBERTURA` | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Ruas longas:** o Nominatim devolve algum trecho da rua, não o centro do CEP (D11: 3 de 25 entre 250 m e 1 km, a Av. Paulista a 2,8 km). Aceito: é melhor que o `422`.
