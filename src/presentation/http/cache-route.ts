@@ -10,7 +10,7 @@ export function cacheRouter(clear: ReturnType<typeof clearCache>, token: string)
     res.status(204).end();
   });
   router.delete('/cache/:cep', auth, async (req, res) => {
-    await clear.cep(req.params.cep as string);
+    await clear.cep(String(req.params.cep));
     res.status(204).end();
   });
   return router;

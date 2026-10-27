@@ -69,6 +69,15 @@ describe('cache admin routes', () => {
     expect(await cache.get('outra:chave')).toBe('v');
   });
 
+  it('DELETE /cache/ with a trailing slash hits the clear-all route', async () => {
+    const { app, cache } = setup();
+    await seed(cache);
+    const res = await request(app).delete('/cache/').set('Authorization', `Bearer ${TOKEN}`);
+    expect(res.status).toBe(204);
+    expect(await cache.get(addressKey('01001000'))).toBeNull();
+    expect(await cache.get('outra:chave')).toBe('v');
+  });
+
   it('DELETE /cache/04551-000 behaves like the plain CEP', async () => {
     const { app, cache } = setup();
     await seed(cache);
