@@ -63,6 +63,11 @@ export function matchesUf(line: string, ufs: ReadonlySet<string>): boolean {
   return ufs.has(line.split(';')[1] ?? '');
 }
 
+/** UFs that got at least one CEP loaded. */
+export function ufsWithCeps(totals: ReadonlyMap<string, number>): string[] {
+  return [...totals].filter(([, count]) => count > 0).map(([uf]) => uf);
+}
+
 async function main(): Promise<void> {
   const startedAt = Date.now();
   let ufs: string[];
@@ -96,11 +101,14 @@ async function main(): Promise<void> {
   await client.connect();
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE cep');
+    await client.query('TRUNCATE cep, loaded_uf');
     const copy = client.query(
       copyFrom("COPY cep (cep, uf, latitude, longitude) FROM STDIN (FORMAT csv, DELIMITER ';')"),
     );
     await pipeline(Readable.from(filteredLines()), copy);
+    await client.query('INSERT INTO loaded_uf (uf) SELECT unnest($1::text[])', [
+      ufsWithCeps(totals),
+    ]);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);

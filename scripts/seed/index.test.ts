@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_UFS, matchesUf, parseSeedUfs } from './index.js';
+import { ALL_UFS, matchesUf, parseSeedUfs, ufsWithCeps } from './index.js';
 
 describe('parseSeedUfs', () => {
   it('returns all 27 UFs when empty', () => {
@@ -34,5 +34,20 @@ describe('matchesUf', () => {
   it('ignores the header and blank lines', () => {
     expect(matchesUf('cep;uf;latitude;longitude', sp)).toBe(false);
     expect(matchesUf('', sp)).toBe(false);
+  });
+});
+
+describe('ufsWithCeps', () => {
+  it('returns only the UFs with at least one CEP', () => {
+    const totals = new Map([
+      ['SP', 3],
+      ['RJ', 0],
+      ['MG', 1],
+    ]);
+    expect(ufsWithCeps(totals)).toEqual(['SP', 'MG']);
+  });
+
+  it('returns an empty list when nothing was loaded', () => {
+    expect(ufsWithCeps(new Map())).toEqual([]);
   });
 });
