@@ -27,7 +27,7 @@ Decisões que valem aqui: D26, D27, D28.
 
 ## Critérios de aceite
 - [x] 1. Dado um CEP inválido, paginação inválida ou CEP inexistente, quando o caso de uso roda, então ele lança `InvalidCepError` (`invalid_cep`), `InvalidPageError` (`invalid_page`), `InvalidLimitError` (`invalid_limit`) ou `CepNotFoundError` (`cep_not_found`), todas subclasses de `AppError` com `kind` estável em inglês.
-- [ ] 2. Dado um `AppError`, quando chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
+- [x] 2. Dado um `AppError`, quando chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
 - [ ] 3. Dado um erro que não é `AppError`, ou um `kind` fora do catálogo, então `500 ERRO_INTERNO`, com log do erro e sem stack na resposta.
 - [ ] 4. Dado um erro da pilha com `status` 4xx que não é `AppError` (ex.: JSON malformado), então continua `400 PARAMETRO_INVALIDO` / `Requisição inválida`.
 - [ ] 5. Dado as rotas, então nenhuma tem `switch`/`if` de status de erro: a rota chama o caso de uso e devolve `toResponse(resultado)`; a rejeição vai ao middleware pelo Express 5.
