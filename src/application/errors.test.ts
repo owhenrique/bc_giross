@@ -18,7 +18,11 @@ describe('application errors', () => {
     ['CepNotFoundError', CepNotFoundError, 'cep_not_found'],
     ['CepOutOfCoverageError', CepOutOfCoverageError, 'cep_out_of_coverage'],
     ['CepWithoutLocationError', CepWithoutLocationError, 'cep_without_location'],
-    ['AddressProviderUnavailableError', AddressProviderUnavailableError, 'address_provider_unavailable'],
+    [
+      'AddressProviderUnavailableError',
+      AddressProviderUnavailableError,
+      'address_provider_unavailable',
+    ],
   ] as const)('%s has a fixed kind and is an AppError', (name, ErrorClass, kind) => {
     const error = new ErrorClass('message');
     expect(error.kind).toBe(kind);

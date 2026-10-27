@@ -61,7 +61,9 @@ async function processUf(zip: string, uf: string, stats: UfStats): Promise<Final
 
 export async function buildDataset(folder: string, output: string): Promise<void> {
   const start = performance.now();
-  const zips = readdirSync(folder).filter((f) => f.toLowerCase().endsWith('.zip')).sort();
+  const zips = readdirSync(folder)
+    .filter((f) => f.toLowerCase().endsWith('.zip'))
+    .sort();
   if (zips.length === 0) throw new Error(`Nenhum ZIP encontrado em ${folder}`);
 
   const byUf = new Map<string, UfStats>();
@@ -94,7 +96,10 @@ export async function buildDataset(folder: string, output: string): Promise<void
   }
 
   mkdirSync(output, { recursive: true });
-  const csv = ['cep;uf;latitude;longitude', ...keptCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`)];
+  const csv = [
+    'cep;uf;latitude;longitude',
+    ...keptCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`),
+  ];
   writeFileSync(join(output, 'ceps.csv.gz'), gzipSync(csv.join('\n') + '\n'));
   const removedCsv = [
     'cep;uf;latitude;longitude;p90_km',

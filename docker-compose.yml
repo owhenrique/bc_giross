@@ -6,11 +6,11 @@ services:
       POSTGRES_PASSWORD: giross
       POSTGRES_DB: giross
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U giross -d giross"]
+      test: ['CMD-SHELL', 'pg_isready -U giross -d giross']
       interval: 3s
       timeout: 3s
       retries: 20
@@ -28,7 +28,7 @@ services:
   api:
     build: .
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
       PORT: 3000

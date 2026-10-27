@@ -44,7 +44,9 @@ export function findNearbyCeps(
     if (!isIntegerAtLeast(page, 1)) throw new InvalidPageError();
     if (!isIntegerAtLeast(limit, 1) || limit > MAX_LIMIT) throw new InvalidLimitError();
 
-    const lookupPromise: Promise<AddressLookup> | null = withAddress ? addressProvider.lookup(cep) : null;
+    const lookupPromise: Promise<AddressLookup> | null = withAddress
+      ? addressProvider.lookup(cep)
+      : null;
     // Marks the promise as handled in case findByCep throws first; the awaits below still see any rejection.
     lookupPromise?.catch(() => {});
     const stored = await repository.findByCep(cep);

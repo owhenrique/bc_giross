@@ -22,7 +22,12 @@ describe('loadEnv', () => {
       SEED_UFS: 'SP,RJ',
       LOG_LEVEL: 'debug',
     });
-    expect(env).toMatchObject({ port: 8080, searchRadiusKm: 2.5, seedUfs: 'SP,RJ', logLevel: 'debug' });
+    expect(env).toMatchObject({
+      port: 8080,
+      searchRadiusKm: 2.5,
+      seedUfs: 'SP,RJ',
+      logLevel: 'debug',
+    });
   });
 
   it('rejects SEARCH_RADIUS_KM=0', () => {
