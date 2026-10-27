@@ -29,8 +29,8 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 7 d) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
 - [x] 6. Dado o Redis fora do ar (na subida ou durante a execução), então as consultas respondem normalmente, só sem cache, e cada falha vira log `warn`. Uma operação de cache que trava não segura a requisição por mais de 500 ms. Quando o Redis volta, o cache volta a funcionar sem reiniciar a API.
 - [x] 7. Dado o seed, quando a carga termina, então todas as chaves de resultado são apagadas e as de endereço ficam. Dado o Redis inacessível, então o seed sai com código ≠ 0 antes de mexer no banco. Se a limpeza falhar depois do `COMMIT`, ele também sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
-- [ ] 8. Dado o `docker compose up`, então sobe um serviço `redis` com `maxmemory` e `maxmemory-policy allkeys-lru`, com healthcheck. A `api` e o `seed` recebem `REDIS_URL` e só sobem com o Redis saudável.
-- [ ] 9. Dado um CEP fora da base com UF existente (caminho `422`), quando a API decide entre `CEP_FORA_DA_COBERTURA` e `CEP_SEM_GEOLOCALIZACAO`, então as UFs carregadas vêm da tabela `loaded_uf` (no máximo 27 linhas), sem ler a tabela `cep`. Dado o seed, então ele grava em `loaded_uf` as UFs que carregou, na mesma transação da carga dos CEPs.
+- [x] 8. Dado o `docker compose up`, então sobe um serviço `redis` com `maxmemory` e `maxmemory-policy allkeys-lru`, com healthcheck. A `api` e o `seed` recebem `REDIS_URL` e só sobem com o Redis saudável.
+- [x] 9. Dado um CEP fora da base com UF existente (caminho `422`), quando a API decide entre `CEP_FORA_DA_COBERTURA` e `CEP_SEM_GEOLOCALIZACAO`, então as UFs carregadas vêm da tabela `loaded_uf` (no máximo 27 linhas), sem ler a tabela `cep`. Dado o seed, então ele grava em `loaded_uf` as UFs que carregou, na mesma transação da carga dos CEPs.
 
 ## Escopo
 **Dentro:**
