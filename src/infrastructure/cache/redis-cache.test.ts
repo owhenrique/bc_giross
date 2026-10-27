@@ -97,4 +97,30 @@ describe('RedisCache', () => {
     await vi.advanceTimersByTimeAsync(CACHE_OPERATION_TIMEOUT_MS);
     await result;
   });
+
+  it('deletes the given keys with a single UNLINK', async () => {
+    const { cache, client } = setup();
+    await cache.delete(['address:1', 'geocode:1']);
+    expect(client.unlink).toHaveBeenCalledOnce();
+    expect(client.unlink).toHaveBeenCalledWith(['address:1', 'geocode:1']);
+  });
+
+  it('does not call Redis when deleting an empty list', async () => {
+    const { cache, client } = setup();
+    await cache.delete([]);
+    expect(client.unlink).not.toHaveBeenCalled();
+  });
+
+  it('propagates errors from delete', async () => {
+    const { cache } = setup({ unlink: vi.fn().mockRejectedValue(new Error('down')) });
+    await expect(cache.delete(['k'])).rejects.toThrow('down');
+  });
+
+  it('times out delete when UNLINK hangs', async () => {
+    vi.useFakeTimers();
+    const { cache } = setup({ unlink: vi.fn(() => new Promise<never>(() => {})) });
+    const result = expect(cache.delete(['k'])).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(CACHE_OPERATION_TIMEOUT_MS);
+    await result;
+  });
 });

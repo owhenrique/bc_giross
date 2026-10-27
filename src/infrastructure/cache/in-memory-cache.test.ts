@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressKey, resultKey } from '../../application/cache.js';
+import { CACHE_KEY_PREFIXES, addressKey, geocodeKey, resultKey } from '../../application/cache.js';
 import { InMemoryCache } from './in-memory-cache.js';
 
 describe('InMemoryCache', () => {
@@ -30,11 +30,24 @@ describe('InMemoryCache', () => {
     expect(await cache.get('result:2:01001000')).toBeNull();
     expect(await cache.get('address:01001000')).toBe(3);
   });
+
+  it('deletes only the given keys and ignores missing ones', async () => {
+    const cache = new InMemoryCache();
+    await cache.set('a', 1, 10);
+    await cache.set('b', 2, 10);
+    await cache.set('c', 3, 10);
+    await cache.delete(['a', 'b', 'missing']);
+    expect(await cache.get('a')).toBeNull();
+    expect(await cache.get('b')).toBeNull();
+    expect(await cache.get('c')).toBe(3);
+  });
 });
 
 describe('cache keys', () => {
   it('builds result and address keys', () => {
     expect(resultKey(1.5, '01001000')).toBe('result:1.5:01001000');
     expect(addressKey('01001000')).toBe('address:01001000');
+    expect(geocodeKey('01001000')).toBe('geocode:01001000');
+    expect(CACHE_KEY_PREFIXES).toEqual(['result:', 'address:', 'geocode:']);
   });
 });
