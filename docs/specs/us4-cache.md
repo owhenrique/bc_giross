@@ -25,7 +25,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 1. Dado um CEP na base já consultado (em `/ceps-proximos/:cep` ou em `/detalhes`), quando consulto de novo dentro do TTL de resultado, então a resposta é idêntica à primeira e nem o banco nem a BrasilAPI são chamados. No `/detalhes`, o endereço vem do cache de endereço.
 - [x] 2. Dado o resultado de um CEP em cache, quando peço outra `pagina` ou outro `limite`, então a página sai da lista em cache, com `total` e `total_paginas` corretos, sem ir ao banco.
 - [x] 3. Dado um lookup da BrasilAPI com `found`, então ele fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Com `not_found`, fica por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Com `unavailable`, não entra no cache, e a chamada seguinte tenta a BrasilAPI de novo.
-- [ ] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
+- [x] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
 - [ ] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 7 d) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
 - [ ] 6. Dado o Redis fora do ar (na subida ou durante a execução), então as consultas respondem normalmente, só sem cache, e cada falha vira log `warn`. Uma operação de cache que trava não segura a requisição por mais de 500 ms. Quando o Redis volta, o cache volta a funcionar sem reiniciar a API.
 - [ ] 7. Dado o seed, quando a carga termina, então todas as chaves de resultado são apagadas e as de endereço ficam. Dado o Redis inacessível, então o seed sai com código ≠ 0 antes de mexer no banco. Se a limpeza falhar depois do `COMMIT`, ele também sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
@@ -173,7 +173,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 1. Porta `Cache` (chaves e prefixos), `InMemoryCache` e o ambiente (`REDIS_URL` + TTLs), com testes.
 - [x] 2. `CachingCepAddressProvider` (found 30 d, not_found 1 h, unavailable fora), com testes.
 - [x] 3. Cache do resultado no `findNearbyCeps` (nova assinatura, paginação sobre a lista em cache), com testes do caso de uso e do `app.test.ts`.
-- [ ] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
+- [x] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
 - [ ] 5. Tabela `loaded_uf`: model, migration, `findLoadedUfs` lendo dela e o seed gravando as UFs na mesma transação, com teste.
 - [ ] 6. Seed: conecta no Redis antes da carga e limpa os resultados depois do `COMMIT`, falhando nos dois casos, com teste.
 - [ ] 7. README e `DECISOES.md`.

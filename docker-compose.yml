@@ -15,14 +15,28 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:8-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    # ports:
+    #   - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   seed:
     build: .
     command: sh -c "npx prisma migrate deploy && npm run seed"
     environment:
       DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
       SEED_UFS: ${SEED_UFS:-}
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   api:
@@ -35,8 +49,19 @@ services:
       SEARCH_RADIUS_KM: ${SEARCH_RADIUS_KM:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
-      seed:
-        condition: service_completed_successfully
+      redis:
+    image: redis:8-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    # ports:
+    #   - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  seed:
+    condition: service_completed_successfully
 
 volumes:
   pgdata:
