@@ -22,7 +22,7 @@ Como **Giross**, quero respostas rápidas para CEPs já consultados, para não e
 Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabalho do zero. O `findNearbyCeps` (`src/application/find-nearby-ceps.ts`) consulta o Postgres (`findByCep` + `findInBox`), calcula o Haversine de cada candidato e ordena a lista. No `/detalhes`, ou com o CEP fora da base, também chama a BrasilAPI, limitada a 5 req/s (D22). Esta US põe um cache Redis na frente das duas coisas, como definem a D17, a D19 e a D20. No mapa (`docs/HISTORIAS.md`), ela vem depois da US3 e da US11. A US5 (Nominatim) e a US6 (limpeza manual) dependem dela.
 
 ## Critérios de aceite
-- [ ] 1. Dado um CEP na base já consultado (em `/ceps-proximos/:cep` ou em `/detalhes`), quando consulto de novo dentro do TTL de resultado, então a resposta é idêntica à primeira e nem o banco nem a BrasilAPI são chamados. No `/detalhes`, o endereço vem do cache de endereço.
+- [x] 1. Dado um CEP na base já consultado (em `/ceps-proximos/:cep` ou em `/detalhes`), quando consulto de novo dentro do TTL de resultado, então a resposta é idêntica à primeira e nem o banco nem a BrasilAPI são chamados. No `/detalhes`, o endereço vem do cache de endereço.
 - [ ] 2. Dado o resultado de um CEP em cache, quando peço outra `pagina` ou outro `limite`, então a página sai da lista em cache, com `total` e `total_paginas` corretos, sem ir ao banco.
 - [ ] 3. Dado um lookup da BrasilAPI com `found`, então ele fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Com `not_found`, fica por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Com `unavailable`, não entra no cache, e a chamada seguinte tenta a BrasilAPI de novo.
 - [ ] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
@@ -170,7 +170,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 **Modo sugerido:** agent-driven, porque são 7 tarefas, 9 arquivos de lógica, uma migration e uma dependência nova.
 
 ## Tarefas
-- [ ] 1. Porta `Cache` (chaves e prefixos), `InMemoryCache` e o ambiente (`REDIS_URL` + TTLs), com testes.
+- [x] 1. Porta `Cache` (chaves e prefixos), `InMemoryCache` e o ambiente (`REDIS_URL` + TTLs), com testes.
 - [ ] 2. `CachingCepAddressProvider` (found 30 d, not_found 1 h, unavailable fora), com testes.
 - [ ] 3. Cache do resultado no `findNearbyCeps` (nova assinatura, paginação sobre a lista em cache), com testes do caso de uso e do `app.test.ts`.
 - [ ] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
