@@ -45,23 +45,18 @@ services:
       - '3000:3000'
     environment:
       DATABASE_URL: postgresql://giross:giross@postgres:5432/giross
+      REDIS_URL: redis://redis:6379
       PORT: 3000
       SEARCH_RADIUS_KM: ${SEARCH_RADIUS_KM:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CACHE_TTL_ADDRESS_SECONDS: ${CACHE_TTL_ADDRESS_SECONDS:-2592000}
+      CACHE_TTL_RESULT_SECONDS: ${CACHE_TTL_RESULT_SECONDS:-604800}
+      CACHE_TTL_NOT_FOUND_SECONDS: ${CACHE_TTL_NOT_FOUND_SECONDS:-3600}
     depends_on:
+      seed:
+        condition: service_completed_successfully
       redis:
-    image: redis:8-alpine
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
-    # ports:
-    #   - '6379:6379'
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 3s
-      timeout: 3s
-      retries: 20
-
-  seed:
-    condition: service_completed_successfully
+        condition: service_healthy
 
 volumes:
   pgdata:
