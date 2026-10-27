@@ -23,7 +23,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 
 ## Critérios de aceite
 - [ ] 1. Dado um CEP fora da base, de UF carregada, com rua, cidade e UF na BrasilAPI (ex.: `01001000` com `SEED_UFS=SP`), quando chamo `GET /ceps-proximos/:cep/detalhes`, então recebo `200` com `origem.fonte = "nominatim"`, `latitude`/`longitude` do Nominatim, o endereço da BrasilAPI e os vizinhos da base calculados a partir dessa coordenada (ordem, raio, paginação e 2 casas, como hoje). O resumo `GET /ceps-proximos/:cep` também responde `200`, com o mesmo `ceps`.
-- [ ] 2. Dado que o Nominatim não devolve nenhum candidato, ou só devolve candidatos de outra cidade ou outra UF que a BrasilAPI (comparação sem acento, sem diferença de maiúsculas e sem espaços extras), então `422 CEP_SEM_GEOLOCALIZACAO`.
+- [x] 2. Dado que o Nominatim não devolve nenhum candidato, ou só devolve candidatos de outra cidade ou outra UF que a BrasilAPI (comparação sem acento, sem diferença de maiúsculas e sem espaços extras), então `422 CEP_SEM_GEOLOCALIZACAO`.
 - [ ] 3. Dado um endereço da BrasilAPI sem rua, sem cidade ou sem UF, então `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim.
 - [ ] 4. Dado o Nominatim fora do ar (timeout de 3 s, erro de rede, status ≠ 200, corpo inválido) ou o limite de 1 req/s atingido, então `503 PROVEDOR_INDISPONIVEL`, e nada vai para o cache de geocoding.
 - [ ] 5. Dado uma coordenada aceita, então ela fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Dado "sem match" (critério 2), ele fica em cache por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Dentro do TTL, a mesma consulta não chama o Nominatim. O resultado com os vizinhos entra no `result:<raio>:<cep>` junto com a fonte, então a repetição responde `fonte = "nominatim"` sem ir ao banco nem ao Nominatim.
@@ -150,7 +150,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 
 ## Tarefas
 - [x] 1. Porta `Geocoder` e `NominatimGeocoder` (URL, `User-Agent`, 1 req/s, timeout, mapeamento cidade/UF), mais `NOMINATIM_URL`/`NOMINATIM_USER_AGENT` no `env.ts`, com testes.
-- [ ] 2. `OriginGeocoder` e `geocodeKey` (validação de cidade/UF normalizada, cache de `found` 30 d e `no_match` 1 h), com testes.
+- [x] 2. `OriginGeocoder` e `geocodeKey` (validação de cidade/UF normalizada, cache de `found` 30 d e `no_match` 1 h), com testes.
 - [ ] 3. Fallback no `findNearbyCeps` (nova assinatura, vizinhos a partir da origem, `source` no resultado em cache) e `fonte` na rota, com testes do caso de uso e do `app.test.ts`.
 - [ ] 4. Composição em `src/index.ts`, mais as variáveis no `docker-compose.yml` e no `.env.example`.
 - [ ] 5. README e `DECISOES.md`.
