@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-26
 implementada_em: 2026-10-26
-verificada_em:
+verificada_em: 2026-10-27
 branch: feat/us2-ceps-proximos
 merge_request:
 ---
@@ -232,7 +232,15 @@ Não se aplica (API sem tela).
 - **Suítes:** `npm test`, `npm run lint`, `npm run typecheck`.
 
 ## Verificação independente
-Preenchido no `/pato/verify`.
+Em 2026-10-27, por subagente em contexto limpo, base `main`.
+
+- **Suítes:** `npm test` 74/74 (75/75 após as correções), lint e typecheck sem erro.
+- **Critérios:** 1 a 13 atendidos. Na verificação, 1, 2, 3 e 12 foram conferidos só por leitura do código, do compose e da stack já em execução.
+- **Entregável:** sim. Seed, banco, caso de uso, rota, Dockerfile, compose, README e logs, sem TODO nem flag escondida. A branch parte de `main` e só tem commits da US2.
+- **Linhas medidas:** 406 de 500.
+- **Achados:** nenhum Alta ou Média. Três Baixa, corrigidos em `e5b70c4`: assinatura do `createApp` desatualizada na spec, erro 4xx sem teste e UF inválida do seed sem execução (rodado à mão: saída 1, mensagem clara). Sem releitura por novo subagente, porque as correções foram um teste e texto da spec.
+- **Não verificado:** `docker compose up` de um checkout limpo e o tempo do seed do Brasil inteiro, o seed rodado duas vezes (idempotência, critério 3), `EXPLAIN ANALYZE` do índice e o conteúdo das linhas de log do Pino (critério 12).
+- **Decisão do usuário:** corrigir os achados Baixa e registrar.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
