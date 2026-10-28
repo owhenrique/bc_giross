@@ -23,6 +23,13 @@ describe('GET /docs', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text).toContain('/docs/openapi.json');
+    expect(res.text).toContain('@scalar/api-reference@1.74.0/esm.js');
+  });
+
+  it('falls to the generic 404 on other paths under /docs', async () => {
+    const res = await request(setup()).get('/docs/qualquer-coisa');
+    expect(res.status).toBe(404);
+    expect(res.body.erro.codigo).toBe('NAO_ENCONTRADO');
   });
 
   it('serves the injected OpenAPI document as JSON', async () => {
