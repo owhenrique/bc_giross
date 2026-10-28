@@ -5,9 +5,9 @@ mapa: docs/HISTORIAS.md
 depende_de: US8 (PR #3) e US12 (PR #10), mergeadas
 titulo: Healthcheck (`/saude`)
 status: em-andamento
-modo:
+modo: direto
 criada_em: 2026-10-28
-implementada_em:
+implementada_em: 2026-10-28
 verificada_em:
 branch: feat/us9-saude
 merge_request:
@@ -26,12 +26,12 @@ Fica de fora a checagem do banco: um `SELECT 1` no `CepRepository` misturaria re
 A US9 roda depois da US12 e antes da US10. A US10 documenta o `GET /saude` no OpenAPI.
 
 ## Critérios de aceite
-- [ ] 1. Dado a API no ar, quando chamo `GET /saude`, então recebo `200` com o corpo `{ "status": "ok" }`.
-- [ ] 2. Dado a API no ar com o Postgres ou o Redis fora, quando chamo `GET /saude`, então a resposta continua `200 { "status": "ok" }`: a rota não acessa banco, cache nem provedores externos.
-- [ ] 3. Dado `POST /saude` (ou outro método que não `GET`), então a resposta é o `404 NAO_ENCONTRADO` genérico de hoje.
-- [ ] 4. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, somando `/saude` e as outras rotas, então o `/saude` recebe `429 LIMITE_EXCEDIDO` como qualquer rota: ele conta no rate limit da US7, sem isenção.
-- [ ] 5. Dado o README, então a seção "Contrato" descreve o `GET /saude` e a resposta dele.
-- [ ] 6. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
+- [x] 1. Dado a API no ar, quando chamo `GET /saude`, então recebo `200` com o corpo `{ "status": "ok" }`.
+- [x] 2. Dado a API no ar com o Postgres ou o Redis fora, quando chamo `GET /saude`, então a resposta continua `200 { "status": "ok" }`: a rota não acessa banco, cache nem provedores externos.
+- [x] 3. Dado `POST /saude` (ou outro método que não `GET`), então a resposta é o `404 NAO_ENCONTRADO` genérico de hoje.
+- [x] 4. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, somando `/saude` e as outras rotas, então o `/saude` recebe `429 LIMITE_EXCEDIDO` como qualquer rota: ele conta no rate limit da US7, sem isenção.
+- [x] 5. Dado o README, então a seção "Contrato" descreve o `GET /saude` e a resposta dele.
+- [x] 6. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
 
 ## Escopo
 **Dentro:**
@@ -98,7 +98,7 @@ A US inteira sai num PR, mergeável sozinho, com **até 500 linhas de lógica** 
 **Modo sugerido:** direto. É uma tarefa, com 2 arquivos de código e ~10 linhas. A rota nova é aditiva e não muda nenhum contrato existente.
 
 ## Tarefas
-- [ ] 1. `GET /saude` com retorno fixo: `healthRouter`, registro no `createApp`, teste HTTP e README.
+- [x] 1. `GET /saude` com retorno fixo: `healthRouter`, registro no `createApp`, teste HTTP e README.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica.
