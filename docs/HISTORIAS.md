@@ -23,7 +23,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US7 | Rate limit da API (entrada e saída no Redis) | ~150 | US2 |
 | US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
 | US12 | Simplificação do projeto (roda antes da US9) | ~270 | US7, US8 |
-| US9 | Healthcheck (`/saude`) | ~110 | US8, US12 |
+| US9 | Healthcheck (`/saude`) | ~10 | US8, US12 |
 | US10 | Documentação da API com Scalar | ~40 | US8, US9 |
 
 Depois da US10, `docs/specs/` e este arquivo vão para a branch `docs` (decidido na US12).
@@ -133,7 +133,7 @@ Como **operador da API**, quero limitar as requisições por cliente, para prote
 - `TRUST_PROXY` define de onde vem o IP do cliente atrás de proxy.
 - Requisição que gera outra internamente: cada requisição conta uma vez só (o middleware pula se `req.rateLimit` já existe), e a composição interna chama o caso de uso em processo, nunca HTTP para a própria API (D30). Spec: `docs/specs/us7-rate-limit.md`.
 
-Fica para outra US: isenção do `/saude` (US9) e o `429` no OpenAPI (US10).
+Fica para outra US: o `429` no OpenAPI (US10). A isenção do `/saude` saiu na US9.
 
 Simplificada na US12: os contadores de entrada e de saída saíram do Redis e ficam em memória, por processo (D22).
 
@@ -169,18 +169,15 @@ Decisões: D22 reescrita (os dois limites em memória, por processo); a D30 fica
 Fica para depois da US10: mover `docs/specs/` e este arquivo para a branch `docs`.
 
 ## US9 — Healthcheck (`/saude`)
-Como **operador da API**, quero um endpoint que diga se a API e as dependências dela estão de pé, para o orquestrador reiniciar o serviço e eu saber, sem abrir logs, qual peça caiu.
+Como **operador da API**, quero uma rota que diga se a API está no ar, para conferir de relance que o serviço responde, sem montar uma consulta de CEP.
 
-- Dado tudo de pé, quando chamo `GET /saude`, então `200` com `{ status: "ok", componentes: { banco: "ok", cache: "ok", provedor_cep: "ok" } }`.
-- Dado o Postgres fora do ar, então `503` com `status: "indisponivel"` e `banco: "falha"`, porque sem a base a API não responde nada.
-- Dado o Redis ou o provider de CEP (BrasilAPI) fora, então `200` com `status: "degradado"` e o componente em `"falha"`, porque a API ainda responde (D29).
-- Cada checagem tem timeout de 1 s e todas rodam em paralelo: uma dependência travada não trava o `/saude`.
-- O status do provider vem da última chamada real à BrasilAPI (sucesso ou falha registrados pelo client). O `/saude` não chama a BrasilAPI, para não gastar o limite de 5 req/s (D22). Sem nenhuma chamada ainda, o componente aparece como `"desconhecido"` e não degrada o status.
-- A resposta traz só o status de cada componente: nenhuma mensagem de erro, host, versão ou stack.
-- O serviço `api` do compose usa o `/saude` como `healthcheck`.
-- As checagens ficam atrás de uma porta `HealthIndicator` (`name`, `critical`, `check()`), registrada na composição: dependência nova = um indicador novo.
+- Dado a API no ar, quando chamo `GET /saude`, então `200` com `{ "status": "ok" }`.
+- A rota não acessa banco, cache nem provedores externos: com o Postgres ou o Redis fora, a resposta é a mesma.
+- O `/saude` conta no rate limit como as outras rotas.
 
-- Dado mais de 60 req/min do mesmo IP em `/saude`, então nenhuma recebe `429`: o `/saude` fica fora do rate limit da US7, para o healthcheck do orquestrador nunca marcar a API como fora do ar por causa do limite. As requisições ao `/saude` também não contam para o limite das outras rotas.
+Decisões: o escopo encolheu no refinamento. A rota é consultada só por uma pessoa, nunca pelo container, e por isso o compose não ganha `healthcheck` e o `/saude` não tem isenção do rate limit. A checagem do banco ficou de fora porque o `CepRepository` só trata CEP. Spec: `docs/specs/us9-saude.md`.
+
+Fica fora do card: checagem do Postgres, do Redis e dos provedores, status `degradado`/`indisponivel` e a porta `HealthIndicator`.
 
 ## US10 — Documentação da API com Scalar
 Como **integrador da Giross**, quero uma documentação navegável do contrato da API, com exemplos e erros, para integrar sem ler o código nem adivinhar os formatos.
