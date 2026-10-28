@@ -83,7 +83,7 @@ A tabela vem da amostra inicial de 46.906 CEPs. Na base completa de SP, com pont
 
 ## D8 — Só `cep`, `uf`, `latitude`, `longitude`
 
-A `uf` permite filtrar o seed e responder a regra de cobertura (D13) com um `DISTINCT uf`. Os demais dados cadastrais (rua, bairro, cidade, UF) vêm da API externa (D12). Guardar esses dados na base duplicaria a responsabilidade da API.
+A `uf` permite filtrar o seed e gravar as UFs carregadas, que respondem a regra de cobertura (D13). Os demais dados cadastrais (rua, bairro, cidade, UF) vêm da API externa (D12). Guardar esses dados na base duplicaria a responsabilidade da API.
 
 ## D9 — Brasil inteiro no repositório
 
@@ -100,7 +100,7 @@ Formatos descartados:
 - `pg_dump`: binário, não auditável e dependente da versão do Postgres.
 - Só o script: obrigaria o avaliador a baixar GBs do IBGE.
 
-O `seed.ts` carrega via `COPY` (lib `pg`, já que o Prisma não tem `COPY`), pode rodar várias vezes e limpa o cache de resultados ao recarregar.
+O seed carrega via `COPY` (lib `pg`, já que o Prisma não tem `COPY`), pode rodar várias vezes e limpa o cache de resultados ao recarregar.
 
 ## D11 — Origem: base primeiro
 
@@ -108,9 +108,9 @@ Os vizinhos saem do CNEFE. Usar a mesma fonte para a origem evita deslocar o cen
 
 **Fallback escolhido:** BrasilAPI (rua, cidade, UF) → Nominatim, com `addressdetails=1`, rejeitando o resultado se a cidade ou a UF não baterem. A AwesomeAPI foi descartada pela observação abaixo.
 
-**Observação:** a AwesomeAPI bloqueou o IP com `429 QuotaExceeded` depois de ~30 chamadas. O limite não está documentado. Isso inviabiliza a AwesomeAPI como fallback confiável (pendente).
+**Observação:** a AwesomeAPI bloqueou o IP com `429 QuotaExceeded` depois de ~30 chamadas. O limite não está documentado. Isso inviabiliza a AwesomeAPI como fallback confiável.
 
-## D12 — BrasilAPI v2 para dados cadastrais (em análise)
+## D12 — BrasilAPI v2 para dados cadastrais
 
 Comportamento de erro observado:
 
@@ -177,38 +177,38 @@ Longos o bastante para poupar o banco e as APIs externas, curtos o bastante para
 | Todos os resultados | ~5,5 GB | ~430 MB (46 mil CEPs) |
 | Cabem em 256 MB | ~40 mil | ~27 mil |
 
-Com 10 mil origens novas por dia na capital paulista, os resultados ocupam ~90 MB com 24 h e chegariam a ~650 MB com 7 d.
+Com 10 mil origens novas por dia na capital paulista, os resultados ocupam ~90 MB com 24 h e passariam dos 256 MB com um TTL de 3 d ou mais.
 
-**Por que o resultado saiu de 7 d para 24 h:** com 7 d, os CEPs consultados uma vez se acumulam e passam dos 256 MB. O `allkeys-lru` despeja pela ordem de uso, sem saber o custo: um resultado (~6 a 10 KB, recalculável no banco) ocupa o lugar de 30 a 50 endereços ou coordenadas, e cada um deles custa uma chamada externa com limite. As chaves `geocode:*` sofrem mais: enquanto o resultado do CEP está em cache, ninguém as lê, e elas parecem frias para o LRU. De quebra, a limitação do `DELETE /cache/:cep` (D21 cont.) cai de 7 d para 1 d.
+**Por que não mais que 24 h:** com um TTL maior, os CEPs consultados uma vez se acumulam e passam dos 256 MB. O `allkeys-lru` despeja pela ordem de uso, sem saber o custo: um resultado (~6 a 10 KB, recalculável no banco) ocupa o lugar de 30 a 50 endereços ou coordenadas, e cada um deles custa uma chamada externa com limite. As chaves `geocode:*` sofrem mais: enquanto o resultado do CEP está em cache, ninguém as lê, e elas parecem frias para o LRU. De quebra, a limitação do `DELETE /cache/:cep` (D21 cont.) dura no máximo 1 d.
 
-**Descartado:** guardar os vizinhos compactos (`[cep, km com 3 casas]`, ~2,6 vezes menor) para manter os 7 d. Muda o formato do cache e o código que o lê, para um ganho que as 24 h já dão.
+**Descartado:** guardar os vizinhos compactos (`[cep, km com 3 casas]`, ~2,6 vezes menor) para alongar o TTL. Muda o formato do cache e o código que o lê, para um ganho que as 24 h já dão.
 
 ## D19 (cont.) — Cache na US4
 
 - **Cliente:** `redis` (node-redis v5), atrás da porta `Cache` (`RedisCache` em produção, `InMemoryCache` nos testes).
 - **`REDIS_URL` obrigatória:** o `loadEnv` falha sem ela, na API e no seed. O `InMemoryCache` só existe nos testes, para não haver um cache "silencioso" por processo em produção.
-- **Redis fora do ar, na API:** degrada. Erro ou timeout (500 ms) vira log `warn` e miss, e a consulta segue no banco e na BrasilAPI. O cliente reconecta sozinho, sem reiniciar a API. Isso bate com o `/saude`, que mostra o Redis fora como "degradado".
-- **Redis fora do ar, no seed:** o seed segue sem ele, como a API. Sem conexão com o Redis, ou se a limpeza dos resultados falhar depois do `COMMIT`, ele carrega a base, avisa que não limpou o cache e termina com código 0. O risco é um Redis que volte com resultados da base anterior: eles saem pelo TTL do resultado (24 h) ou por um `DELETE /cache`. O Redis do compose não tem persistência e volta vazio depois de cair. Antes, o seed abortava sem o Redis, e no compose isso impedia a API de subir.
-- **Redis fora do ar, no compose:** a `api` não depende do Redis, e a dependência `seed → redis` é opcional (`required: false`). Com o Redis fora na subida, o compose avisa, o seed carrega a base sem limpar o cache e a API sobe depois dele, sem cache. A `api` continua esperando o seed terminar com sucesso, então uma falha do seed por outro motivo (ex.: a migration) ainda impede a API de subir. Uma porta do host ocupada pelo Redis ainda derruba a subida inteira, porque o Docker falha antes de o compose avaliar as dependências; nesse caso, troque o `REDIS_PORT`.
+- **Redis fora do ar, na API:** degrada. Erro ou timeout (500 ms) vira log `warn` e miss, e a consulta segue no banco e na BrasilAPI. O cliente reconecta sozinho, sem reiniciar a API.
+- **Redis fora do ar, no seed:** o seed segue sem ele, como a API. Sem conexão com o Redis, ou se a limpeza dos resultados falhar depois do `COMMIT`, ele carrega a base, avisa que não limpou o cache e termina com código 0. O risco é um Redis que volte com resultados da base anterior: eles saem pelo TTL do resultado (24 h) ou por um `DELETE /cache`. O Redis do compose não tem persistência e volta vazio depois de cair.
+- **Redis fora do ar, no compose:** a `api` não depende do Redis, e a dependência `seed → redis` é opcional (`required: false`). Com o Redis fora na subida, o compose avisa, o seed carrega a base sem limpar o cache e a API sobe depois dele, sem cache. A `api` espera o seed terminar com sucesso, então uma falha do seed por outro motivo (ex.: a migration) impede a API de subir. Uma porta do host ocupada pelo Redis derruba a subida inteira, porque o Docker falha antes de o compose avaliar as dependências; nesse caso, troque o `REDIS_PORT`.
 - **O que entra no cache de um CEP fora da base:** só o lookup da BrasilAPI (`found` 30 d, `not_found` 1 h). `unavailable` nunca entra. O desfecho (`404`/`422`) não é guardado, e a repetição ainda consulta o banco.
 - **Formato do resultado em cache:** a lista inteira de vizinhos, já filtrada e ordenada, mais a origem. A paginação sai dessa lista (por isso `pagina` e `limite` não entram na chave, como na D17), e o raio entra na chave (`result:<raio>:<cep>`) porque pode mudar por env. O endereço não faz parte do valor: vem do cache de endereço (`address:<cep>`).
 - **Limpeza no seed:** apaga `result:*` e mantém `address:*`, porque o endereço não depende da base carregada.
 
 ## D13 (cont.) — Tabela `loaded_uf`
 
-O caminho `422` fazia `DISTINCT uf` sobre ~898 mil linhas de `cep`, sem índice em `uf`. Agora o seed grava as UFs que carregou na tabela `loaded_uf` (no máximo 27 linhas), na mesma transação da carga dos CEPs, e o `findLoadedUfs` lê dela. Descartadas: só pôr as UFs no cache (ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e índice + CTE recursiva em SQL à mão.
+O seed grava as UFs que carregou na tabela `loaded_uf` (no máximo 27 linhas), na mesma transação da carga dos CEPs, e o `findLoadedUfs` lê dela. Assim, o caminho `422` não varre as ~898 mil linhas de `cep`, que não têm índice em `uf`. Descartadas: só pôr as UFs no cache (ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e índice + CTE recursiva em SQL à mão.
 
 Consequência: numa base migrada sem rodar o seed, a tabela fica vazia e todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O compose sempre roda o seed antes da API, e o README avisa para rodar o seed depois do `migrate deploy`.
 
 ## D19 (cont.) — Credenciais do Postgres no `.env` do compose
 
-O `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do `.env` e monta a `DATABASE_URL` dos serviços `api` e `seed`, em vez de ter credenciais fixas no arquivo. `POSTGRES_PORT` e `API_PORT` definem as portas publicadas no host.
+O `docker-compose.yml` lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do `.env` e monta a `DATABASE_URL` dos serviços `api` e `seed`, sem credenciais fixas no arquivo. `POSTGRES_PORT` e `API_PORT` definem as portas publicadas no host.
 
 Consequência: o `docker compose up` falha sem um `.env`, então o README manda copiar o `.env.example` antes. Fora do docker (`npm start`, `npm run seed`), a `DATABASE_URL` continua vindo do `.env`. No container, o `.env` fica fora da imagem e as variáveis vêm do compose, então a `api` e o `seed` rodam `start:container` e `seed:container`, sem o `--env-file-if-exists`.
 
 ## D11 (cont.) — Fallback do Nominatim na US5
 
-- **Escopo:** só para CEP fora da base de UF carregada. Ele substitui o `422 CEP_SEM_GEOLOCALIZACAO`. Para UF não carregada continua `422 CEP_FORA_DA_COBERTURA`, porque não haveria vizinhos na base, e o Nominatim nem é chamado.
+- **Escopo:** só para CEP fora da base de UF carregada. Para UF não carregada, a resposta é `422 CEP_FORA_DA_COBERTURA`, porque não haveria vizinhos na base, e o Nominatim nem é chamado.
 - **Nominatim fora do ar:** `503 PROVEDOR_INDISPONIVEL`, como a BrasilAPI. Timeout (3 s), erro de rede, status ≠ 200, corpo inválido e o limite de 1 req/s contam como indisponível, que é transitório. Indisponibilidade nunca entra no cache.
 - **Sem rua, cidade ou UF na BrasilAPI:** `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. Usar o centro da cidade deixaria o raio de ~1 km sem sentido.
 - **TTLs do geocoding** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h), os mesmos da D20. O resultado final fica em `result:<raio>:<cep>` com a fonte (`base` ou `nominatim`), então a repetição não vai ao banco nem ao Nominatim. O seed não apaga as chaves `geocode:*`, porque a coordenada do Nominatim não depende da base.
@@ -218,7 +218,7 @@ Consequência: o `docker compose up` falha sem um `.env`, então o README manda 
 
 ## D22 (cont.) — Rate limits em memória (US12)
 
-Na US7 os dois limites contavam no Redis: a entrada com o store `rate-limit-redis` (fail-open com o Redis fora) e a saída com um limiter em Lua, compartilhado entre réplicas. A US12 tirou os contadores do Redis: saíram o store `rate-limit-redis` e o limiter Redis/Lua, e os dois limites ficaram em memória, por processo.
+Os dois limites contam em memória, por processo, e não dependem do Redis.
 
 - **Entrada:** 60 req/min por IP, com `express-rate-limit`, em todas as rotas, e `429 LIMITE_EXCEDIDO` pela tabela de erros da camada HTTP (`HTTP_ERRORS`), porque o limite de entrada é da borda e não de um caso de uso. Headers `RateLimit` e `RateLimit-Policy` (draft-8) e `Retry-After`; sem os legados `X-RateLimit-*`. Configurável por `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`. Requisições que recebem `429` também contam na janela.
 - **Como a entrada guarda os dados:** o `MemoryStore` padrão do `express-rate-limit` guarda um contador por IP, em janela fixa, com custo fixo de ~205 bytes por IP (medido com 100 mil IPs). São dois `Map`s, o da janela atual e o da anterior; a cada janela, os IPs que não voltaram são descartados. IPv6 conta por sub-rede /56. A memória fica nos IPs distintos das últimas ~2 janelas: 10 mil IPs ≈ 2–4 MB e 100 mil ≈ 20–40 MB. Um volume de ataque precisa ser barrado antes da API (proxy ou WAF).
@@ -229,8 +229,8 @@ Na US7 os dois limites contavam no Redis: a entrada com o store `rate-limit-redi
 **Trade-offs:**
 - **Limite por processo:** com N réplicas, a entrada vira N × 60/min por IP, e o Nominatim, cuja política pede 1 req/s no total, receberia até N req/s. O compose sobe uma réplica.
 - **Janela fixa na entrada:** um cliente consegue até 2 vezes o limite em poucos segundos, na virada da janela. A janela deslizante custaria até 4 vezes mais memória por IP (medido).
-- **Redis fora do ar:** não afeta os limites. Antes, a entrada passava sem limite.
-- **Subida sem esperar o Redis:** o `await` do `redis.connect()` só existia para o store do Redis. A API sobe sem ele, e até o Redis conectar o cache degrada para miss.
+- **Redis fora do ar:** não afeta os limites.
+- **Subida sem esperar o Redis:** a API não espera o `redis.connect()`; até o Redis conectar, o cache degrada para miss.
 
 ## D30 — Composição interna em processo
 

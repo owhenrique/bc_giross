@@ -19,7 +19,7 @@ merge_request: https://github.com/owhenrique/bc_giross/pull/11
 Como **operador da API**, quero uma rota que diga se a API está no ar, para conferir de relance que o serviço responde, sem montar uma consulta de CEP.
 
 ## Contexto
-O mapa (`docs/HISTORIAS.md`) previa um `/saude` completo: Postgres, Redis e BrasilAPI checados, `200`/`503` conforme o componente, porta `HealthIndicator`, healthcheck do compose e isenção do rate limit. No refinamento o escopo encolheu. A rota é consultada só por uma pessoa, nunca pelo container nem por um orquestrador, e responde só se a API está no ar, com corpo fixo e sem checar dependências.
+A rota é consultada só por uma pessoa, nunca pelo container nem por um orquestrador, e responde só se a API está no ar, com corpo fixo e sem checar dependências.
 
 Fica de fora a checagem do banco: um `SELECT 1` no `CepRepository` misturaria responsabilidades, porque a porta só trata CEP.
 
@@ -28,8 +28,8 @@ A US9 roda depois da US12 e antes da US10. A US10 documenta o `GET /saude` no Op
 ## Critérios de aceite
 - [x] 1. Dado a API no ar, quando chamo `GET /saude`, então recebo `200` com o corpo `{ "status": "ok" }`.
 - [x] 2. Dado a API no ar com o Postgres ou o Redis fora, quando chamo `GET /saude`, então a resposta continua `200 { "status": "ok" }`: a rota não acessa banco, cache nem provedores externos.
-- [x] 3. Dado `POST /saude` (ou outro método que não `GET`), então a resposta é o `404 NAO_ENCONTRADO` genérico de hoje.
-- [x] 4. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, somando `/saude` e as outras rotas, então o `/saude` recebe `429 LIMITE_EXCEDIDO` como qualquer rota: ele conta no rate limit da US7, sem isenção.
+- [x] 3. Dado `POST /saude` (ou outro método que não `GET`), então a resposta é o `404 NAO_ENCONTRADO` genérico.
+- [x] 4. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, somando `/saude` e as outras rotas, então o `/saude` recebe `429 LIMITE_EXCEDIDO` como qualquer rota: ele conta no rate limit da US7, como as outras rotas.
 - [x] 5. Dado o README, então a seção "Contrato" descreve o `GET /saude` e a resposta dele.
 - [x] 6. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
 
@@ -39,20 +39,17 @@ A US9 roda depois da US12 e antes da US10. A US10 documenta o `GET /saude` no Op
 - Teste HTTP da rota (Supertest).
 - README (contrato). O mapa já foi ajustado nesta spec.
 
-**Fora** (fora do card, decidido no refinamento):
+**Fora** (fora do card):
 - Checagem do Postgres, do Redis, da BrasilAPI e do Nominatim.
-- Status `degradado`/`indisponivel` e `503`.
-- Porta `HealthIndicator`.
 - `healthcheck` do serviço `api` no `docker-compose.yml`.
-- Isenção do `/saude` no rate limit.
 
 ## Decisões e respostas do usuário
-- P: (proposta inicial do mapa: componentes `banco`, `cache`, `provedor_cep`, porta `HealthIndicator`, healthcheck no compose) → R: "quero uma rota simples de healthcheck, não precisa ser nada fancy".
-- P: o `/saude` marca o container como saudável/doente? → R: não. A rota é usada só pelo usuário, e o container não a chama. Com isso, o healthcheck do compose e a isenção do rate limit saem.
+- P: O que o `/saude` checa? → R: Só se a API responde: "quero uma rota simples de healthcheck, não precisa ser nada fancy".
+- P: o `/saude` marca o container como saudável/doente? → R: não. A rota é usada só pelo usuário, e o container não a chama. Por isso o compose não tem healthcheck da `api`, e o `/saude` conta no rate limit.
 - P: checar o banco com um `SELECT 1` via `CepRepository.ping()`? → R: não, porque o `CepRepository` só trata CEP. Fica só um status `ok`, verificando apenas a API, com um router de retorno fixo.
 
 ## Premissas
-- O `/saude` conta no rate limit como as outras rotas, porque a isenção existia só por causa do orquestrador, que saiu do escopo.
+- O `/saude` conta no rate limit como as outras rotas, porque nenhum orquestrador o consulta.
 
 ## Design técnico
 - **Contrato:** `GET /saude` → `200`, `Content-Type: application/json`, corpo `{ "status": "ok" }`. Sem parâmetros, sem autenticação.
@@ -65,7 +62,7 @@ A US9 roda depois da US12 e antes da US10. A US10 documenta o `GET /saude` no Op
 - `src/presentation/http/app.ts` — alterar: import e `app.use(healthRouter())` — ~2 linhas
 - `src/presentation/http/routes/health-route.test.ts` — criar: testes dos critérios 1–4 via `createApp` — teste, não conta
 - `README.md` — alterar: `### GET /saude` na seção "Contrato" — doc, não conta
-- `docs/HISTORIAS.md` — já ajustado no /pato/spec (tabela, seção US9 e nota da US7); entra no primeiro commit — doc, não conta
+- `docs/HISTORIAS.md` — já ajustado no /pato/spec (tabela e seção US9); entra no primeiro commit — doc, não conta
 
 ## Limite de tamanho
 A US inteira sai num PR, mergeável sozinho, com **até 500 linhas de lógica** adicionadas ou modificadas. Remoção não conta.

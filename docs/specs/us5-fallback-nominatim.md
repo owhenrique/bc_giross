@@ -19,7 +19,7 @@ merge_request: https://github.com/owhenrique/bc_giross/pull/7
 Como **Giross**, quero resultados mesmo quando o CEP de referência não está na base, para não perder a consulta em CEPs novos ou mal cadastrados no Censo.
 
 ## Contexto
-Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/application/find-nearby-ceps.ts`) e termina em `404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA`, `422 CEP_SEM_GEOLOCALIZACAO` ou `503 PROVEDOR_INDISPONIVEL`. O `422 CEP_SEM_GEOLOCALIZACAO` aparece quando o CEP existe e é de uma UF carregada, mas não está na base: é um CEP novo, ou um "sujo" removido pelo `build-dataset` (p90 > 2 km, D4/D11). Esta US troca esse `422` por uma tentativa de achar a coordenada no Nominatim, a partir do endereço da BrasilAPI, validando a cidade e a UF, como definem a D11 (e a continuação dela) e a D22. No mapa (`docs/HISTORIAS.md`), ela vem depois da US4, cujo cache ela reusa.
+Um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/application/find-nearby-ceps.ts`). Quando ele existe e é de uma UF carregada, é um CEP novo ou um "sujo" removido pelo `build-dataset` (p90 > 2 km, D4/D11). Esta US busca a coordenada dele no Nominatim, a partir do endereço da BrasilAPI, validando a cidade e a UF, como definem a D11 (e a continuação dela) e a D22. No mapa (`docs/HISTORIAS.md`), ela vem depois da US4, cujo cache ela reusa.
 
 ## Critérios de aceite
 - [x] 1. Dado um CEP fora da base, de UF carregada, com rua, cidade e UF na BrasilAPI (ex.: `01001000` com `SEED_UFS=SP`), quando chamo `GET /ceps-proximos/:cep/detalhes`, então recebo `200` com `origem.fonte = "nominatim"`, `latitude`/`longitude` do Nominatim, o endereço da BrasilAPI e os vizinhos da base calculados a partir dessa coordenada (ordem, raio, paginação e 2 casas, como hoje). O resumo `GET /ceps-proximos/:cep` também responde `200`, com o mesmo `ceps`.
@@ -43,11 +43,10 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 - Fallback para UF não carregada → fora do card (decisão desta US)
 - Busca por `postalcode` no Nominatim (cobertura baixa no OSM, D11) → fora do card
 - Usar o centro da cidade quando não há rua → fora do card (decisão desta US)
-- Componente Nominatim no `/saude` → US9, se ela quiser
 - Limpeza manual das chaves `geocode:*` → US6 (`DELETE /cache` apaga tudo, e `DELETE /cache/:cep` deve incluir `geocode:<cep>`)
 
 ## Decisões e respostas do usuário
-- P: Em que casos o fallback entra? → R: **só para UF carregada**. Ele substitui o `422 CEP_SEM_GEOLOCALIZACAO`. Para UF não carregada, continua `422 CEP_FORA_DA_COBERTURA`, porque não haveria vizinhos na base.
+- P: Em que casos o fallback entra? → R: **só para UF carregada**. Para UF não carregada, a resposta é `422 CEP_FORA_DA_COBERTURA`, porque não haveria vizinhos na base.
 - P: Nominatim fora do ar (timeout, erro, 429 ou o limite de 1 req/s) → R: **`503 PROVEDOR_INDISPONIVEL`**, como a BrasilAPI: é transitório, e o cliente pode tentar de novo. Reusa o código do catálogo.
 - P: A BrasilAPI não traz rua (CEP geral de cidade pequena) → R: **`422` sem consultar o Nominatim**, porque o centro da cidade deixaria o raio de ~1 km sem sentido.
 - P: O que entra no cache do geocoding? → R: **coordenada aceita por 30 d e "sem match" por 1 h**. Indisponível nunca entra. O resultado final (vizinhos) entra no `result:<raio>:<cep>`, com a fonte.
@@ -78,7 +77,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
   - A assinatura passa a ser `findNearbyCeps(repository, addressProvider, originGeocoder, cache, options)`.
   - Em `computeResult`, com o CEP fora da base e `found` com UF carregada: chama `originGeocoder.locate(cep, lookup.address)`. `found` → a origem é `{ lat, lon }`, com `source: 'nominatim'`. `no_match` → `CepWithoutLocationError`. `unavailable` → `AddressProviderUnavailableError`.
   - O cálculo dos vizinhos (bounding box + Haversine + filtro + ordenação) passa a receber a origem, e não o registro da base. O filtro `candidate.cep !== cep` continua valendo.
-  - `CachedResult.origin` ganha `source: 'dataset' | 'nominatim'`. Um valor antigo no Redis, sem `source`, é tratado como `'dataset'`.
+  - `CachedResult.origin` ganha `source: 'dataset' | 'nominatim'`.
   - `NearbyCepsResult.origin.source` passa a ser `'dataset' | 'nominatim'`.
 - **Apresentação** (`nearby-ceps-route.ts`): `fonte: origin.source === 'nominatim' ? 'nominatim' : 'base'`. O resumo não muda.
 - **Adapter** (`src/infrastructure/http/nominatim-geocoder.ts`), no molde do `BrasilApiCepProvider`:
@@ -113,7 +112,7 @@ Hoje um CEP fora da base passa pela BrasilAPI (`findNearbyCeps`, em `src/applica
 - Testes (não contam):
   - `src/application/origin-geocoder.test.ts` — criar: sem rua/cidade/UF não chama; match normalizado (acento, maiúsculas); rejeição por cidade e por UF; homônimo no 1º candidato e certo no 2º; TTLs de `found` e `no_match`; `unavailable` fora do cache; hit sem chamar o geocoder;
   - `src/infrastructure/http/nominatim-geocoder.test.ts` — criar: com `fetch` fake, URL e parâmetros, `User-Agent`, mapeamento de `town`/`village` e de `BR-SP`, lista vazia, status ≠ 200, corpo inválido, timeout, limiter esgotado;
-  - `src/application/find-nearby-ceps.test.ts` — fallback `found` (vizinhos a partir da coordenada, `source: 'nominatim'`), `no_match` → `CepWithoutLocationError`, `unavailable` → `AddressProviderUnavailableError`, UF não carregada sem chamar o geocoder, CEP na base sem chamar o geocoder, cache do resultado com a fonte, valor antigo sem `source`;
+  - `src/application/find-nearby-ceps.test.ts` — fallback `found` (vizinhos a partir da coordenada, `source: 'nominatim'`), `no_match` → `CepWithoutLocationError`, `unavailable` → `AddressProviderUnavailableError`, UF não carregada sem chamar o geocoder, CEP na base sem chamar o geocoder, cache do resultado com a fonte;
   - `src/presentation/http/app.test.ts` — `200` com `fonte: "nominatim"` no `/detalhes` e no resumo, `422` e `503` pelo fallback;
   - `src/config/env.test.ts` — padrões e override das duas variáveis.
 - Docs (não contam): `README.md` (fallback, variáveis, política de uso do Nominatim) e `docs/DECISOES.md` (decisões desta US: escopo só UF carregada, `503` para Nominatim fora, sem rua → `422`, TTLs, comparação normalizada, busca sem `state` com `limit=5`).
@@ -189,5 +188,5 @@ Não se aplica.
 - **Ruas longas:** o Nominatim devolve algum trecho da rua, não o centro do CEP (D11: 3 de 25 entre 250 m e 1 km, a Av. Paulista a 2,8 km). Aceito: é melhor que o `422`.
 - **Homônimo na mesma cidade:** a validação por cidade/UF não pega uma rua homônima em outro bairro da mesma cidade. Aceito.
 - **Grafia diferente da cidade** entre a BrasilAPI e o OSM (ex.: "Embu" × "Embu das Artes") vira `422`. A normalização cobre acento e maiúsculas, não nomes diferentes.
-- **Limite de 1 req/s por processo:** o limiter é em memória. Com mais de uma réplica da API, o limite agregado passa de 1 req/s. Hoje há uma réplica só (compose). Se isso mudar, o limiter vai para o Redis.
+- **Limite de 1 req/s por processo:** o limiter é em memória. Com mais de uma réplica da API, o limite agregado passa de 1 req/s. Hoje há uma réplica só (compose).
 - **Política do Nominatim público:** uso pesado pode levar a bloqueio. O cache de 30 d e o `NOMINATIM_URL` (instância própria) mitigam.

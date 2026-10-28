@@ -19,9 +19,9 @@ merge_request: https://github.com/owhenrique/bc_giross/pull/3
 Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzidos para HTTP num único middleware, a partir de um catálogo, para que um erro novo custe uma classe e uma linha no catálogo, e não um `case` em cada rota.
 
 ## Contexto
-Hoje `findNearbyCeps` devolve uma union (`invalid_cep`, `invalid_pagination`, `not_found`, `found`) e `nearbyCepsRouter` traduz cada caso num `switch` com `sendError`. O `errorHandler` só trata 4xx da pilha e 500. Cada erro novo das US3 a US7 custaria mais um `case` na rota.
+Esta US define como os erros de negócio chegam ao HTTP: o caso de uso lança um `AppError` tipado, e um único error middleware o traduz pelo catálogo. Assim, um erro novo custa uma classe e uma linha no catálogo, sem tocar nas rotas.
 
-US técnica, pedida explicitamente. Não muda o contrato: as respostas de erro continuam byte a byte iguais. No mapa original a US8 migrava os erros de US3–US7; por decisão do usuário ela foi fatiada ao que existe depois da US2. Os erros das US3–US7 já nascem como `AppError` mais uma linha no catálogo.
+US técnica, pedida explicitamente. Não muda o contrato. Ela cobre os erros que existem depois da US2; os erros de negócio das US3 a US7 já nascem como `AppError` mais uma linha no catálogo.
 
 Decisões que valem aqui: D26, D27, D28.
 
@@ -38,26 +38,25 @@ Decisões que valem aqui: D26, D27, D28.
 **Dentro:**
 - `AppError` e as quatro subclasses em `application`.
 - Catálogo e error middleware em `presentation`.
-- Migração de `findNearbyCeps` (retorna só o caso `found`, lança nos demais) e da rota.
+- `findNearbyCeps` retorna só o sucesso e lança os erros; a rota devolve o resultado traduzido.
 
 **Fora** (fica para outra US do mapa ou fora do card):
-- Erros de endereço/cobertura da US3, `429` do rate limit da US7, erros de cache e do token da US6 → cada uma usa `AppError` + catálogo.
+- Erros de endereço/cobertura da US3 e de cache da US6 → cada uma usa `AppError` + catálogo. O `401` do token da US6 e o `429` do rate limit da US7 são da borda HTTP e não viram `AppError`.
 - Mudar qualquer resposta de erro ou o formato `{ erro: { codigo, mensagem } }` → fora do card.
 
 ## Decisões e respostas do usuário
-- P: A US8 depende de US3–US7, que não existem. Como seguir? → R: Especificar só com os erros da US2; as US3–US7 nascem usando `AppError` + catálogo. Ajustar o mapa (depende só da US2, ~100 linhas).
-- P: `docs/HISTORIAS.md` tem alteração não commitada (regra do `/saude` fora do rate limit) → R: é o mapa vigente.
+- P: Quais erros a US8 cobre? → R: Os da US2; os erros de negócio das US3–US7 nascem usando `AppError` + catálogo. No mapa, a US8 depende só da US2 (~100 linhas).
 - P: Paginação tem duas mensagens com o mesmo código → R: dois kinds, `invalid_page` e `invalid_limit`, cada um com entrada no catálogo.
 - P: 4xx da pilha (`err.status` 4xx, não `AppError`) → R: manter o ramo atual no middleware, comportamento idêntico (`app.test.ts`, "maps any 4xx error raised by the stack").
 - P: Onde ficam `AppError` e as subclasses? → R: `src/application/errors.ts`; o domínio fica sem erros por ora.
-- Pedido original do usuário (mapa): erros esperados passam de union no retorno para exceção tipada.
+- Pedido do usuário (mapa): erros esperados como exceção tipada.
 
 ## Premissas
 Nenhuma.
 
 ## Design técnico
 - **`src/application/errors.ts`:** `APP_ERROR_KINDS` (tupla `as const`), `type AppErrorKind`, `abstract class AppError extends Error` com `abstract readonly kind: AppErrorKind`, e uma subclasse por `kind`. Não conhece HTTP.
-- **`src/presentation/http/error-catalog.ts`:** `ERROR_CATALOG: Record<AppErrorKind, { status; codigo: ErrorCode; mensagem }>`. É o único lugar com status HTTP de erro de negócio. Mensagens idênticas às de hoje:
+- **`src/presentation/http/error-catalog.ts`:** `ERROR_CATALOG: Record<AppErrorKind, { status; codigo; mensagem }>`. É o único lugar com status HTTP de erro de negócio:
 
   | kind | status | codigo | mensagem |
   | --- | --- | --- | --- |
@@ -67,20 +66,20 @@ Nenhuma.
   | `cep_not_found` | 404 | `CEP_NAO_ENCONTRADO` | `CEP não encontrado` |
 
 - **`errorHandler`:** (1) `err instanceof AppError` com entrada no catálogo → `sendError` com os dados dela; (2) `err.status` 4xx → `400 PARAMETRO_INVALIDO`; (3) senão `req.log.error({ err })` e `500 ERRO_INTERNO`. `AppError` sem entrada no catálogo cai no 3 (com log).
-- **`findNearbyCeps`:** o tipo de retorno passa a ser o resultado de sucesso, sem o campo `status`. `NearbyCepsResult` deixa de ser union. O `status: 'found'` some, então `toResponse` recebe o resultado direto.
-- **Rota:** `res.json(toResponse(await find(...)))`. `PAGINATION_MESSAGES` sai da rota e vai para o catálogo.
+- **`findNearbyCeps`:** retorna o resultado de sucesso, que o `toResponse` recebe direto; os outros desfechos são `AppError`.
+- **Rota:** `res.json(toResponse(await find(...)))`. As mensagens de paginação ficam no catálogo.
 - Sem migração, sem dependência nova, sem mudança de contrato.
 
 ## Arquivos que a mudança toca
 - `src/application/errors.ts` — criar: `APP_ERROR_KINDS`, `AppErrorKind`, `AppError`, `InvalidCepError`, `InvalidPageError`, `InvalidLimitError`, `CepNotFoundError` — ~25 linhas
-- `src/application/find-nearby-ceps.ts` — alterar: remove a union `NearbyCepsResult`, lança os erros — ~15 linhas
+- `src/application/find-nearby-ceps.ts` — alterar: lança os erros e retorna só o sucesso — ~15 linhas
 - `src/presentation/http/error-catalog.ts` — criar: `ERROR_CATALOG` — ~25 linhas
 - `src/presentation/http/errors.ts` — alterar: `errorHandler` consulta o catálogo — ~25 linhas
-- `src/presentation/http/nearby-ceps-route.ts` — alterar: remove `switch` e `PAGINATION_MESSAGES`, ajusta o tipo de `toResponse` — ~10 linhas
-- `src/application/find-nearby-ceps.test.ts` — alterar: `rejects.toThrow`/`toBeInstanceOf` no lugar de `status` (teste, não conta)
+- `src/presentation/http/nearby-ceps-route.ts` — alterar: sem tratamento de erro, com `toResponse` sobre o resultado de sucesso — ~10 linhas
+- `src/application/find-nearby-ceps.test.ts` — alterar: `rejects.toThrow`/`toBeInstanceOf` (teste, não conta)
 - `src/application/errors.test.ts` — criar: `kind` de cada subclasse (teste, não conta)
 - `src/presentation/http/error-catalog.test.ts` — criar: todo `APP_ERROR_KINDS` tem entrada (teste, não conta)
-- `src/presentation/http/app.test.ts` — alterar só se algum stub do caso de uso usar a union; sem mudar asserts de corpo/status (teste, não conta)
+- `src/presentation/http/app.test.ts` — sem mudar asserts de corpo/status (teste, não conta)
 
 ## Limite de tamanho
 - **Estimativa:** ~100 linhas de lógica (`bc_giross`), soma da lista acima.
@@ -117,7 +116,7 @@ Nenhuma.
 ## Tarefas
 - [x] 1. `application/errors.ts`: `AppError`, `APP_ERROR_KINDS` e as quatro subclasses, com teste de `kind`.
 - [x] 2. `error-catalog.ts` e `errorHandler` consultando o catálogo (AppError, 4xx da pilha, 500), com testes do catálogo e do middleware.
-- [x] 3. `findNearbyCeps` lança os erros e retorna só o sucesso; a rota perde o `switch`; testes do caso de uso ajustados.
+- [x] 3. `findNearbyCeps` lança os erros e retorna só o sucesso; a rota fica sem tratamento de erro; testes do caso de uso ajustados.
 - [x] 4. Conferir `npm test`, `npm run lint`, `npm run typecheck`, `app.test.ts` sem alterar asserts de corpo/status, e a medição de linhas.
 
 ## Telas e fluxos E2E (Playwright)
@@ -150,4 +149,4 @@ Em 2026-10-27, subagente em contexto limpo, base `e4fc4e9` (merge do PR #2; `mai
 
 ## Riscos e pontos em aberto
 - A US2 (PR #2) ainda não foi mergeada; a branch da US8 parte dela ou de `main` depois do merge. O `/pato/implement` só começa quando a base tiver a US2.
-- A rota e `toResponse` mudam de tipo (sem `status`): se a US3 já estiver em andamento em paralelo, haverá conflito nesses dois arquivos.
+- A rota e o `toResponse` mudam: se a US3 já estiver em andamento em paralelo, haverá conflito nesses dois arquivos.

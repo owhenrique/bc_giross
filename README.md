@@ -46,7 +46,7 @@ SEED_UFS=SP,RJ docker compose up --build
 
 ### Cache (Redis)
 
-O compose tem o serviço `redis` (`maxmemory` de 256 MB com política `allkeys-lru`, sem persistência), e a `api` e o `seed` só sobem com ele saudável. Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
+O compose tem o serviço `redis` (`maxmemory` de 256 MB com política `allkeys-lru`, sem persistência). Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
 
 - **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
@@ -70,7 +70,7 @@ A conta do resultado, num raio de 1 km, sobre os 898.455 CEPs da base:
 | Todos os resultados | ~5,5 GB | ~430 MB |
 | Cabem nos 256 MB do Redis | ~40 mil | ~27 mil |
 
-Com 10 mil origens novas por dia na capital, os resultados ocupam ~90 MB com 24 h e chegariam a ~650 MB com 7 d. Acima dos 256 MB, o `allkeys-lru`, que despeja pela ordem de uso sem saber o custo, tiraria também endereços e coordenadas, que custam uma chamada externa, para guardar resultados que o banco recalcula.
+Com 10 mil origens novas por dia na capital, os resultados ocupam ~90 MB com 24 h e passariam dos 256 MB com um TTL de 3 d ou mais. Acima dos 256 MB, o `allkeys-lru`, que despeja pela ordem de uso sem saber o custo, tiraria também endereços e coordenadas, que custam uma chamada externa, para guardar resultados que o banco recalcula.
 
 ### Limpeza de cache
 
@@ -118,9 +118,6 @@ A fonte da verdade do contrato é o [`openapi.yaml`](openapi.yaml) (OpenAPI 3.1)
 - `GET /saude`: `{ "status": "ok" }`, sem checar banco, cache nem provedores.
 - `DELETE /cache` e `DELETE /cache/:cep`: limpeza de cache com token (ver [Limpeza de cache](#limpeza-de-cache)).
 - `GET /docs` e `GET /docs/openapi.json`: UI do Scalar e o documento OpenAPI (desligados com `NODE_ENV=production`).
-
-**Migração:** quem usava `/ceps-proximos/:cep` com o contrato completo (`origem` objeto, `raio_km`) deve passar a usar `/ceps-proximos/:cep/detalhes`.
-
 ### Erros
 
 Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.

@@ -44,19 +44,19 @@ Hoje o contrato existe só na seção "Contrato" do README: rotas, exemplos e a 
 - README enxuto e seção da US10 no mapa.
 
 **Fora** (fora do card, decidido no refinamento):
-- Servir o JS do Scalar pela própria API: a UI carrega o bundle do CDN (jsdelivr), com a versão fixada em `@scalar/api-reference@1.74.0` (ajuste da verificação).
+- Servir o JS do Scalar pela própria API: a UI carrega o bundle do CDN (jsdelivr), com a versão fixada em `@scalar/api-reference@1.74.0`.
 - Gerar o OpenAPI a partir do código (Zod, decorators): o yaml é escrito à mão.
 - Isentar `/docs` do rate limit.
 
 ## Decisões e respostas do usuário
 - P: o PR da US9 (#11) está aberto; seguir com a spec da US10? → R: seguir. O `/pato/implement` só começa depois do merge.
 - P: onde fica o `openapi.yaml`, já que `docs/` está no `.dockerignore` e vai para outra branch? → R: na raiz do repo, porque é fácil de achar e entra na imagem pelo `COPY . .`.
-- P: com que `NODE_ENV` o compose sobe a api? → R: primeiro a resposta foi `${NODE_ENV:-development}`, com padrão `development`. Na revisão da spec a decisão mudou: "NODE_ENV é necessário e obrigatório pq pode-se esquecer de settar isso no .env e subir pra produção com /docs". Agora o `NODE_ENV` é obrigatório no schema, sem padrão, e o compose usa `${NODE_ENV:?defina NODE_ENV no .env}`.
+- P: com que `NODE_ENV` o compose sobe a api? → R: "NODE_ENV é necessário e obrigatório pq pode-se esquecer de settar isso no .env e subir pra produção com /docs". O `NODE_ENV` é obrigatório no schema, sem padrão, e o compose usa `${NODE_ENV:?defina NODE_ENV no .env}`.
 - P: como o teste de contrato valida? → R: num arquivo dedicado, com um cenário Supertest por rota e status, cada resposta validada com Ajv contra o schema do yaml, e um teste que confere que todo código do catálogo aparece no yaml.
 - P: o que acontece com a seção "Contrato" do README? → R: fica enxuta (rotas e tabela de erros) e aponta para `/docs` e para o `openapi.yaml`.
 - P: `/docs` conta no rate limit? → R: conta, como as outras rotas, porque é registrado depois do `rateLimitMiddleware`.
 - P: o JS do Scalar vem do CDN? → R: sim, do CDN padrão.
-- P (revisão da implementação): o `openapi-contract.test.ts` estava solto na raiz de `presentation/http` e o `loadOpenApiDocument` não é HTTP. → R: o teste de contrato foi para `tests/contract/`, ao lado do helper. O `loadOpenApiDocument` lê arquivo do disco, então foi para `src/infrastructure/openapi/`. O helper do contrato reusa o loader. O `docs-route.test.ts` usa uma fixture inline, já que a rota só serve o documento que recebe. O "igual ao `openapi.yaml`" do critério 2 fica no `load-openapi-document.test.ts`, ao lado do loader, sem atravessar a regra de camadas.
+- P: Onde ficam o teste de contrato e o loader do OpenAPI? → R: O teste de contrato fica em `tests/contract/`, ao lado do helper. O `loadOpenApiDocument` lê arquivo do disco e não é HTTP, então fica em `src/infrastructure/openapi/`. O helper do contrato reusa o loader. O `docs-route.test.ts` usa uma fixture inline, já que a rota só serve o documento que recebe. O "igual ao `openapi.yaml`" do critério 2 fica no `load-openapi-document.test.ts`, ao lado do loader, sem atravessar a regra de camadas.
 
 ## Premissas
 Nenhuma.
@@ -74,7 +74,7 @@ Nenhuma.
 
   Campos que podem ser nulos usam `type: [..., 'null']` (3.1), por exemplo `origem.endereco` e os campos do endereço. Os schemas usam `additionalProperties: false`, para que um campo a mais no código quebre o teste.
 - **Leitura do documento:** `loadOpenApiDocument()` lê o `openapi.yaml` da raiz (caminho resolvido a partir de `import.meta.url`), faz o parse com `yaml` e devolve o objeto. É chamada uma vez, no `index.ts`.
-- **Camadas:** o `docsRouter(document)` é só HTTP: registra `GET /docs/openapi.json` (`res.json(document)`) antes de `router.get('/docs', apiReference({ url: '/docs/openapi.json', bundle: SCALAR_BUNDLE }))`, de `@scalar/express-api-reference`. O `get` atende só `/docs`: qualquer outro caminho abaixo dele cai no 404 genérico (ajuste da verificação).
+- **Camadas:** o `docsRouter(document)` é só HTTP: registra `GET /docs/openapi.json` (`res.json(document)`) antes de `router.get('/docs', apiReference({ url: '/docs/openapi.json', bundle: SCALAR_BUNDLE }))`, de `@scalar/express-api-reference`. O `get` atende só `/docs`: qualquer outro caminho abaixo dele cai no 404 genérico.
 - **Registro:** `AppDeps` ganha `openApiDocument?: object`. Quando ausente, as rotas não são registradas e caem no `notFoundHandler`, no mesmo padrão do `cacheAdmin`. Em `createApp`, `if (openApiDocument) app.use(docsRouter(openApiDocument))` vem depois do `rateLimitMiddleware` e antes do `notFoundHandler`. No `index.ts`: `openApiDocument: env.nodeEnv === 'production' ? undefined : loadOpenApiDocument()`.
 - **Configuração:**
   - No `env.ts`, `NODE_ENV: z.enum(['development', 'test', 'production'])`, obrigatório e sem `.default`, e `Env.nodeEnv`. O `loadEnv` é compartilhado com o seed (`scripts/seed/index.ts`), então o seed também passa a exigir a variável.
@@ -222,7 +222,7 @@ Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste c
 - **`.env` local:** já tem `NODE_ENV=development`. Quem tiver um `.env` sem a variável vê a API, o seed e o compose falharem até acrescentá-la (comportamento intencional).
 - **Idioma do `.env.example`:** o comentário novo do `NODE_ENV` saiu em português e os antigos estão em inglês. Sugestão: padronizar numa US futura.
 - **404 genérico no contrato:** o `404 NAO_ENCONTRADO` está documentado nos dois `DELETE /cache` (rota não registrada sem `CACHE_ADMIN_TOKEN`), e a `info.description` diz que qualquer rota inexistente devolve esse 404.
-- **Cobertura por requisição:** todo par (path, método, status) do `openapi.yaml` tem requisição no teste de contrato. O 500 de `/saude` saiu do documento porque a rota não tem como falhar.
+- **Cobertura por requisição:** todo par (path, método, status) do `openapi.yaml` tem requisição no teste de contrato. O `/saude` não documenta `500`, porque a rota não tem como falhar.
 - **`codigo` por status:** as respostas de erro usam o mesmo schema `Erro`, que aceita os 11 códigos; o par status/código é garantido pelos `expect` de cada teste, não pelo yaml.
 - **Versão do bundle do Scalar:** fixada à mão em `docs-route.ts`, independente da versão de `@scalar/express-api-reference`; um upgrade do pacote não a atualiza.
 - **Ajv e OpenAPI 3.1:** palavras-chave próprias do OpenAPI (`example`, `discriminator`) não são JSON Schema. Por isso o `strict: false`. Se o Ajv rejeitar algum `$ref` entre componentes, o helper resolve o ponteiro pelo id `openapi`.

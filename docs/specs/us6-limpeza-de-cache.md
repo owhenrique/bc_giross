@@ -19,7 +19,7 @@ merge_request: https://github.com/owhenrique/bc_giross/pull/8
 Como **operador da API**, quero limpar o cache manualmente, de forma protegida, para forçar dados atualizados sem reiniciar o serviço.
 
 ## Contexto
-A US4 colocou no Redis o resultado (`result:<raio>:<cep>`, 7 d), o endereço da BrasilAPI (`address:<cep>`, 30 d / 1 h) e a US5 a coordenada do Nominatim (`geocode:<cep>`, 30 d / 1 h). Hoje o único jeito de invalidar é o seed, que apaga só `result:*`. Um endereço corrigido na BrasilAPI ou um CEP que passou a existir fica preso até o TTL vencer. Esta US dá ao operador dois endpoints protegidos por token (D21): um limpa todo o cache da API e o outro limpa só um CEP.
+A US4 colocou no Redis o resultado (`result:<raio>:<cep>`, 24 h), o endereço da BrasilAPI (`address:<cep>`, 30 d / 1 h) e a US5 a coordenada do Nominatim (`geocode:<cep>`, 30 d / 1 h). Hoje o único jeito de invalidar é o seed, que apaga só `result:*`. Um endereço corrigido na BrasilAPI ou um CEP que passou a existir fica preso até o TTL vencer. Esta US dá ao operador dois endpoints protegidos por token (D21): um limpa todo o cache da API e o outro limpa só um CEP.
 
 No mapa (`docs/HISTORIAS.md`), a US6 depende só da US4, que já está mergeada. A porta `Cache` já tem `deleteByPrefix`, que propaga erro e timeout, e o catálogo de erros da US8 já está pronto para receber os erros novos.
 
@@ -54,7 +54,7 @@ No mapa (`docs/HISTORIAS.md`), a US6 depende só da US4, que já está mergeada.
 - Contagem de chaves apagadas na resposta → fora do card.
 
 ## Decisões e respostas do usuário
-- P: O que o `DELETE /cache` apaga? → R: só os prefixos da app (`result:`, `address:`, `geocode:`) via `deleteByPrefix`. `FLUSHDB` foi descartado porque zeraria chaves de outras features, como o contador do rate limit da US7, que vai usar o mesmo Redis.
+- P: O que o `DELETE /cache` apaga? → R: só os prefixos da app (`result:`, `address:`, `geocode:`) via `deleteByPrefix`. `FLUSHDB` foi descartado porque zeraria, no mesmo Redis, chaves que não são da API.
 - P: O que o `DELETE /cache/:cep` apaga? → R: as chaves do próprio CEP: `address:<cep>`, `geocode:<cep>` e `result:<raio atual>:<cep>`. As listas de outros CEPs que o contêm como vizinho ficam até o TTL.
 - P: Qual a resposta de sucesso? → R: `204` sem corpo, idempotente.
 - P: Redis fora do ar durante o DELETE? → R: `503 CACHE_INDISPONIVEL`, com um `AppError` novo (`cache_unavailable`) e uma linha no catálogo.
@@ -77,11 +77,11 @@ Nenhuma.
   - `all` roda `deleteByPrefix` para cada prefixo de `CACHE_KEY_PREFIXES`, em sequência;
   - `cep` normaliza com `normalizeCep` (inválido → `InvalidCepError`) e chama `cache.delete([addressKey, geocodeKey, resultKey(radiusKm, cep)])`;
   - qualquer erro do cache vira `CacheUnavailableError` (`kind: 'cache_unavailable'`), com o erro original em `cause`. Falha no meio do `all` deixa parte apagada, e repetir a chamada é seguro.
-- **Erros:** `cache_unavailable` em `APP_ERROR_KINDS` e `CacheUnavailableError` em `src/application/errors.ts`. No catálogo: `{ status: 503, codigo: 'CACHE_INDISPONIVEL', mensagem: 'Não foi possível limpar o cache' }`. Em `ErrorCode`: `CacheUnavailable: 'CACHE_INDISPONIVEL'` e `Unauthorized: 'NAO_AUTORIZADO'`.
+- **Erros:** `cache_unavailable` em `APP_ERROR_KINDS` e `CacheUnavailableError` em `src/application/errors.ts`. No catálogo: `{ status: 503, codigo: 'CACHE_INDISPONIVEL', mensagem: 'Não foi possível limpar o cache' }`.
 - **Autenticação** (`src/presentation/http/bearer-auth.ts`), com `requireBearerToken(token): RequestHandler`:
   - lê `req.headers.authorization` e exige o prefixo `Bearer ` (o esquema é case-insensitive, como manda o RFC 6750);
   - compara `sha256(recebido)` com `sha256(esperado)` via `crypto.timingSafeEqual`. Os digests têm o mesmo tamanho, então o tamanho do token não vaza nem lança exceção;
-  - quando falha, define `WWW-Authenticate: Bearer` e chama `sendError(res, 401, ErrorCode.Unauthorized, 'Token de acesso inválido ou ausente')`.
+  - quando falha, define `WWW-Authenticate: Bearer` e chama `sendError(res, HTTP_ERRORS.unauthorized)`: `401 NAO_AUTORIZADO`, "Token de acesso inválido ou ausente".
   - O 401 não vira `AppError`: é preocupação de HTTP e não há caso de uso por trás.
 - **Rotas** (`src/presentation/http/cache-route.ts`), com `cacheRouter(clear, token)`:
   - `router.delete('/cache', requireBearerToken(token), ...)` → `await clear.all(); res.status(204).end()`;
@@ -98,7 +98,7 @@ Nenhuma.
 - `src/application/clear-cache.ts` — criar: `clearCache` (`all`, `cep`) — ~30 linhas
 - `src/application/errors.ts` — `cache_unavailable`, `CacheUnavailableError` — ~6 linhas
 - `src/presentation/http/error-catalog.ts` — entrada `cache_unavailable` — ~5 linhas
-- `src/presentation/http/errors.ts` — `ErrorCode.Unauthorized`, `ErrorCode.CacheUnavailable` — ~2 linhas
+- `src/presentation/http/errors.ts` — códigos `NAO_AUTORIZADO` e `CACHE_INDISPONIVEL` — ~2 linhas
 - `src/presentation/http/bearer-auth.ts` — criar: `requireBearerToken` — ~25 linhas
 - `src/presentation/http/cache-route.ts` — criar: `cacheRouter` — ~20 linhas
 - `src/presentation/http/app.ts` — `AppDeps.cacheAdmin`, registro condicional — ~5 linhas
@@ -145,7 +145,7 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 ## Tarefas
 Passos (commits) desta US. Todos entram no mesmo PR, e tarefa não é entregável.
 - [x] 1. Porta `Cache`: `delete(keys)` em Redis e memória, constantes de prefixo, testes dos adapters.
-- [x] 2. Caso de uso `clearCache` + `CacheUnavailableError` + entrada no catálogo + `ErrorCode`s, com `clear-cache.test.ts`.
+- [x] 2. Caso de uso `clearCache` + `CacheUnavailableError` + entrada no catálogo, com `clear-cache.test.ts`.
 - [x] 3. HTTP: `requireBearerToken`, `cacheRouter`, registro condicional no `createApp`, `CACHE_ADMIN_TOKEN` no `loadEnv` e no `index.ts`, redact do header no logger; `cache-route.test.ts` e `env.test.ts`.
 - [x] 4. Config e docs: `docker-compose.yml`, `.env.example`, README (endpoints, token, códigos), DECISOES (D21 cont.) e HISTORIAS (US6).
 

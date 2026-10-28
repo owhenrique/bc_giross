@@ -20,8 +20,8 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US4 | Cache | ~250 | US3 |
 | US5 | Fallback de coordenada (Nominatim) | ~205 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
-| US7 | Rate limit da API (entrada e saída no Redis) | ~150 | US2 |
-| US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
+| US7 | Rate limit da API | ~150 | US2 |
+| US8 | Error middleware com catálogo de erros | ~100 | US2 (as US3–US7 já usam o catálogo) |
 | US12 | Simplificação do projeto (roda antes da US9) | ~270 | US7, US8 |
 | US9 | Healthcheck (`/saude`) | ~10 | US8, US12 |
 | US10 | Documentação da API com Scalar | ~40 | US8, US9 |
@@ -51,10 +51,10 @@ Fica para outra US: carga no Postgres, endpoint, docker compose (US2).
 Como **Giross**, quero consultar os CEPs num raio de um CEP de referência, com a distância de cada um, para agrupar entregas e avaliar a cobertura de uma praça.
 
 - Dado o `docker compose up`, então o Postgres sobe, o seed carrega o CSV (filtrável por `SEED_UFS`, idempotente) e a API responde.
-- Dado um CEP na base, quando chamo `GET /ceps-proximos/04551000`, então recebo `{ origem: {cep, latitude, longitude, fonte}, raio_km, paginacao, ceps: [{cep, distancia_km}] }`, ordenado por distância, com 2 casas decimais e sem a origem.
+- Dado um CEP na base, quando chamo `GET /ceps-proximos/04551000`, então recebo `{ origem: "04551000", paginacao, ceps: [{cep, distancia_km}] }`, ordenado por distância, com 2 casas decimais e sem a origem.
 - Dado um CEP a mais de `SEARCH_RADIUS_KM` (distância exata, ex.: 1,004 km), então ele não aparece. `04551-000` funciona igual a `04551000`.
 - Dado `?pagina=2&limite=50`, então recebo a página 2 com `total` e `total_paginas`. O limite máximo é 200.
-- Dado `123`, então `400`. Dado um CEP fora da base, então `404 CEP não encontrado` (refinado na US3).
+- Dado `123`, então `400`.
 - O Haversine é testado contra distâncias conhecidas.
 
 Fica para outra US: endereço e erros da BrasilAPI (US3), cache (US4), fallback (US5).
@@ -66,44 +66,41 @@ Como **Giross**, quero ver o endereço do CEP consultado e receber erros claros 
 - Dado `GET /ceps-proximos/:cep` (resumo), então a resposta é enxuta (`origem` é só o CEP, sem raio nem endereço) e, com o CEP na base, não chama a BrasilAPI.
 - Dado um CEP fora da base que a BrasilAPI também não acha, então `404 CEP_NAO_ENCONTRADO`.
 - Dado um CEP fora da base que existe, com UF não carregada, então `422 CEP_FORA_DA_COBERTURA`.
-- Dado um CEP fora da base que existe, com UF carregada, então `422 CEP_SEM_GEOLOCALIZACAO` (refinado na US5).
 - Dado um CEP fora da base e a BrasilAPI fora do ar, com timeout (3 s) ou sem vaga no limite, então `503 PROVEDOR_INDISPONIVEL`.
 - Dado um CEP na base e a BrasilAPI fora do ar, estourando o timeout ou respondendo `404`, então `/detalhes` responde `200` com `origem.endereco: null`.
 - As chamadas à BrasilAPI ficam limitadas a 5 req/s.
 
-Decisões: duas rotas, a simples (`/ceps-proximos/:cep`) e a completa (`/ceps-proximos/:cep/detalhes`); quem usava o contrato completo migra para `/detalhes`. O `404` da BrasilAPI só vale como "não encontrado" se algum item de `errors[]` disser isso; senão é indisponível. O adapter traduz os erros da BrasilAPI para um resultado neutro, sem tocar o domínio.
+Decisões: duas rotas, a simples (`/ceps-proximos/:cep`) e a completa (`/ceps-proximos/:cep/detalhes`). O `404` da BrasilAPI só vale como "não encontrado" se algum item de `errors[]` disser isso; senão é indisponível. O adapter traduz os erros da BrasilAPI para um resultado neutro, sem tocar o domínio.
 
 Fica para outra US: cache (US4), fallback Nominatim (US5).
 
 ## US11 — Formatação automática com Prettier
-Como **time de desenvolvimento**, quero que o código seja formatado por uma ferramenta, com um estilo único, para que revisão e diff mostrem só mudança de comportamento, e não idas e vindas de formatação (como o `refactor(us3): volta ao estilo de formatação do projeto`).
+Como **time de desenvolvimento**, quero que o código seja formatado por uma ferramenta, com um estilo único, para que revisão e diff mostrem só mudança de comportamento, e não idas e vindas de formatação.
 
 US técnica, pedida explicitamente. Roda logo depois da US3 e antes da US4: o número 11 é só de cadastro, e a ordem é a da tabela.
 
-- Dado o projeto, então existe `.prettierrc.json` com `singleQuote: true`, `semi: true`, `trailingComma: "all"`, `arrowParens: "always"`, `endOfLine: "lf"` e `printWidth: 100`.
+- Dado o projeto, então a config do Prettier fica no `package.json` (chave `prettier`), com `singleQuote: true`, `semi: true`, `trailingComma: "all"`, `arrowParens: "always"`, `endOfLine: "lf"` e `printWidth: 100`.
 - O `printWidth: 100` equilibra leitura e tokens: a 80, 137 linhas do código atual quebrariam e cada chamada viraria 3–5 linhas; a 120, as linhas ficam longas demais para diff lado a lado. Hoje só 17 linhas passam de 100.
 - Dado `npm run format`, então o Prettier formata o projeto inteiro (`prettier --write .`), TS/JS, JSON e YAML, menos o que está no `.prettierignore`. Dado `npm run format:check`, então ele sai com código ≠ 0 se algum arquivo estiver fora do padrão.
 - Dado `.prettierignore`, então ficam de fora `data/`, `graphify-out/`, `src/generated/`, `prisma/migrations/`, `package-lock.json` e os `*.md` (docs em português, com tabelas, que não mudam de formato nesta US).
 - Dado o ESLint, então `eslint-config-prettier` desliga as regras de estilo que brigam com o Prettier, e `npm run lint` passa.
-- Dado o código existente, então a reformatação vai num commit só, sem nenhuma outra mudança, e o hash dele entra em `.git-blame-ignore-revs`, para o `git blame` pular esse commit.
+- Dado o código existente, então a reformatação vai num commit só, sem nenhuma outra mudança.
 - Dado a reformatação, então `npm test` e `npm run typecheck` passam sem alterar nenhum teste, porque não há mudança de comportamento.
 
 Tamanho: medido de novo com `prettier@3` sobre a main com a US3, a reformatação altera ~156 linhas em 13 arquivos de código: ~51 de produção, que contam no limite, e ~105 de testes, que não contam. Além disso, 3 linhas do `docker-compose.yml`, que é config. Não há lógica nova. Spec: `docs/specs/us11-prettier.md`.
 
-Fica para outra US: hook de pre-commit (husky/lint-staged) e CI com `format:check`.
+Fica para outra US: hook de pre-commit (husky/lint-staged).
 
 ## US4 — Cache
 Como **Giross**, quero respostas rápidas para CEPs já consultados, para não esperar nem depender das APIs externas a cada chamada.
 
 - Dado um CEP já consultado, então a segunda chamada não acessa o banco nem a BrasilAPI.
-- TTLs: endereço 30 d, resultado 7 d, inexistente 1 h, configuráveis. O seed limpa o cache de resultados.
+- TTLs: endereço 30 d, resultado 24 h, inexistente 1 h, configuráveis. O seed limpa o cache de resultados.
 - Trocar de página usa a lista em cache.
 - Redis no compose com `maxmemory` + `allkeys-lru`. Implementação em memória para os testes.
-- Redis fora do ar → a API degrada (responde sem cache). `REDIS_URL` obrigatória; o seed falha sem Redis. CEP fora da base: só o lookup da BrasilAPI vai para o cache, e as UFs carregadas passam a vir da tabela `loaded_uf`, gravada pelo seed (sem `DISTINCT` sobre ~900 mil linhas). Spec: `docs/specs/us4-cache.md`.
+- Redis fora do ar → a API degrada (responde sem cache), e o seed carrega a base sem limpar o cache e avisa. `REDIS_URL` obrigatória. CEP fora da base: só o lookup da BrasilAPI vai para o cache, e as UFs carregadas vêm da tabela `loaded_uf`, gravada pelo seed. Spec: `docs/specs/us4-cache.md`.
 
 Fica para outra US: limpeza manual (US6).
-
-Ajustada depois da US12: o TTL do resultado passou de 7 d para 24 h, com a conta de memória na D20, e o seed passou a seguir sem o Redis, como a API (D19).
 
 ## US5 — Fallback de coordenada (Nominatim)
 Como **Giross**, quero resultados mesmo quando o CEP de referência não está na base, para não perder a consulta em CEPs novos ou mal cadastrados no Censo.
@@ -127,20 +124,16 @@ Fica para outra US: invalidar o CEP limpo nas listas de vizinhos de outros CEPs 
 ## US7 — Rate limit da API
 Como **operador da API**, quero limitar as requisições por cliente, para proteger o serviço e as APIs externas de abuso.
 
-- Mais de 60 req/min do mesmo IP → `429 LIMITE_EXCEDIDO` em JSON com `Retry-After` e headers `RateLimit`/`RateLimit-Policy` (draft-8). O contador fica no Redis (`express-rate-limit` + `rate-limit-redis`), e o limite é configurável (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS`).
-- Todo limiter fica no Redis: os de saída, BrasilAPI 5 req/s e Nominatim 1 req/s, passam a contar em `ratelimit:brasilapi`/`ratelimit:nominatim` (janela deslizante), compartilhados entre réplicas.
-- Redis fora: a entrada é fail-open (passa sem limite, com log). A saída cai no `WindowRateLimiter` em memória do processo.
+- Mais de 60 req/min do mesmo IP → `429 LIMITE_EXCEDIDO` em JSON com `Retry-After` e headers `RateLimit`/`RateLimit-Policy` (draft-8). O contador usa o `express-rate-limit`, e o limite é configurável (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS`).
 - `TRUST_PROXY` define de onde vem o IP do cliente atrás de proxy.
 - Requisição que gera outra internamente: cada requisição conta uma vez só (o middleware pula se `req.rateLimit` já existe), e a composição interna chama o caso de uso em processo, nunca HTTP para a própria API (D30). Spec: `docs/specs/us7-rate-limit.md`.
 
-Fica para outra US: o `429` no OpenAPI (US10). A isenção do `/saude` saiu na US9.
-
-Simplificada na US12: os contadores de entrada e de saída saíram do Redis e ficam em memória, por processo (D22).
+Fica para outra US: o `429` no OpenAPI (US10).
 
 ## US8 — Error middleware com catálogo de erros
 Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzidos para HTTP num único middleware, a partir de um catálogo, para que um erro novo custe uma classe e uma linha no catálogo, e não um `case` em cada rota.
 
-US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de erro continuam byte a byte iguais às de antes.
+US técnica, pedida explicitamente. Ela não muda o contrato.
 
 - Dado um caso de uso que encontra um erro esperado (CEP inválido, paginação inválida, CEP não encontrado; os erros da US3 em diante já nascem como `AppError`), então ele lança uma subclasse de `AppError` com um `kind` estável em inglês (ex.: `CepNotFoundError`, `kind: 'cep_not_found'`).
 - Dado um `AppError`, quando ele chega ao error middleware, então a resposta sai do catálogo em `presentation` (`kind → { status, codigo, mensagem }`) no formato `{ erro: { codigo, mensagem } }`.
@@ -149,22 +142,22 @@ US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de er
 - Dado o catálogo, então um teste garante que todo `kind` de `AppError` tem entrada nele. Erro novo sem entrada quebra o teste, não a produção.
 - Os testes HTTP existentes passam sem alterar nenhuma asserção de corpo ou de status.
 
-Decisões: os erros esperados passam de union no retorno para exceção tipada, por pedido do usuário. A regra de dependência se mantém: `AppError` fica em `application` (ou em `domain`, se o erro for de domínio) e não conhece HTTP. O status HTTP existe só no catálogo.
+Decisões: os erros esperados são exceções tipadas, por pedido do usuário. A regra de dependência se mantém: `AppError` fica em `application` (ou em `domain`, se o erro for de domínio) e não conhece HTTP. O status HTTP existe só no catálogo.
 
-Fica para outra US: os erros da US3 a US7 (incluindo o `429` do rate limit). Cada uma nasce como `AppError` mais uma linha no catálogo.
+Fica para outra US: os erros da US3 a US7. Os de negócio nascem como `AppError` mais uma linha no catálogo; os que só a camada HTTP gera (`401` e `429`), na tabela `HTTP_ERRORS`.
 
 ## US12 — Simplificação do projeto
-Como **time de desenvolvimento**, quero os rate limits em memória, sem Redis, e o código sem arquivos de poucas linhas nem trechos repetidos, para entender a solução de relance e evoluí-la com menos peças.
+Como **time de desenvolvimento**, quero os rate limits em memória, sem depender do Redis, e o código sem arquivos de poucas linhas nem trechos repetidos, para entender a solução de relance e evoluí-la com menos peças.
 
 US técnica, pedida explicitamente. Roda depois da US8 e antes da US9: o número 12 é só de cadastro, e a ordem é a da tabela.
 
-- Dado mais de 60 req/min do mesmo IP, então `429 LIMITE_EXCEDIDO`, como hoje, com o contador em memória, por processo: store padrão do `express-rate-limit`, ~205 bytes por IP, descartado depois de uma janela sem requisições.
-- Dado a BrasilAPI (5 req/s) ou o Nominatim (1 req/s) sem vaga, então a chamada não sai e a consulta degrada como hoje. O limite fica em memória, por processo, sem Redis nem Lua.
+- Dado mais de 60 req/min do mesmo IP, então `429 LIMITE_EXCEDIDO`, com o contador em memória, por processo: store padrão do `express-rate-limit`, ~205 bytes por IP, descartado depois de uma janela sem requisições.
+- Dado a BrasilAPI (5 req/s) ou o Nominatim (1 req/s) sem vaga, então a chamada não sai e a consulta degrada, como com o provider fora do ar. O limite fica em memória, por processo.
 - Dado o Redis fora na subida, então a API sobe sem esperar por ele, responde sem cache e os limites continuam valendo.
 - Dado as rotas e os erros, então status, corpo e headers não mudam.
-- Dado o `src/`, então ele tem 29 arquivos de produção, sem achatar pastas: domínio com um arquivo por pasta (`cep.ts`, `geo.ts`), `application/` em pastas (`use-cases/`, `cache/`, `errors/`, `providers/`) com uma porta por arquivo, `presentation/http/` em pastas (`routes/`, `middlewares/`, `errors/`, `mappers/`) com as rotas só com o `Router`, catálogo e `HTTP_ERRORS` em `presentation/http/errors/errors.ts`, `limitedFetch` para as chamadas externas e `InMemoryCache` em `tests/fakes/`. A raiz perde `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json`.
+- Dado o `src/`, então ele tem 29 arquivos de produção, sem achatar pastas: domínio com um arquivo por pasta (`cep.ts`, `geo.ts`), `application/` em pastas (`use-cases/`, `cache/`, `errors/`, `providers/`) com uma porta por arquivo, `presentation/http/` em pastas (`routes/`, `middlewares/`, `errors/`, `mappers/`) com as rotas só com o `Router`, catálogo e `HTTP_ERRORS` em `presentation/http/errors/errors.ts`, `limitedFetch` para as chamadas externas e `InMemoryCache` em `tests/fakes/`.
 
-Decisões: D22 reescrita (os dois limites em memória, por processo); a D30 fica. Spec: `docs/specs/us12-simplificacao.md`.
+Decisões: D22 (os dois limites em memória, por processo) e D30. Spec: `docs/specs/us12-simplificacao.md`.
 
 Fica para depois da US10: mover `docs/specs/` e este arquivo para a branch `docs`.
 
@@ -175,9 +168,9 @@ Como **operador da API**, quero uma rota que diga se a API está no ar, para con
 - A rota não acessa banco, cache nem provedores externos: com o Postgres ou o Redis fora, a resposta é a mesma.
 - O `/saude` conta no rate limit como as outras rotas.
 
-Decisões: o escopo encolheu no refinamento. A rota é consultada só por uma pessoa, nunca pelo container, e por isso o compose não ganha `healthcheck` e o `/saude` não tem isenção do rate limit. A checagem do banco ficou de fora porque o `CepRepository` só trata CEP. Spec: `docs/specs/us9-saude.md`.
+Decisões: a rota é consultada só por uma pessoa, nunca pelo container, então o compose não tem `healthcheck` da `api` e o `/saude` conta no rate limit como as outras rotas. A checagem do banco ficou de fora porque o `CepRepository` só trata CEP. Spec: `docs/specs/us9-saude.md`.
 
-Fica fora do card: checagem do Postgres, do Redis e dos provedores, status `degradado`/`indisponivel` e a porta `HealthIndicator`.
+Fica fora do card: checagem do Postgres, do Redis e dos provedores.
 
 ## US10 — Documentação da API com Scalar
 Como **integrador da Giross**, quero uma documentação navegável do contrato da API, com exemplos e erros, para integrar sem ler o código nem adivinhar os formatos.

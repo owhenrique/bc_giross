@@ -26,10 +26,10 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 2. Dado o resultado de um CEP em cache, quando peço outra `pagina` ou outro `limite`, então a página sai da lista em cache, com `total` e `total_paginas` corretos, sem ir ao banco.
 - [x] 3. Dado um lookup da BrasilAPI com `found`, então ele fica em cache por `CACHE_TTL_ADDRESS_SECONDS` (padrão 30 d). Com `not_found`, fica por `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 1 h). Com `unavailable`, não entra no cache, e a chamada seguinte tenta a BrasilAPI de novo.
 - [x] 4. Dado um CEP fora da base consultado de novo dentro do TTL do lookup, então a BrasilAPI não é chamada e a resposta (`404 CEP_NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA` ou `422 CEP_SEM_GEOLOCALIZACAO`) sai igual. O banco continua sendo consultado.
-- [x] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 7 d) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
+- [x] 5. Dado `CACHE_TTL_RESULT_SECONDS` (padrão 24 h) e os outros dois TTLs, então os valores vêm do ambiente (inteiros positivos em segundos), com os padrões da D20. Dado `REDIS_URL` ausente, então nem a API nem o seed sobem (erro de ambiente, código ≠ 0).
 - [x] 6. Dado o Redis fora do ar (na subida ou durante a execução), então as consultas respondem normalmente, só sem cache, e cada falha vira log `warn`. Uma operação de cache que trava não segura a requisição por mais de 500 ms. Quando o Redis volta, o cache volta a funcionar sem reiniciar a API.
-- [x] 7. Dado o seed, quando a carga termina, então todas as chaves de resultado são apagadas e as de endereço ficam. Dado o Redis inacessível, então o seed sai com código ≠ 0 antes de mexer no banco. Se a limpeza falhar depois do `COMMIT`, ele também sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
-- [x] 8. Dado o `docker compose up`, então sobe um serviço `redis` com `maxmemory` e `maxmemory-policy allkeys-lru`, com healthcheck. A `api` e o `seed` recebem `REDIS_URL` e só sobem com o Redis saudável.
+- [x] 7. Dado o seed, quando a carga termina, então todas as chaves de resultado são apagadas e as de endereço ficam. Dado o Redis inacessível, ou uma falha na limpeza depois do `COMMIT`, então o seed carrega a base, avisa que não limpou o cache de resultados e termina com código 0.
+- [x] 8. Dado o `docker compose up`, então sobe um serviço `redis` com `maxmemory` e `maxmemory-policy allkeys-lru`, com healthcheck. A `api` e o `seed` recebem `REDIS_URL`. A `api` não depende do Redis, e o `seed` o tem como dependência opcional: com o Redis fora na subida, os dois sobem mesmo assim.
 - [x] 9. Dado um CEP fora da base com UF existente (caminho `422`), quando a API decide entre `CEP_FORA_DA_COBERTURA` e `CEP_SEM_GEOLOCALIZACAO`, então as UFs carregadas vêm da tabela `loaded_uf` (no máximo 27 linhas), sem ler a tabela `cep`. Dado o seed, então ele grava em `loaded_uf` as UFs que carregou, na mesma transação da carga dos CEPs.
 
 ## Escopo
@@ -39,25 +39,24 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - Cache do lookup de endereço como decorator do `CepAddressProvider`.
 - Variáveis `REDIS_URL` e as três de TTL, mais o serviço `redis` no compose.
 - Limpeza dos resultados no seed.
-- Tabela `loaded_uf`, preenchida pelo seed e lida pelo `findLoadedUfs`, no lugar do `distinct` sobre `cep`.
+- Tabela `loaded_uf`, preenchida pelo seed e lida pelo `findLoadedUfs`.
 - README e `DECISOES.md` atualizados.
 
 **Fora** (fica para outra US do mapa ou fora do card):
 - `DELETE /cache` e `DELETE /cache/:cep` → US6
 - Cache do Nominatim (30 d) → US5
-- Componente `cache` no `/saude` → US9
 - Header `X-Cache` ou qualquer outra mudança de contrato → fora do card
 
 ## Decisões e respostas do usuário
-- P: Redis fora do ar → R: a API **degrada**: erro de cache vira log e miss, e a consulta segue no banco e na BrasilAPI. Isso bate com o `/saude` da US9, que mostra o Redis fora como "degradado".
+- P: Redis fora do ar → R: a API **degrada**: erro de cache vira log e miss, e a consulta segue no banco e na BrasilAPI.
 - P: Sem `REDIS_URL` → R: a variável é **obrigatória**. O `loadEnv` falha sem ela. O `InMemoryCache` só é usado nos testes.
 - P: CEP fora da base (404/422): o que entra no cache? → R: **só o lookup da BrasilAPI** (`found` 30 d, `not_found` 1 h). O desfecho (o erro) não entra, e a repetição ainda consulta o banco.
-- P: O seed não consegue falar com o Redis → R: **o seed falha** (código ≠ 0).
+- P: O seed não consegue falar com o Redis → R: **o seed segue sem ele**, como a API: carrega a base, avisa que não limpou o cache de resultados e termina com código 0.
 - P: Qual cliente Redis? → R: **`redis` (node-redis v5)**.
 - P: Formato dos TTLs → R: **segundos**: `CACHE_TTL_ADDRESS_SECONDS`, `CACHE_TTL_RESULT_SECONDS`, `CACHE_TTL_NOT_FOUND_SECONDS`.
 - P: A resposta indica se veio do cache? → R: **não**. O contrato fica igual, e os testes provam o critério 1 com fakes que contam as chamadas.
 - P: Aprova a US4 com os 8 critérios? → R: aprovada.
-- P: (levantado pelo usuário depois da primeira versão) O caminho de erro faz `findMany({ distinct: ['uf'] })` sobre ~898 mil linhas sem índice em `uf`, e o Prisma pode até deduplicar em memória. A US trata disso? → R: não tratava. O usuário escolheu a **opção 1**: uma tabela `loaded_uf` preenchida pelo seed, **dentro da US4**. Ficaram de fora a opção 2 (só pôr as UFs no cache, o que ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e a opção 3 (índice + CTE recursiva em SQL à mão).
+- P: (levantado pelo usuário) Como a API sabe quais UFs estão carregadas sem varrer as ~898 mil linhas de `cep`, que não têm índice em `uf`? → R: Com uma tabela `loaded_uf` preenchida pelo seed, **dentro da US4**. Ficaram de fora só pôr as UFs no cache (o que ainda lê a tabela inteira no miss e em todo erro com o Redis fora) e índice + CTE recursiva em SQL à mão.
 
 ## Premissas
 —
@@ -93,8 +92,8 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
   - Monta `CachingCepAddressProvider(BrasilApiCepProvider, redisCache, ttls)` e o `findNearbyCeps` com o cache.
   - No shutdown, fecha o cliente Redis (`close`/`quit`, com falha ignorada) além do Prisma.
 - **Seed** (`scripts/seed/index.ts`):
-  - Conecta no Redis **antes** do `BEGIN`, com cliente sem reconexão e `PING`. Falha → `Seed abortado: ...` e código 1.
-  - Depois do `COMMIT`, faz `deleteByPrefix(RESULT_KEY_PREFIX)`. Falha → mensagem `Seed carregou a base, mas não limpou o cache de resultados: ...` e código 1.
+  - Conecta no Redis **antes** do `BEGIN`, com cliente sem reconexão e `PING`. Falha → aviso `Redis fora do ar (...). A base será carregada sem limpar o cache de resultados.`, e a carga segue.
+  - Depois do `COMMIT`, faz `deleteByPrefix(RESULT_KEY_PREFIX)`. Falha → aviso `Seed carregou a base, mas não limpou o cache de resultados: ...`, e o seed termina com código 0.
   - Fecha o cliente no `finally`.
 - **UFs carregadas** (critério 9):
   - Model novo `LoadedUf { uf String @id @db.Char(2) }`, com `@@map("loaded_uf")` (tabela no singular, nome interno em inglês), e migration `prisma migrate dev --name loaded_uf`.
@@ -103,11 +102,11 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
   - Numa base existente, a migration cria a tabela vazia. Até o seed rodar, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O compose sempre roda o seed antes da API, então isso só afeta quem migrar à mão sem rodar o seed (o README avisa).
 - **Ambiente** (`src/config/env.ts`):
   - `REDIS_URL: z.string().min(1)`.
-  - `CACHE_TTL_ADDRESS_SECONDS` (padrão 2592000), `CACHE_TTL_RESULT_SECONDS` (padrão 604800) e `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 3600), todos com `z.coerce.number().int().positive()`.
+  - `CACHE_TTL_ADDRESS_SECONDS` (padrão 2592000), `CACHE_TTL_RESULT_SECONDS` (padrão 86400) e `CACHE_TTL_NOT_FOUND_SECONDS` (padrão 3600), todos com `z.coerce.number().int().positive()`.
   - O `Env` ganha `redisUrl` e `cacheTtl: { addressSeconds, resultSeconds, notFoundSeconds }`.
 - **Compose:**
-  - Serviço `redis` (`redis:8-alpine`, `redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru`, sem persistência, `redis-cli ping` como healthcheck). Não expõe porta por padrão: rodar local fica com `docker compose up redis` e `ports` comentado. Revisar no implement.
-  - `seed` e `api` ganham `REDIS_URL: redis://redis:6379` e `depends_on: redis: condition: service_healthy`.
+  - Serviço `redis` (`redis:8-alpine`, `redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru`, sem persistência, `redis-cli ping` como healthcheck), com a porta publicada em `${REDIS_PORT:-6379}`, para rodar a API fora do docker com `docker compose up redis`.
+  - `seed` e `api` ganham `REDIS_URL: redis://redis:6379`. A `api` não depende do Redis, e o `seed` espera o Redis saudável só como dependência opcional (`required: false`).
   - A `api` também recebe as três variáveis de TTL, com `${...:-padrão}`.
 - **`.env.example`:** `REDIS_URL=redis://localhost:6379` e as três variáveis de TTL.
 - **Contrato HTTP:** sem mudança. Os testes de `app.test.ts` só ajustam a montagem (`InMemoryCache`).
@@ -137,7 +136,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
   - `src/config/env.test.ts` — `REDIS_URL` obrigatória, padrões dos TTLs;
   - `src/presentation/http/app.test.ts` — montagem com `InMemoryCache`, segunda chamada HTTP sem tocar o repositório;
   - `scripts/seed/index.test.ts` — se a limpeza ou a lista de UFs a gravar forem extraídas numa função testável.
-- Docs (não contam): `README.md` (Redis, variáveis, comportamento degradado) e `docs/DECISOES.md` (decisões desta US: degradação, `REDIS_URL` obrigatória, seed falha sem Redis, só o lookup em cache para CEP fora da base, tabela `loaded_uf`).
+- Docs (não contam): `README.md` (Redis, variáveis, comportamento degradado) e `docs/DECISOES.md` (decisões desta US: degradação, `REDIS_URL` obrigatória, seed sem Redis, só o lookup em cache para CEP fora da base, tabela `loaded_uf`).
 
 ## Limite de tamanho
 - **Estimativa:** ~246 linhas de lógica (`bc_giross`), soma da lista acima.
@@ -175,7 +174,7 @@ Hoje cada chamada a `GET /ceps-proximos/:cep` e a `/detalhes` faz o mesmo trabal
 - [x] 3. Cache do resultado no `findNearbyCeps` (nova assinatura, paginação sobre a lista em cache), com testes do caso de uso e do `app.test.ts`.
 - [x] 4. `RedisCache` (degradação, timeout de 500 ms, `deleteByPrefix`), dependência `redis`, composição em `src/index.ts`, serviço `redis` no compose e `.env.example`, com testes do `RedisCache`.
 - [x] 5. Tabela `loaded_uf`: model, migration, `findLoadedUfs` lendo dela e o seed gravando as UFs na mesma transação, com teste.
-- [x] 6. Seed: conecta no Redis antes da carga e limpa os resultados depois do `COMMIT`, falhando nos dois casos, com teste.
+- [x] 6. Seed: conecta no Redis antes da carga e limpa os resultados depois do `COMMIT`, avisando quando não consegue, com teste.
 - [x] 7. README e `DECISOES.md`.
 
 ## Telas e fluxos E2E (Playwright)
@@ -200,7 +199,7 @@ Data: 2026-10-27. Base: `main`.
 - **Entregável:** sim, sem camada faltando e sem dependência de PR futuro.
 - **Tamanho:** 288 linhas de lógica contra o limite de 500.
 - **Achados:**
-  - Média: o commit `63bc080` (`fix(compose)`) mexeu em `docker-compose.yml`, `.env.example` e README fora da lista da spec. As credenciais do Postgres passam a vir do `.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`), com `POSTGRES_PORT` e `API_PORT`, e o `docker compose up` exige o `.env` copiado do exemplo.
+  - Média: o commit `63bc080` (`fix(compose)`) mexeu em `docker-compose.yml`, `.env.example` e README fora da lista da spec. As credenciais do Postgres vêm do `.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`), com `POSTGRES_PORT` e `API_PORT`, e o `docker compose up` exige o `.env` copiado do exemplo.
   - Baixa (corrigido): `deleteByPrefix` do seed não tinha timeout depois do `PING`. Agora cada passo (página do SCAN e UNLINK) tem o timeout de 500 ms.
   - Baixa: a história diz "8 critérios", mas há 9.
 - **Não verificado:** `docker compose up` e o fluxo manual, reconexão do node-redis v5 com Redis real, migration e seed contra Postgres real.
@@ -216,6 +215,6 @@ Data: 2026-10-27. Base: `main`.
 ## Riscos e pontos em aberto
 - **Reconexão do node-redis v5:** o comportamento do `connect()` com o Redis fora na subida (rejeita ou fica tentando) precisa ser confirmado no implement. O critério 6 exige que a API suba mesmo assim.
 - **Tamanho dos valores:** em áreas densas, a lista de vizinhos num raio de 1 km pode ter milhares de CEPs, o que dá dezenas de KB de JSON por chave. Com `maxmemory 256mb` + LRU, isso cabe com folga para o uso esperado.
-- **Ordem do seed:** se a limpeza falhar depois do `COMMIT`, a base já mudou e o cache antigo pode servir resultado velho até o TTL. O seed sai com erro e mensagem clara, e a US6 vai dar a limpeza manual.
+- **Ordem do seed:** se a limpeza falhar depois do `COMMIT`, a base já mudou e o cache antigo pode servir resultado velho até o TTL (24 h). O seed avisa que não limpou o cache, e a US6 dá a limpeza manual (`DELETE /cache`).
 - **Base migrada sem seed:** com `loaded_uf` vazia, todo CEP fora da base cai em `CEP_FORA_DA_COBERTURA`. O compose evita isso rodando o seed sempre, e o README avisa para rodar o seed depois do `migrate deploy`.
 - **`app.test.ts` e `find-nearby-ceps.test.ts`:** mudam pela nova assinatura do caso de uso, mas só na montagem: as asserções de contrato continuam iguais.
