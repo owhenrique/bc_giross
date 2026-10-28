@@ -36,7 +36,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
 - [x] 9. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
 - [x] 10. Dado a documentação, então o README e o `DECISOES.md` descrevem os dois limites em memória, por processo, com o custo do contador de entrada (~205 bytes por IP) e o trade-off com réplicas; a D22 foi reescrita e a D30 continua; e o mapa traz a US12 e a nota de simplificação na US7.
-- [ ] 11. Dado as camadas, então cada uma só importa as de baixo (`domain` ← `application` ← `infrastructure` e `presentation`), a `application` não tem erro que só a borda HTTP gera (o `429` sai do `HTTP_ERRORS`), o cálculo dos vizinhos (raio, ordem e desempate) está no `domain`, e o `npm run lint` falha quando uma camada importa outra que não pode.
+- [x] 11. Dado as camadas, então cada uma só importa as de baixo (`domain` ← `application` ← `infrastructure` e `presentation`), a `application` não tem erro que só a borda HTTP gera (o `429` sai do `HTTP_ERRORS`), o cálculo dos vizinhos (raio, ordem e desempate) está no `domain`, e o `npm run lint` falha quando uma camada importa outra que não pode.
 
 ## Escopo
 **Dentro:**
@@ -360,7 +360,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
 - [x] 13. `429` na borda: sai o `RateLimitExceededError` da `application`; `HTTP_ERRORS.rateLimitExceeded` e `sendError` no handler do `rateLimitMiddleware`; testes do `429` sem mudar o esperado.
 - [x] 14. `nearestCeps` em `domain/cep/cep.ts`, com teste próprio (raio, ordem, desempate por CEP, borda do raio, lista vazia); o `findNearbyCeps` passa a usá-lo.
-- [ ] 15. Camadas no ESLint: `no-restricted-imports` por pasta no `eslint.config.js`, conferindo que um import proibido faz o `npm run lint` falhar.
+- [x] 15. Camadas no ESLint: `no-restricted-imports` por pasta no `eslint.config.js`, conferindo que um import proibido faz o `npm run lint` falhar.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).
