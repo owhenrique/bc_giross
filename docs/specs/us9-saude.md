@@ -8,7 +8,7 @@ status: em-andamento
 modo: direto
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
-verificada_em:
+verificada_em: 2026-10-28
 branch: feat/us9-saude
 merge_request:
 ---
@@ -113,7 +113,31 @@ Não se aplica.
 - Manual: `docker compose up`, `curl -i localhost:3000/saude` → `200 {"status":"ok"}`. Com `docker compose stop postgres redis`, a mesma resposta.
 
 ## Verificação independente
-Preenchido no `/pato/verify`; o `/pato/close-spec` não começa sem esta seção.
+Rodada em 2026-10-28 por um subagente em contexto limpo, sobre `feat/us9-saude` contra a `main`.
+
+**Suítes:** `npm test` com 24 arquivos e 260 testes, 0 falhas. `npm run lint`, `npm run typecheck` e `npm run format:check` limpos. Playwright não se aplica (sem telas). Teste manual via curl na API da branch (`npx tsx src/index.ts`, porta 3999, `RATE_LIMIT_MAX=3`, banco inacessível e Redis fora).
+
+| # | Critério | Veredito | Evidência |
+| --- | --- | --- | --- |
+| 1 | `GET /saude` → `200 {"status":"ok"}` | Atendido | `health-route.ts:6-8`, `health-route.test.ts:21-27`, curl |
+| 2 | Postgres/Redis fora → continua `200` | Atendido | `healthRouter` sem dependências (`app.ts:34`), `health-route.test.ts:29-33`, curl com banco e Redis fora |
+| 3 | `POST /saude` → `404 NAO_ENCONTRADO` | Atendido | `health-route.test.ts:35-40`, curl |
+| 4 | Conta no rate limit → `429 LIMITE_EXCEDIDO` | Atendido | registrado após o `rateLimitMiddleware` (`app.ts:33-34`), `health-route.test.ts:42-48`, curl |
+| 5 | README descreve `GET /saude` no "Contrato" | Atendido | `README.md`, seção `### GET /saude` |
+| 6 | test, lint, typecheck, format:check passam | Atendido | suítes acima |
+
+**Entregável:** sim. A branch parte da ponta da `main` e só tem os commits da US9; a rota funciona de ponta a ponta sem TODO nem flag.
+
+**Linhas de lógica:** 12 de 500 (10 em `health-route.ts`, 2 em `app.ts`).
+
+**Achados (todos Baixa):**
+1. A `main` local estava 1 commit à frente da `origin/main` (`d349542 fix(seed)`). Resolvido: o usuário fez push da `main`.
+2. O teste do critério 2 é indireto (só confere que o `findNearbyCeps` fake não é chamado). Suficiente pelo design, já que o `healthRouter` não recebe dependências; confirmado ao vivo.
+3. `README.md:110` diz "Duas rotas de consulta", que não é a contagem total de rotas. Não está errado; sem ação.
+
+**Não verificado:** o teste manual com `docker compose` (o container em execução usa a imagem da `main`, sem `/saude`, e não foi reconstruído). Substituído pela API da branch rodando localmente.
+
+**Decisão do usuário:** aceitar como está.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
@@ -123,4 +147,4 @@ Preenchido no `/pato/close-spec`.
 
 ## Riscos e pontos em aberto
 - O `/saude` diz só que o processo responde HTTP. Ele não detecta o Postgres fora: nesse caso o `/saude` dá `200` e as consultas de CEP falham. Isso foi aceito no refinamento.
-- A `main` local está 4 commits à frente da `origin/main` (fixes do compose e do seed). A branch da US9 parte da `main` local, e esses commits precisam ser enviados antes ou junto do PR.
+- A `main` local estava à frente da `origin/main` (fixes do compose e do seed). Resolvido antes do PR: a `main` foi enviada ao remoto.
