@@ -1,4 +1,4 @@
-import { normalizeCep } from '../domain/cep/cep-code.js';
+import { normalizeCep } from '../domain/cep/cep.js';
 import { CACHE_KEY_PREFIXES, addressKey, geocodeKey, resultKey, type Cache } from './ports.js';
 import { CacheUnavailableError, InvalidCepError } from './errors.js';
 

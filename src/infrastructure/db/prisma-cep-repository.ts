@@ -1,4 +1,4 @@
-import type { BoundingBox } from '../../domain/geo/bounding-box.js';
+import type { BoundingBox } from '../../domain/geo/geo.js';
 import type { CepRepository, StoredCep } from '../../application/ports.js';
 import type { PrismaClient } from '../../generated/prisma/client.js';
 

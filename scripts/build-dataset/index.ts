@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { assessCep } from '../../src/domain/cep/cep-centroid.js';
+import { assessCep } from '../../src/domain/cep/cep.js';
 import { readCnefe, ufFromZip } from './read-cnefe.js';
 import { buildReport, type UfStats } from './report.js';
 

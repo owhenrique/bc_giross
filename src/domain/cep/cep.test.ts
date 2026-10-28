@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { assessCep, centroid, percentile } from './cep-centroid.js';
+import { assessCep, centroid, normalizeCep, percentile } from './cep.js';
+
+describe('normalizeCep', () => {
+  it('keeps an 8-digit cep', () => {
+    expect(normalizeCep('04551000')).toBe('04551000');
+  });
+
+  it('strips the hyphen', () => {
+    expect(normalizeCep('04551-000')).toBe('04551000');
+  });
+
+  it.each(['123', '0455100a', '04551-0000', ''])('rejects %j', (input) => {
+    expect(normalizeCep(input)).toBeNull();
+  });
+});
 
 describe('centroid', () => {
   it('is the plain average, counting repeated points', () => {

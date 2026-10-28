@@ -1,4 +1,4 @@
-import type { BoundingBox } from '../domain/geo/bounding-box.js';
+import type { BoundingBox } from '../domain/geo/geo.js';
 
 // --- Cache ---
 

@@ -1,6 +1,5 @@
-import { normalizeCep } from '../domain/cep/cep-code.js';
-import { boundingBox } from '../domain/geo/bounding-box.js';
-import { haversineKm } from '../domain/geo/haversine.js';
+import { normalizeCep } from '../domain/cep/cep.js';
+import { boundingBox, haversineKm } from '../domain/geo/geo.js';
 import {
   resultKey,
   type AddressLookup,
