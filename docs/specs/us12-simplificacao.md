@@ -30,7 +30,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - [x] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
 - [ ] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
 - [x] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
-- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 24 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; as interfaces da aplicação e as chaves do cache em `application/ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
+- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 27 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; o `application/` com o caso de uso `find-nearby-ceps.ts` e a porta `cep-repository.ts` na raiz e as pastas `cache/` (porta `Cache` com as chaves e `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (portas `cep-address-provider.ts` e `geocoder.ts`, `caching-cep-address-provider.ts` e `origin-geocoder.ts`), sem `ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
 - [x] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
 - [x] 7. Dado os trechos repetidos da análise, então cada um existe uma vez só: `toRad` (o `bounding-box` usa o de `haversine`); a deduplicação dos pontos (só no `assessCep`; o `centroid` só tira a média); `errorMessage(e)` no seed; o header do CSV (`DATASET_HEADER`); e um `split` por linha no seed. O `findNearbyCeps` fica sem a compatibilidade com cache antigo e com `neighbors: Neighbor[]`.
 - [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
@@ -43,7 +43,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - Rate limit de saída só em memória: saem o limiter Redis/Lua e a interface `RateLimiter`, e o `WindowRateLimiter` vai para `infrastructure/rate-limit/`.
 - `index.ts` sem o `await` do `redis.connect()`.
 - `limitedFetch` para as chamadas da BrasilAPI e do Nominatim.
-- `application/ports.ts` com as 4 interfaces e as chaves do cache.
+- `application/` em pastas por responsabilidade (`cache/`, `errors/`, `providers/`), com cada porta num arquivo, junto do código que a usa.
 - `presentation/http/errors.ts` com o catálogo, a tabela `HTTP_ERRORS` e `sendError(res, entry)`.
 - `InMemoryCache` e o teste dele em `tests/fakes/`.
 - Domínio com um arquivo por pasta: `domain/cep/cep.ts` e `domain/geo/geo.ts`, com os testes juntados.
@@ -62,7 +62,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 
 ## Decisões e respostas do usuário
 - P: O projeto escalou demais para um teste técnico? → R: Sim. Reduzir arquivos e complexidade sem perder o que o enunciado pede.
-- P: Juntar as interfaces da aplicação num `ports.ts`? → R: Sim. As chaves do cache ficam junto da interface `Cache`, como hoje no `cache.ts`.
+- P: Juntar as interfaces da aplicação num `ports.ts`? → R: Primeiro sim, e o `ports.ts` foi feito na tarefa 5. Depois do `/implement`, o usuário revisou e não gostou: o `application/` passa a ter as pastas `cache/`, `errors/` e `providers/`, cada porta volta a um arquivo próprio, e o caso de uso `find-nearby-ceps.ts` e a porta `cep-repository.ts` ficam na raiz (tarefa 11). As chaves do cache continuam junto da interface `Cache`.
 - P: Juntar `errors.ts` e `error-catalog.ts` da apresentação e tirar a const `ErrorCode`? → R: Sim.
 - P: Onde ficam os erros que só a camada HTTP gera (401, 404 de rota, 400 genérico, 500)? → R: Numa tabela `HTTP_ERRORS` no `errors.ts`, com `sendError(res, entry)`.
 - P: Trocar as 9 subclasses de `AppError` por `new AppError(kind)`? → R: Não.
@@ -150,12 +150,26 @@ async lookup(cep: string): Promise<AddressLookup> {
 
 O Nominatim passa `User-Agent` e `Accept-Language` em `headers`. Os logs de "unexpected status" e "invalid body" continuam nos providers, com o `cep` ou a consulta.
 
-### Portas da aplicação (`application/ports.ts`)
-Junta `cache.ts`, `cep-address-provider.ts`, `cep-repository.ts` e `geocoder.ts`, com um bloco por porta e sem mudar nenhum tipo:
-- `Cache`, os prefixos (`RESULT_KEY_PREFIX`, `ADDRESS_KEY_PREFIX`, `GEOCODE_KEY_PREFIX`, `CACHE_KEY_PREFIXES`) e `resultKey`, `addressKey`, `geocodeKey`;
-- `CepRepository` e `StoredCep`;
-- `CepAddressProvider`, `CepAddress` e `AddressLookup`;
-- `Geocoder`, `GeocodeQuery`, `GeocodeCandidate` e `GeocodeLookup`.
+### Portas da aplicação (pastas por responsabilidade)
+O `ports.ts` da tarefa 5 sai na tarefa 11, e cada porta volta a ter um arquivo, sem mudar nenhum tipo:
+
+```
+src/application/
+  find-nearby-ceps.ts (+test)      caso de uso principal
+  cep-repository.ts                CepRepository e StoredCep
+  cache/
+    cache.ts                       Cache, prefixos e resultKey/addressKey/geocodeKey
+    clear-cache.ts (+test)
+  errors/
+    errors.ts (+test)              AppError e subclasses
+  providers/
+    cep-address-provider.ts        CepAddressProvider, CepAddress e AddressLookup
+    caching-cep-address-provider.ts (+test)
+    geocoder.ts                    Geocoder, GeocodeQuery, GeocodeCandidate e GeocodeLookup
+    origin-geocoder.ts (+test)
+```
+
+Os imports de `application`, `infrastructure`, `presentation`, `index.ts`, `scripts/seed` e `tests/fakes` passam a apontar para os arquivos novos.
 
 ### Erros na apresentação (`presentation/http/errors.ts`)
 - Absorve `ERROR_CATALOG` (com todas as entradas de hoje, inclusive `rate_limit_exceeded` → `429 LIMITE_EXCEDIDO`) e `ErrorCatalogEntry`, com `codigo: string`. Sai a const `ErrorCode`.
@@ -219,7 +233,9 @@ O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests
 ## Arquivos que a mudança toca
 
 Produção e scripts (contam no limite):
-- `src/application/ports.ts` — criar: `Cache` e chaves, `CepRepository`, `StoredCep`, `CepAddressProvider`, `CepAddress`, `AddressLookup`, `Geocoder`, `GeocodeQuery`, `GeocodeCandidate`, `GeocodeLookup` — ~75 linhas
+- `src/application/ports.ts` — criado na tarefa 5 e removido na tarefa 11 — 0
+- `src/application/cache/cache.ts`, `src/application/cep-repository.ts`, `src/application/providers/cep-address-provider.ts`, `src/application/providers/geocoder.ts` — as portas, um arquivo cada (tarefa 11) — ~75 linhas
+- `src/application/errors.ts`, `clear-cache.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts` → `errors/`, `cache/` e `providers/` — mover e ajustar imports (tarefa 11) — ~10 linhas
 - `src/application/cache.ts`, `src/application/cep-address-provider.ts`, `src/application/cep-repository.ts`, `src/application/geocoder.ts` — remover — 0
 - `src/application/caching-cep-address-provider.ts` — import do `ports` — ~2 linhas
 - `src/application/clear-cache.ts` — import do `ports` — ~1 linha
@@ -306,6 +322,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 8. Raiz: remove `.git-blame-ignore-revs` e `.nvmrc`; move o Prettier para o `package.json` (`npm run format:check` sem diferença); remove o `vitest.config.ts` e o tira do `tsconfig.json`, conferindo que o Vitest roda os mesmos arquivos e testes antes e depois.
 - [x] 9. Documentação: README e `DECISOES.md` (D22, D11 cont., D21 cont. e tabela de status).
 - [x] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
+- [ ] 11. `application/` em pastas: sai o `ports.ts`; `cache/` (`cache.ts`, `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (`cep-address-provider.ts`, `geocoder.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts`); `find-nearby-ceps.ts` e `cep-repository.ts` na raiz; testes junto dos arquivos e imports atualizados.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).
