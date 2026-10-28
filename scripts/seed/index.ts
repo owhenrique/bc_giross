@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     await redis.ping();
   } catch (error) {
     console.error(`Seed abortado: ${errorMessage(error)}`);
-    await redis.destroy();
+    if (redis.isOpen) redis.destroy();
     process.exit(1);
   }
 
