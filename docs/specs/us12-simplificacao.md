@@ -10,7 +10,7 @@ criada_em: 2026-10-28
 implementada_em: 2026-10-28
 verificada_em: 2026-10-28
 branch: feat/us12-simplificacao
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/10
 ---
 
 # US12 — Simplificação do projeto
