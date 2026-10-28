@@ -33,6 +33,7 @@ function setup(options: { withAdmin?: boolean; cache?: Cache } = {}) {
       throw new Error('not used');
     }) as unknown as ReturnType<typeof findNearbyCeps>,
     logger: pino({ level: 'silent' }),
+    rateLimit: { limit: 1000, windowMs: 60_000 },
     cacheAdmin:
       options.withAdmin === false
         ? undefined

@@ -20,6 +20,18 @@ const envSchema = z.object({
     .optional()
     .transform((value) => value || undefined)
     .pipe(z.string().min(12).optional()),
+  RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
+  RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
+  // Empty/absent -> false; 'true'/'false' -> boolean; digits -> hop count; else -> trust list string.
+  TRUST_PROXY: z
+    .string()
+    .optional()
+    .transform((value): boolean | number | string => {
+      const text = value?.trim() ?? '';
+      if (text === '' || text === 'false') return false;
+      if (text === 'true') return true;
+      return /^\d+$/.test(text) ? Number(text) : text;
+    }),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
@@ -35,6 +47,8 @@ export interface Env {
   nominatim: { url: string; userAgent: string };
   /** Undefined disables the cache admin endpoints. */
   cacheAdminToken?: string;
+  rateLimit: { max: number; windowSeconds: number };
+  trustProxy: boolean | number | string;
 }
 
 /** Parses and validates the environment. Throws the Zod error when invalid. */
@@ -54,5 +68,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     },
     nominatim: { url: parsed.NOMINATIM_URL, userAgent: parsed.NOMINATIM_USER_AGENT },
     cacheAdminToken: parsed.CACHE_ADMIN_TOKEN,
+    rateLimit: { max: parsed.RATE_LIMIT_MAX, windowSeconds: parsed.RATE_LIMIT_WINDOW_SECONDS },
+    trustProxy: parsed.TRUST_PROXY,
   };
 }

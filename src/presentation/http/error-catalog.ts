@@ -40,4 +40,9 @@ export const ERROR_CATALOG: Record<AppErrorKind, ErrorCatalogEntry> = {
     codigo: 'CACHE_INDISPONIVEL',
     mensagem: 'Não foi possível limpar o cache',
   },
+  rate_limit_exceeded: {
+    status: 429,
+    codigo: 'LIMITE_EXCEDIDO',
+    mensagem: 'Limite de requisições excedido',
+  },
 };

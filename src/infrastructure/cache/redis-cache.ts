@@ -3,6 +3,8 @@ import type { Logger } from 'pino';
 import type { Cache } from '../../application/cache.js';
 
 export const CACHE_OPERATION_TIMEOUT_MS = 500;
+/** Upper bound for the initial connect at startup; the client keeps reconnecting after it. */
+export const REDIS_CONNECT_TIMEOUT_MS = 2000;
 const SCAN_COUNT = 500;
 
 /** Minimal slice of the node-redis client used by `RedisCache` (eases faking in tests). */
@@ -75,12 +77,15 @@ export class RedisCache implements Cache {
   }
 }
 
-function withTimeout<T>(operation: Promise<T>): Promise<T> {
+export function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs = CACHE_OPERATION_TIMEOUT_MS,
+): Promise<T> {
   let timer: NodeJS.Timeout;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`cache operation timed out after ${CACHE_OPERATION_TIMEOUT_MS} ms`)),
-      CACHE_OPERATION_TIMEOUT_MS,
+      () => reject(new Error(`cache operation timed out after ${timeoutMs} ms`)),
+      timeoutMs,
     );
   });
   return Promise.race([operation, timeout]).finally(() => clearTimeout(timer));

@@ -20,7 +20,7 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US4 | Cache | ~250 | US3 |
 | US5 | Fallback de coordenada (Nominatim) | ~205 | US4 |
 | US6 | Limpeza de cache protegida | ~80 | US4 |
-| US7 | Rate limit da API | ~50 | US2 |
+| US7 | Rate limit da API (entrada e saída no Redis) | ~150 | US2 |
 | US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
 | US9 | Healthcheck (`/saude`) | ~110 | US8 |
 | US10 | Documentação da API com Scalar | ~40 | US8, US9 |
@@ -122,7 +122,13 @@ Fica para outra US: invalidar o CEP limpo nas listas de vizinhos de outros CEPs 
 ## US7 — Rate limit da API
 Como **operador da API**, quero limitar as requisições por cliente, para proteger o serviço e as APIs externas de abuso.
 
-- Mais de 60 req/min do mesmo IP → `429` em JSON com `Retry-After`. O contador fica no Redis e o limite é configurável.
+- Mais de 60 req/min do mesmo IP → `429 LIMITE_EXCEDIDO` em JSON com `Retry-After` e headers `RateLimit`/`RateLimit-Policy` (draft-8). O contador fica no Redis (`express-rate-limit` + `rate-limit-redis`), e o limite é configurável (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_SECONDS`).
+- Todo limiter fica no Redis: os de saída, BrasilAPI 5 req/s e Nominatim 1 req/s, passam a contar em `ratelimit:brasilapi`/`ratelimit:nominatim` (janela deslizante), compartilhados entre réplicas.
+- Redis fora: a entrada é fail-open (passa sem limite, com log). A saída cai no `WindowRateLimiter` em memória do processo.
+- `TRUST_PROXY` define de onde vem o IP do cliente atrás de proxy.
+- Requisição que gera outra internamente: cada requisição conta uma vez só (o middleware pula se `req.rateLimit` já existe), e a composição interna chama o caso de uso em processo, nunca HTTP para a própria API (D30). Spec: `docs/specs/us7-rate-limit.md`.
+
+Fica para outra US: isenção do `/saude` (US9) e o `429` no OpenAPI (US10).
 
 ## US8 — Error middleware com catálogo de erros
 Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzidos para HTTP num único middleware, a partir de um catálogo, para que um erro novo custe uma classe e uma linha no catálogo, e não um `case` em cada rota.

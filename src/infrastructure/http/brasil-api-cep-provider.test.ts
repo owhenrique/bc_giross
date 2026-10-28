@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BrasilApiCepProvider } from './brasil-api-cep-provider.js';
-import { WindowRateLimiter } from './window-rate-limiter.js';
+import type { RateLimiter } from './rate-limiter.js';
 
 const NOT_FOUND_BODY = {
   name: 'CepPromiseError',
@@ -34,10 +34,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function setup(
-  fetchImpl: typeof fetch,
-  extra: { timeoutMs?: number; limiter?: WindowRateLimiter } = {},
-) {
+function setup(fetchImpl: typeof fetch, extra: { timeoutMs?: number; limiter?: RateLimiter } = {}) {
   const logger = { warn: vi.fn() };
   const fetchMock = vi.fn(fetchImpl);
   const provider = new BrasilApiCepProvider({
@@ -140,8 +137,8 @@ describe('BrasilApiCepProvider', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('returns unavailable without calling fetch when the limiter is full', async () => {
-    const limiter = new WindowRateLimiter(0, 1000);
+  it('returns unavailable without calling fetch when the async limiter denies', async () => {
+    const limiter = { tryAcquire: async () => false };
     const { provider, fetchMock } = setup(async () => json({}), { limiter });
     expect(await provider.lookup('04551000')).toEqual({
       status: 'unavailable',

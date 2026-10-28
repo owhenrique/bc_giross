@@ -35,6 +35,7 @@ Cada decisão tem o contexto, o que foi escolhido e o porquê. Alternativas desc
 | D27 | Idioma | Código em inglês; contrato e README em português | ✅ |
 | D28 | Arquitetura | Camadas: apresentação → serviço/domínio → infraestrutura | ✅ |
 | D29 | BrasilAPI fora do ar, CEP na base | Responde os vizinhos com `origem.endereco: null` | ✅ |
+| D30 | Composição interna | Caso de uso chama o outro em processo, nunca HTTP para a própria API | ✅ |
 
 ---
 
@@ -198,4 +199,16 @@ Consequência: o `docker compose up` falha sem um `.env`, então o README manda 
 - **TTLs do geocoding** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h), os mesmos da D20. O resultado final fica em `result:<raio>:<cep>` com a fonte (`base` ou `nominatim`), então a repetição não vai ao banco nem ao Nominatim. O seed não apaga as chaves `geocode:*`, porque a coordenada do Nominatim não depende da base.
 - **Comparação normalizada:** a cidade e a UF do candidato precisam bater com as da BrasilAPI, sem acento, sem diferença de maiúsculas e sem espaços extras. A cidade vem de `city`/`town`/`village`/`municipality`, e a UF vem de `ISO3166-2-lvl4` (`BR-SP` → `SP`). Grafias diferentes da cidade (ex.: "Embu" × "Embu das Artes") viram `422`.
 - **Busca sem `state` e com `limit=5`:** o parâmetro `state` do Nominatim espera o nome do estado, não a UF, então a busca leva só `street` e `city` (mais `countrycodes=br`), e a UF é validada depois. O `limit=5` dá a chance de achar o candidato certo quando o primeiro é um homônimo; vale o primeiro que bater.
-- **Política de uso:** `User-Agent` identificado (`NOMINATIM_USER_AGENT`), no máximo 1 req/s e cache dos resultados. O limiter é em memória, por processo; com mais de uma réplica da API ele passaria a ser agregado e teria de ir para o Redis. `NOMINATIM_URL` permite apontar para uma instância própria.
+- **Política de uso:** `User-Agent` identificado (`NOMINATIM_USER_AGENT`), no máximo 1 req/s e cache dos resultados. O limiter era em memória, por processo; com mais de uma réplica da API ele seria agregado e teria de ir para o Redis, o que a US7 fez (D22 cont.). `NOMINATIM_URL` permite apontar para uma instância própria.
+
+## D22 (cont.) — Rate limit na US7
+
+- **Entrada:** 60 req/min por IP, com `express-rate-limit` e `rate-limit-redis` (janela fixa, chave `ratelimit:api:<ip>`), em todas as rotas, e `429 LIMITE_EXCEDIDO` pelo catálogo de erros. Headers `RateLimit` e `RateLimit-Policy` (draft-8) e `Retry-After`; sem os legados `X-RateLimit-*`. Configurável por `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`.
+- **Redis fora (entrada):** fail-open. A requisição passa sem limite e o erro é logado como `warn`. Timeout de 500 ms na store.
+- **IP atrás de proxy:** `TRUST_PROXY` é repassada ao `trust proxy` do Express e vem desligada. Sem ela, vale o IP do socket.
+- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) contam no Redis, em janela deslizante (sorted set e Lua, com o relógio do Redis), compartilhados entre réplicas. Redis fora ou lento: cai no `WindowRateLimiter` em memória, com log `warn`, e volta ao Redis sozinho quando ele retorna.
+- **Evicção:** uma chave `ratelimit:*` despejada pelo `allkeys-lru` só zera um contador (falha a favor do cliente). Requisições que recebem `429` também contam na janela.
+
+## D30 — Composição interna em processo
+
+Um fluxo que precise do resultado de outro chama o caso de uso (`findNearbyCeps`, `clearCache`...) direto, pela composição em `src/index.ts`, e nunca faz `fetch` para a própria API. Uma chamada HTTP interna sairia de `127.0.0.1` (ou do IP do pod), dividindo um contador entre todos os clientes; gastaria o limite do cliente duas vezes; e repetiria a vaga dos limiters de saída. Somada ao `skip` do `rateLimitMiddleware` (pula se `req.rateLimit` já existe), garante uma contagem por requisição do cliente. A regra é só convenção: nada no código impede um `fetch` para a própria API. Descartados: token interno que pula o limite (cria segredo e superfície de ataque) e repasse assinado do IP original (complexo demais).

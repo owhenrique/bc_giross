@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { AddressLookup, CepAddressProvider } from '../../application/cep-address-provider.js';
 import { WindowRateLimiter } from './window-rate-limiter.js';
+import type { RateLimiter } from './rate-limiter.js';
 
 const NOT_FOUND_PATTERN = /n[aã]o encontrado|not found/i;
 
@@ -25,7 +26,7 @@ export interface BrasilApiCepProviderOptions {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
   timeoutMs?: number;
-  limiter?: WindowRateLimiter;
+  limiter?: RateLimiter;
   logger: Pick<Logger, 'warn'>;
 }
 
@@ -33,7 +34,7 @@ export class BrasilApiCepProvider implements CepAddressProvider {
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
-  private readonly limiter: WindowRateLimiter;
+  private readonly limiter: RateLimiter;
   private readonly logger: Pick<Logger, 'warn'>;
 
   constructor(options: BrasilApiCepProviderOptions) {
@@ -45,7 +46,7 @@ export class BrasilApiCepProvider implements CepAddressProvider {
   }
 
   async lookup(cep: string): Promise<AddressLookup> {
-    if (!this.limiter.tryAcquire()) {
+    if (!(await this.limiter.tryAcquire())) {
       this.logger.warn({ cep }, 'BrasilAPI rate limit reached, skipping lookup');
       return { status: 'unavailable' };
     }

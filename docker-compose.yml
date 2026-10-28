@@ -55,6 +55,9 @@ services:
       NOMINATIM_URL: ${NOMINATIM_URL:-https://nominatim.openstreetmap.org}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)}
       CACHE_ADMIN_TOKEN: ${CACHE_ADMIN_TOKEN:-}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      TRUST_PROXY: ${TRUST_PROXY:-}
     depends_on:
       seed:
         condition: service_completed_successfully

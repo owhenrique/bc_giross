@@ -20,6 +20,8 @@ describe('loadEnv', () => {
         url: 'https://nominatim.openstreetmap.org',
         userAgent: 'bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)',
       },
+      rateLimit: { max: 60, windowSeconds: 60 },
+      trustProxy: false,
     });
   });
 
@@ -81,5 +83,29 @@ describe('loadEnv', () => {
     expect(env.nominatim).toEqual({ url: 'http://localhost:8080', userAgent: 'custom/2.0' });
     expect(() => loadEnv({ ...base, NOMINATIM_URL: 'not a url' })).toThrow();
     expect(() => loadEnv({ ...base, NOMINATIM_USER_AGENT: '' })).toThrow();
+  });
+
+  it('reads the rate limit values', () => {
+    expect(
+      loadEnv({ ...base, RATE_LIMIT_MAX: '10', RATE_LIMIT_WINDOW_SECONDS: '30' }).rateLimit,
+    ).toEqual({ max: 10, windowSeconds: 30 });
+  });
+
+  it.each(['0', '-1', '1.5', 'abc'])('rejects RATE_LIMIT_MAX=%s', (value) => {
+    expect(() => loadEnv({ ...base, RATE_LIMIT_MAX: value })).toThrow();
+  });
+
+  it.each(['0', '-1', '1.5', 'abc'])('rejects RATE_LIMIT_WINDOW_SECONDS=%s', (value) => {
+    expect(() => loadEnv({ ...base, RATE_LIMIT_WINDOW_SECONDS: value })).toThrow();
+  });
+
+  it.each([
+    ['', false],
+    ['false', false],
+    ['true', true],
+    ['2', 2],
+    ['loopback, 10.0.0.0/8', 'loopback, 10.0.0.0/8'],
+  ])('parses TRUST_PROXY=%j', (value, expected) => {
+    expect(loadEnv({ ...base, TRUST_PROXY: value }).trustProxy).toBe(expected);
   });
 });
