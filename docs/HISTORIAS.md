@@ -189,6 +189,8 @@ Como **integrador da Giross**, quero uma documentação navegável do contrato d
 - Um teste de contrato valida as respostas dos testes Supertest (sucesso e cada erro) contra os schemas do `openapi.yaml`. Se o contrato e o código divergirem, o teste quebra.
 - O README aponta para `/docs`.
 
+Decisões: o `openapi.yaml` fica na raiz do repo, porque `docs/` está no `.dockerignore` e vai para outra branch. `NODE_ENV` é obrigatório, sem padrão, para ninguém subir em produção com o `/docs` por esquecimento. O env e o compose (api e seed) falham sem ele. O teste de contrato fica num arquivo dedicado (Ajv contra os schemas do yaml). `/docs` conta no rate limit. O JS do Scalar vem do CDN. O README fica com o contrato enxuto, apontando para `/docs`. Spec: `docs/specs/us10-documentacao-scalar.md`.
+
 Fica para outra US: nada. A partir daqui, toda US que mexer no contrato atualiza o `openapi.yaml`, e o teste de contrato cobra isso.
 
 ---
