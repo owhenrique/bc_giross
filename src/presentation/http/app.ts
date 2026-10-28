@@ -5,6 +5,7 @@ import type { clearCache } from '../../application/cache/clear-cache.js';
 import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
 import { cacheRouter } from './routes/cache-route.js';
 import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
+import { healthRouter } from './routes/health-route.js';
 import { nearbyCepsRouter } from './routes/nearby-ceps-route.js';
 import { rateLimitMiddleware } from './middlewares/rate-limit.js';
 
@@ -30,6 +31,7 @@ export function createApp({
   app.set('trust proxy', trustProxy ?? false);
   app.use(pinoHttp({ logger }));
   app.use(rateLimitMiddleware({ ...rateLimit, logger }));
+  app.use(healthRouter());
   app.use(nearbyCepsRouter(find));
   if (cacheAdmin) app.use(cacheRouter(cacheAdmin.clearCache, cacheAdmin.token));
   app.use(notFoundHandler);

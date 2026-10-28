@@ -107,7 +107,7 @@ Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um 
 
 ## Contrato
 
-Duas rotas. `:cep` aceita `04551000` ou `04551-000`. Query (nas duas): `pagina` (inteiro ≥ 1, padrão 1) e `limite` (inteiro 1–200, padrão 50).
+Duas rotas de consulta. `:cep` aceita `04551000` ou `04551-000`. Query (nas duas): `pagina` (inteiro ≥ 1, padrão 1) e `limite` (inteiro 1–200, padrão 50).
 
 ### `GET /ceps-proximos/:cep` (resumo)
 
@@ -153,6 +153,18 @@ curl "localhost:3000/ceps-proximos/04551000/detalhes?pagina=1&limite=50"
 Nas duas rotas, `ceps` vem ordenado por distância (empate por CEP), sem a própria origem. Página além da última devolve `ceps: []`.
 
 **Migração:** quem usava `/ceps-proximos/:cep` com o contrato completo (`origem` objeto, `raio_km`) deve passar a usar `/ceps-proximos/:cep/detalhes`.
+
+### `GET /saude`
+
+Diz só que a API está no ar: corpo fixo, sem checar banco, cache nem provedores (com o Postgres ou o Redis fora, a resposta é a mesma). Conta no rate limit como as outras rotas.
+
+```bash
+curl localhost:3000/saude
+```
+
+```json
+{ "status": "ok" }
+```
 
 ### Erros
 
