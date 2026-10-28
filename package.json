@@ -50,5 +50,13 @@
     "redis": "^5.12.1",
     "yauzl": "^3.4.0",
     "zod": "^4.6.7"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": true,
+    "trailingComma": "all",
+    "arrowParens": "always",
+    "endOfLine": "lf",
+    "printWidth": 100
   }
 }
