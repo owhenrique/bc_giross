@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
-import { addressKey, geocodeKey, resultKey, type Cache } from './cache.js';
+import { addressKey, geocodeKey, resultKey, type Cache } from './ports.js';
 import { clearCache } from './clear-cache.js';
 import { CacheUnavailableError, InvalidCepError } from './errors.js';
 

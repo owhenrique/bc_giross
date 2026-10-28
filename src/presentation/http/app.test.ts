@@ -2,9 +2,12 @@ import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
-import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
-import type { AddressLookup } from '../../application/cep-address-provider.js';
-import type { GeocodeLookup } from '../../application/geocoder.js';
+import type {
+  AddressLookup,
+  CepRepository,
+  GeocodeLookup,
+  StoredCep,
+} from '../../application/ports.js';
 import { OriginGeocoder } from '../../application/origin-geocoder.js';
 import { findNearbyCeps } from '../../application/find-nearby-ceps.js';
 import { createApp } from './app.js';

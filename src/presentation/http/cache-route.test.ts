@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
-import { addressKey, geocodeKey, resultKey, type Cache } from '../../application/cache.js';
+import { addressKey, geocodeKey, resultKey, type Cache } from '../../application/ports.js';
 import { clearCache } from '../../application/clear-cache.js';
 import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
 import { createApp } from './app.js';

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
-import type { AddressLookup, CepAddressProvider } from './cep-address-provider.js';
-import type { CepRepository, StoredCep } from './cep-repository.js';
+import type {
+  AddressLookup,
+  CepAddressProvider,
+  CepRepository,
+  GeocodeLookup,
+  Geocoder,
+  StoredCep,
+} from './ports.js';
 import {
   AddressProviderUnavailableError,
   CepNotFoundError,
@@ -12,7 +18,6 @@ import {
   InvalidPageError,
 } from './errors.js';
 import { findNearbyCeps, type NearbyCepsResult } from './find-nearby-ceps.js';
-import type { GeocodeLookup, Geocoder } from './geocoder.js';
 import { OriginGeocoder } from './origin-geocoder.js';
 
 const KM_PER_DEGREE = 111.195;

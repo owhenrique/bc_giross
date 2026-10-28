@@ -4,7 +4,7 @@ import {
   addressKey,
   geocodeKey,
   resultKey,
-} from '../../src/application/cache.js';
+} from '../../src/application/ports.js';
 import { InMemoryCache } from './in-memory-cache.js';
 
 describe('InMemoryCache', () => {

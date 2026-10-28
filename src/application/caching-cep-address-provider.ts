@@ -1,5 +1,4 @@
-import { addressKey, type Cache } from './cache.js';
-import type { AddressLookup, CepAddressProvider } from './cep-address-provider.js';
+import { addressKey, type AddressLookup, type Cache, type CepAddressProvider } from './ports.js';
 
 export interface AddressCacheOptions {
   foundTtlSeconds: number;

@@ -1,9 +1,14 @@
 import { normalizeCep } from '../domain/cep/cep-code.js';
 import { boundingBox } from '../domain/geo/bounding-box.js';
 import { haversineKm } from '../domain/geo/haversine.js';
-import { resultKey, type Cache } from './cache.js';
-import type { AddressLookup, CepAddress, CepAddressProvider } from './cep-address-provider.js';
-import type { CepRepository } from './cep-repository.js';
+import {
+  resultKey,
+  type AddressLookup,
+  type Cache,
+  type CepAddress,
+  type CepAddressProvider,
+  type CepRepository,
+} from './ports.js';
 import type { OriginGeocoder } from './origin-geocoder.js';
 import {
   AddressProviderUnavailableError,

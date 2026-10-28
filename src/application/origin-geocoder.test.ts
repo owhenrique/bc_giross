@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
-import type { CepAddress } from './cep-address-provider.js';
-import type { GeocodeCandidate, GeocodeLookup, Geocoder } from './geocoder.js';
+import type { CepAddress, GeocodeCandidate, GeocodeLookup, Geocoder } from './ports.js';
 import { OriginGeocoder } from './origin-geocoder.js';
 
 const options = { foundTtlSeconds: 1000, noMatchTtlSeconds: 100 };

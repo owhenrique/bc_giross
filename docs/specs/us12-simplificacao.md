@@ -291,7 +291,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 2. Rate limit de saída em memória: saem o `redis-window-rate-limiter.ts` e a interface `RateLimiter`; o `window-rate-limiter.ts` e o teste dele vão para `infrastructure/rate-limit/`; os providers recebem `WindowRateLimiter`, com o limite no default; o `index.ts` não passa limiter nem espera o `redis.connect()`; o `withTimeout` fica privado e sai o `REDIS_CONNECT_TIMEOUT_MS`.
 - [x] 3. `limitedFetch`: cria `limited-fetch.ts` e o teste dele (limite, timeout, falha de rede, corpo não JSON, headers). BrasilAPI e Nominatim passam a usá-lo, e os testes dos providers ficam com URL, status e parse.
 - [x] 4. `InMemoryCache` em `tests/fakes/`: move o fake e o teste dele e atualiza os imports dos testes.
-- [ ] 5. `application/ports.ts`: junta as 4 interfaces e as chaves do cache e atualiza os imports de produção, testes, fake e seed.
+- [x] 5. `application/ports.ts`: junta as 4 interfaces e as chaves do cache e atualiza os imports de produção, testes, fake e seed.
 - [ ] 6. Erros da apresentação: o `errors.ts` absorve o catálogo e ganha `HTTP_ERRORS` e `sendError(res, entry)`; saem a const `ErrorCode` e o `error-catalog.ts`; o `bearer-auth.ts` passa a usar a tabela; o teste do catálogo vai para `errors.test.ts`.
 - [ ] 7. Trechos repetidos: `toRad` no `bounding-box`, `centroid`, `findNearbyCeps` sem compatibilidade com cache antigo e com `Neighbor[]`, e `DATASET_HEADER`, `errorMessage` e `allowedUf` no seed.
 - [ ] 8. Raiz: remove `.git-blame-ignore-revs` e `.nvmrc`; move o Prettier para o `package.json` (`npm run format:check` sem diferença); remove o `vitest.config.ts` e o tira do `tsconfig.json`, conferindo que o Vitest roda os mesmos arquivos e testes antes e depois.
