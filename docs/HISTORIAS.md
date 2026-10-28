@@ -103,7 +103,7 @@ Como **Giross**, quero respostas rápidas para CEPs já consultados, para não e
 
 Fica para outra US: limpeza manual (US6).
 
-Ajustada depois da US12: o TTL do resultado passou de 7 d para 24 h, com a conta de memória na D20.
+Ajustada depois da US12: o TTL do resultado passou de 7 d para 24 h, com a conta de memória na D20, e o seed passou a seguir sem o Redis, como a API (D19).
 
 ## US5 — Fallback de coordenada (Nominatim)
 Como **Giross**, quero resultados mesmo quando o CEP de referência não está na base, para não perder a consulta em CEPs novos ou mal cadastrados no Censo.

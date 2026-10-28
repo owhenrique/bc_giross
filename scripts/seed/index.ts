@@ -105,26 +105,30 @@ async function main(): Promise<void> {
 
   const logger = pino({ level: 'warn' });
   const redis = createRedisClient(redisUrl, logger, false);
+  // Like the API, the seed runs without Redis: the base still loads, only the result cache is not cleared.
+  let cache: Cache | null = new RedisCache(redis, logger);
   try {
     await redis.connect();
     await redis.ping();
   } catch (error) {
-    console.error(`Seed abortado: ${errorMessage(error)}`);
-    if (redis.isOpen) redis.destroy();
-    process.exit(1);
+    console.warn(
+      `Aviso: Redis fora do ar (${errorMessage(error)}). A base será carregada sem limpar o cache de resultados.`,
+    );
+    cache = null;
   }
 
   try {
-    await load(ufs, databaseUrl, new RedisCache(redis, logger), startedAt);
+    await load(ufs, databaseUrl, cache, startedAt);
   } finally {
     await redis.close().catch(() => undefined);
   }
 }
 
+/** Loads the base in one transaction, then clears the result cache (skipped when `cache` is null). */
 async function load(
   ufs: string[],
   databaseUrl: string,
-  cache: Cache,
+  cache: Cache | null,
   startedAt: number,
 ): Promise<void> {
   const allowed = new Set(ufs);
@@ -165,12 +169,12 @@ async function load(
     await client.end();
   }
 
-  try {
-    await clearResultCache(cache);
-  } catch (error) {
-    console.error(errorMessage(error));
-    process.exitCode = 1;
-    return;
+  if (cache) {
+    try {
+      await clearResultCache(cache);
+    } catch (error) {
+      console.warn(`Aviso: ${errorMessage(error)}`);
+    }
   }
 
   let total = 0;

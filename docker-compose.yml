@@ -38,7 +38,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-        required: false # Redis down: the seed still runs and fails before touching the database
+        required: false # Redis down: the seed still loads the base, without clearing the result cache
 
   api:
     build: .
@@ -62,7 +62,6 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
-        required: false # the api starts even if the seed fails (e.g. Redis down), on the loaded base
 
 volumes:
   pgdata:
