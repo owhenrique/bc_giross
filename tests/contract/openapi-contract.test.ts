@@ -45,6 +45,8 @@ interface SetupOptions {
   lookup?: { current: AddressLookup };
   geocode?: GeocodeLookup;
   failingCache?: boolean;
+  /** Makes the cache admin throw a non-AppError, which the error middleware answers with 500. */
+  crashingAdmin?: boolean;
   withAdmin?: boolean;
   rateLimit?: number;
 }
@@ -66,6 +68,9 @@ function setup(options: SetupOptions = {}) {
       throw new Error('redis down');
     };
   }
+  const crash = async () => {
+    throw new Error('bug');
+  };
   return createApp({
     findNearbyCeps: findNearbyCeps(
       options.repository ?? inMemoryRepository([ORIGIN, NEIGHBOR]),
@@ -79,7 +84,12 @@ function setup(options: SetupOptions = {}) {
     cacheAdmin:
       options.withAdmin === false
         ? undefined
-        : { clearCache: clearCache(adminCache, { radiusKm: 1 }), token: TOKEN },
+        : {
+            clearCache: options.crashingAdmin
+              ? { all: crash, cep: crash }
+              : clearCache(adminCache, { radiusKm: 1 }),
+            token: TOKEN,
+          },
   });
 }
 
@@ -188,7 +198,7 @@ describe('error responses match the contract', () => {
   it.each([
     ['/cache', CACHE_ALL],
     ['/cache/04551000', CACHE_CEP],
-  ])('DELETE %s answers 401, 404 and 503', async (url, path) => {
+  ])('DELETE %s answers 401, 404, 500 and 503', async (url, path) => {
     const unauthorized = await request(setup()).delete(url);
     expect(unauthorized.body.erro.codigo).toBe('NAO_AUTORIZADO');
     expectMatchesContract(unauthorized, path, 'delete');
@@ -205,6 +215,12 @@ describe('error responses match the contract', () => {
       .set('Authorization', AUTH);
     expect(cacheDown.body.erro.codigo).toBe('CACHE_INDISPONIVEL');
     expectMatchesContract(cacheDown, path, 'delete');
+
+    const crashed = await request(setup({ crashingAdmin: true }))
+      .delete(url)
+      .set('Authorization', AUTH);
+    expect(crashed.body.erro.codigo).toBe('ERRO_INTERNO');
+    expectMatchesContract(crashed, path, 'delete');
   });
 
   it('DELETE /cache/{cep} answers 400 CEP_INVALIDO', async () => {
@@ -214,12 +230,18 @@ describe('error responses match the contract', () => {
     expectMatchesContract(res, CACHE_CEP, 'delete');
   });
 
-  it('answers 429 LIMITE_EXCEDIDO', async () => {
+  it.each([
+    ['get', '/ceps-proximos/04551000', SUMMARY],
+    ['get', '/ceps-proximos/04551000/detalhes', DETAILED],
+    ['get', '/saude', HEALTH],
+    ['delete', '/cache', CACHE_ALL],
+    ['delete', '/cache/04551000', CACHE_CEP],
+  ] as const)('%s %s answers 429 LIMITE_EXCEDIDO', async (method, url, path) => {
     const app = setup({ rateLimit: 1 });
-    await request(app).get('/saude');
-    const res = await request(app).get('/saude');
+    await request(app)[method](url).set('Authorization', AUTH);
+    const res = await request(app)[method](url).set('Authorization', AUTH);
     expect(res.status).toBe(429);
     expect(res.body.erro.codigo).toBe('LIMITE_EXCEDIDO');
-    expectMatchesContract(res, HEALTH, 'get');
+    expectMatchesContract(res, path, method);
   });
 });

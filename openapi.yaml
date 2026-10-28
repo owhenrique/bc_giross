@@ -135,8 +135,6 @@ paths:
                 status: ok
         '429':
           $ref: '#/components/responses/LimiteExcedido'
-        '500':
-          $ref: '#/components/responses/ErroInterno'
 
   /cache:
     delete:
