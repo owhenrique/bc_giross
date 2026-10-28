@@ -50,3 +50,20 @@ export function assessCep(points: Point[]): CepAssessment {
   );
   return { center, p90Km, removed: p90Km > P90_THRESHOLD_KM };
 }
+
+export interface CepPoint extends Point {
+  cep: string;
+}
+
+export interface Neighbor {
+  cep: string;
+  distanceKm: number;
+}
+
+/** CEPs within radiusKm of origin, nearest first; ties go by CEP so pages stay stable. */
+export function nearestCeps(origin: Point, ceps: CepPoint[], radiusKm: number): Neighbor[] {
+  return ceps
+    .map((point) => ({ cep: point.cep, distanceKm: haversineKm(origin, point) }))
+    .filter((neighbor) => neighbor.distanceKm <= radiusKm)
+    .sort((a, b) => a.distanceKm - b.distanceKm || a.cep.localeCompare(b.cep));
+}

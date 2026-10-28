@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessCep, centroid, normalizeCep, percentile } from './cep.js';
+import { assessCep, centroid, nearestCeps, normalizeCep, percentile } from './cep.js';
 
 describe('normalizeCep', () => {
   it('keeps an 8-digit cep', () => {
@@ -105,5 +105,37 @@ describe('assessCep', () => {
 
   it('throws on an empty list', () => {
     expect(() => assessCep([])).toThrow();
+  });
+});
+
+describe('nearestCeps', () => {
+  const origin = { lat: 0, lon: 0 };
+  // ~1.11 km per 0.01 degree at the equator.
+  const at = (cep: string, lon: number) => ({ cep, lat: 0, lon });
+
+  it('keeps only the CEPs within the radius', () => {
+    const result = nearestCeps(origin, [at('00000001', 0.01), at('00000002', 0.05)], 2);
+    expect(result.map((n) => n.cep)).toEqual(['00000001']);
+  });
+
+  it('orders by distance, nearest first, with the distance in km', () => {
+    const result = nearestCeps(origin, [at('00000002', 0.015), at('00000001', 0.005)], 5);
+    expect(result.map((n) => n.cep)).toEqual(['00000001', '00000002']);
+    expect(result[0]?.distanceKm).toBeCloseTo(0.556, 2);
+  });
+
+  it('breaks distance ties by CEP', () => {
+    const result = nearestCeps(origin, [at('00000009', 0.01), at('00000003', -0.01)], 5);
+    expect(result.map((n) => n.cep)).toEqual(['00000003', '00000009']);
+  });
+
+  it('keeps a CEP exactly on the radius', () => {
+    const point = at('00000001', 0.01);
+    const radius = nearestCeps(origin, [point], 100)[0]?.distanceKm as number;
+    expect(nearestCeps(origin, [point], radius)).toHaveLength(1);
+  });
+
+  it('returns an empty list when there are no CEPs', () => {
+    expect(nearestCeps(origin, [], 5)).toEqual([]);
   });
 });

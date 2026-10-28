@@ -1,5 +1,5 @@
-import { normalizeCep } from '../../domain/cep/cep.js';
-import { boundingBox, haversineKm } from '../../domain/geo/geo.js';
+import { nearestCeps, normalizeCep, type Neighbor } from '../../domain/cep/cep.js';
+import { boundingBox } from '../../domain/geo/geo.js';
 import { resultKey, type Cache } from '../cache/cache.js';
 import type {
   AddressLookup,
@@ -31,11 +31,6 @@ export interface FindNearbyCepsInput {
 const isIntegerAtLeast = (value: number, min: number) => Number.isInteger(value) && value >= min;
 
 export type OriginSource = 'dataset' | 'nominatim';
-
-interface Neighbor {
-  cep: string;
-  distanceKm: number;
-}
 
 export interface NearbyCepsResult {
   origin: {
@@ -91,16 +86,15 @@ export function findNearbyCeps(
       source = 'nominatim';
     }
     const candidates = await repository.findInBox(boundingBox(origin, radiusKm));
-    const neighbors = candidates
+    const others = candidates
       .filter((candidate) => candidate.cep !== cep)
       .map((candidate) => ({
         cep: candidate.cep,
-        distanceKm: haversineKm(origin, { lat: candidate.latitude, lon: candidate.longitude }),
-      }))
-      .filter((neighbor) => neighbor.distanceKm <= radiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm || a.cep.localeCompare(b.cep));
+        lat: candidate.latitude,
+        lon: candidate.longitude,
+      }));
 
-    return { origin: { cep, ...origin, source }, neighbors };
+    return { origin: { cep, ...origin, source }, neighbors: nearestCeps(origin, others, radiusKm) };
   }
 
   return async (input: FindNearbyCepsInput): Promise<NearbyCepsResult> => {
