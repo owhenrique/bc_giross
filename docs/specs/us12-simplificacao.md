@@ -28,7 +28,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 ## Critérios de aceite
 - [x] 1. Dado mais de `RATE_LIMIT_MAX` requisições (padrão 60) do mesmo IP dentro da janela, quando ele chama a API, então recebe `429 LIMITE_EXCEDIDO` com `Retry-After` e os headers `RateLimit`/`RateLimit-Policy`, como hoje. O contador fica em memória, por processo, no store padrão do `express-rate-limit`: um contador por IP, que sai da memória depois de uma janela sem requisições. O `rate-limit-redis` saiu das dependências.
 - [x] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
-- [ ] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
+- [x] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
 - [x] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
 - [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 29 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; o `application/` sem arquivos na raiz, com as pastas `use-cases/` (`find-nearby-ceps.ts` e a porta `cep-repository.ts`), `cache/` (porta `Cache` com as chaves e `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (portas `cep-address-provider.ts` e `geocoder.ts`, `caching-cep-address-provider.ts` e `origin-geocoder.ts`), sem `ports.ts`; o `presentation/http/` com `app.ts` na raiz e as pastas `routes/` (só os `Router`s), `middlewares/` (`bearer-auth.ts`, `rate-limit.ts`, `error-handler.ts`), `errors/` (catálogo, `HTTP_ERRORS` e `sendError` em `errors.ts`, sem a const `ErrorCode`) e `mappers/` (`nearby-ceps-mapper.ts`, com a leitura da query e a tradução para o contrato); o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
 - [x] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
@@ -272,7 +272,7 @@ Produção e scripts (contam no limite):
 - `src/application/clear-cache.ts` — import do `ports` — ~1 linha
 - `src/application/origin-geocoder.ts` — import do `ports` — ~2 linhas
 - `src/application/find-nearby-ceps.ts` — import do `ports`; `CachedResult.origin.source` obrigatório; `Neighbor[]` — ~8 linhas
-- `src/index.ts` — sem os limiters do Redis e o store, `redis.connect()` sem `await` — ~10 linhas
+- `src/index.ts` — sem os limiters do Redis e o store, `redis.connect()` sem `await` (o `catch` só evita rejeição sem tratamento; quem loga a falha é o handler `'error'` do cliente) — ~10 linhas
 - `src/domain/geo/haversine.ts` — exportar `toRad` — ~1 linha
 - `src/domain/geo/bounding-box.ts` — usar `toRad` — ~3 linhas
 - `src/domain/cep/cep-centroid.ts` — `uniquePointsCentroid` → `centroid`; `assessCep` — ~4 linhas
@@ -298,10 +298,13 @@ Produção e scripts (contam no limite):
 - `src/domain/cep/cep.ts` — criar a partir de `cep-code.ts` + `cep-centroid.ts` — ~50 linhas
 - `src/domain/geo/haversine.ts`, `src/domain/geo/bounding-box.ts`, `src/domain/cep/cep-code.ts`, `src/domain/cep/cep-centroid.ts` — remover — 0
 - `scripts/build-dataset/index.ts` — `DATASET_HEADER`; import do `cep.ts` — ~4 linhas
-- `scripts/seed/index.ts` — import do `ports`; `DATASET_HEADER`; `errorMessage`; `allowedUf` — ~12 linhas
+- `scripts/seed/index.ts` — import do `ports`; `DATASET_HEADER`; `errorMessage` (inclusive no `catch` do `clearResultCache`); `allowedUf` — ~12 linhas
+- `eslint.config.js` — `no-restricted-imports` por camada (tarefa 15). Além das camadas de cima, `domain`, `application` e `presentation` também não importam `src/generated` (o cliente do Prisma), que só a `infrastructure` usa — ~23 linhas
 
 Testes (não contam):
-- Criar: `src/infrastructure/http/limited-fetch.test.ts`.
+- Criar: `src/infrastructure/http/limited-fetch.test.ts`; `src/presentation/http/middlewares/error-handler.test.ts` (a partir do `errors.test.ts` da `main`, com `notFoundHandler` e `errorHandler`).
+- Juntar: `haversine.test.ts` + `bounding-box.test.ts` → `src/domain/geo/geo.test.ts`; `cep-code.test.ts` + `cep-centroid.test.ts` → `src/domain/cep/cep.test.ts` (com os casos do `nearestCeps`).
+- Mover para as pastas novas, junto dos arquivos: os testes da `application` (`cache/`, `errors/`, `providers/`, `use-cases/`) e da `presentation/http` (`errors/`, `middlewares/`, `routes/`); o `error-catalog.test.ts` vira `errors/errors.test.ts`.
 - Mover: `src/infrastructure/cache/in-memory-cache.test.ts` → `tests/fakes/in-memory-cache.test.ts`; `src/infrastructure/http/window-rate-limiter.test.ts` → `src/infrastructure/rate-limit/window-rate-limiter.test.ts`.
 - Remover: `src/infrastructure/rate-limit/redis-rate-limit-store.test.ts`, `src/infrastructure/rate-limit/redis-window-rate-limiter.test.ts` e `src/presentation/http/error-catalog.test.ts` (o teste de cobertura do catálogo vai para `errors.test.ts`).
 - Alterar: `src/presentation/http/rate-limit.test.ts` (saem os casos de falha do store e do adaptador de logger), `src/infrastructure/http/brasil-api-cep-provider.test.ts`, `src/infrastructure/http/nominatim-geocoder.test.ts`, `src/presentation/http/errors.test.ts`, `src/presentation/http/app.test.ts`, `src/presentation/http/cache-route.test.ts`, `src/application/caching-cep-address-provider.test.ts`, `src/application/clear-cache.test.ts`, `src/application/find-nearby-ceps.test.ts`, `src/application/origin-geocoder.test.ts`, `src/domain/cep/cep-centroid.test.ts` e `scripts/seed/index.test.ts`.
@@ -333,9 +336,9 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 
 | Métrica | Valor |
 | --- | --- |
-| Tarefas | 9 |
-| Arquivos que a mudança toca | ~59 (31 de produção e scripts, 18 de teste, 10 de configuração e docs) |
-| Linhas de lógica estimadas | ~270 (ver "Limite de tamanho") |
+| Tarefas | 9 estimadas; 15 ao fim (as tarefas 10 a 15 entraram durante a implementação) |
+| Arquivos que a mudança toca | ~59 estimados (31 de produção e scripts, 18 de teste, 10 de configuração e docs); 71 ao fim, pelas tarefas 10 a 15 |
+| Linhas de lógica estimadas | ~270; 337 medidas ao fim (ver "Riscos") |
 | Toca em tela (E2E) | Não |
 | Migração de dados | Não |
 | Muda contrato de API | Não |
@@ -408,7 +411,8 @@ Preenchido no `/pato/close-spec`.
 - **Medição:** conteúdo que muda de arquivo conta como linha adicionada. A estimativa já inclui isso.
 - **Branch `fix/compose-env`:** é local, parece obsoleta e toca README e `package.json`, que esta US também altera. Se for mergeada depois, precisa de rebase.
 - **Branch `docs`:** mover `docs/specs/` e `docs/HISTORIAS.md` é o passo final, depois do close-spec da US10, e está registrado no mapa.
-- **Critério 3 sem teste automatizado:** o `redis.connect()` sem `await` está no `index.ts`, mas a subida com o Redis fora só é exercida no passo 4 do teste manual. O critério fica aberto até lá.
+- **Critério 3 sem teste automatizado:** o `redis.connect()` sem `await` está no `index.ts`. A verificação independente subiu a API com o Redis inacessível e confirmou a subida, o cache em miss e os dois limites valendo; o passo 4 do teste manual repete isso com o compose.
 - **Header do `ceps-removidos.csv`:** o `build-dataset` também passou a montar esse header a partir do `DATASET_HEADER` (`${DATASET_HEADER};p90_km`). A saída não muda.
-- **`(error as Error).message` restantes:** um no `catch` do `clearResultCache` do seed e um no `main()` do `build-dataset`. Não são as 4 cópias de `instanceof Error`, e ficaram como estavam. Sugestão: usar o `errorMessage` também no seed.
+- **`(error as Error).message` restante:** só o do `main()` do `build-dataset`, que não tem o `errorMessage`. O do `catch` do `clearResultCache` no seed passou a usar o `errorMessage` depois da verificação.
+- **Seed importa o `build-dataset`:** para usar o `DATASET_HEADER`, o seed carrega o módulo do `build-dataset`, que traz o `read-cnefe` e o `yauzl`. O `main()` do build não roda (guard no fim do `index.ts`), e o `yauzl` está em `dependencies`, então a imagem do compose tem tudo. Ficou assim para não criar um arquivo só para a constante.
 - **Medição:** o placar final é 337, contra ~270 estimados (292 até a tarefa 9; 340 com a tarefa 10, porque o git vê `geo.ts` e `cep.ts` como arquivos novos; 267 com a tarefa 11, porque as portas voltaram aos arquivos da `main` e o git as vê como renomeação; 294 com a tarefa 12, pelo mapper e pelo `error-handler.ts` novos; 337 com as tarefas 13 a 15, pelo `nearestCeps` e pelas regras de camada no `eslint.config.js`, que a medição conta por ser `.js`). O resto da diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
