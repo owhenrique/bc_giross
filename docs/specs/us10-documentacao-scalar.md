@@ -4,7 +4,7 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US8 (PR #3) e US9 (PR #11), mergeadas
 titulo: Documentação da API com Scalar
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
@@ -207,10 +207,12 @@ Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste c
   - o seed rodando de verdade sem `NODE_ENV`.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-28 | Automatizado | local | local | `npm test` (27 arquivos, 308 testes), `npm run lint`, `npm run typecheck`, `npm run format:check` | Aprovado | — |
+| 2026-10-28 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec em duas rodadas + suítes rodadas | Aprovado | seção "Verificação independente" |
+| 2026-10-28 | Manual | owhenrique | local | UI `/docs` no navegador (5 endpoints, Bearer, exemplos); `curl /docs/openapi.json`; `NODE_ENV=production` → `404` nas duas rotas; sem `NODE_ENV` o compose aborta e o `npm run dev` sai com erro de env | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Quebra de quem já roda o projeto:** quem tem um `.env` sem `NODE_ENV` passa a ver a API, o seed e o compose falharem até acrescentar a variável. Isso é intencional, e o README e o `.env.example` avisam. O `.env` local também precisa da variável.
