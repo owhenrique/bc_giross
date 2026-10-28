@@ -149,4 +149,6 @@ npm run typecheck
 npm run format:check
 ```
 
+Todo PR para a `main` roda esses comandos no GitHub Actions (`.github/workflows/ci.yml`).
+
 Para formatar o código, rode `npm run format`.
