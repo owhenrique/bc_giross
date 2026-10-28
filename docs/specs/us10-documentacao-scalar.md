@@ -10,7 +10,7 @@ criada_em: 2026-10-28
 implementada_em: 2026-10-28
 verificada_em: 2026-10-28
 branch: feat/us10-documentacao-scalar
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/12
 ---
 
 # US10 — Documentação da API com Scalar
