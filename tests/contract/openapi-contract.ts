@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { parse } from 'yaml';
 import { expect } from 'vitest';
+import { loadOpenApiDocument } from '../../src/infrastructure/openapi/load-openapi-document.js';
 
 type HttpMethod = 'get' | 'delete';
 
@@ -23,9 +22,7 @@ interface OpenApiDocument {
   };
 }
 
-export const openApiDocument = parse(
-  readFileSync(new URL('../../openapi.yaml', import.meta.url), 'utf8'),
-) as OpenApiDocument;
+export const openApiDocument = loadOpenApiDocument() as OpenApiDocument;
 
 // `strict: false` lets OpenAPI-only keywords (`example`, `examples`) pass as annotations.
 const ajv = new Ajv2020({ strict: false, allErrors: true });

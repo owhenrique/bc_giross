@@ -3,7 +3,7 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import type { findNearbyCeps } from '../../../application/use-cases/find-nearby-ceps.js';
 import { createApp } from '../app.js';
-import { loadOpenApiDocument } from '../openapi/load-openapi-document.js';
+import { openApiDocument } from '../../../../tests/contract/openapi-contract.js';
 
 function setup(options: { withDocs?: boolean; limit?: number } = {}) {
   return createApp({
@@ -12,7 +12,7 @@ function setup(options: { withDocs?: boolean; limit?: number } = {}) {
     }) as unknown as ReturnType<typeof findNearbyCeps>,
     logger: pino({ level: 'silent' }),
     rateLimit: { limit: options.limit ?? 1000, windowMs: 60_000 },
-    openApiDocument: options.withDocs === false ? undefined : loadOpenApiDocument(),
+    openApiDocument: options.withDocs === false ? undefined : openApiDocument,
   });
 }
 
@@ -28,7 +28,7 @@ describe('GET /docs', () => {
     const res = await request(setup()).get('/docs/openapi.json');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/json/);
-    expect(res.body).toEqual(loadOpenApiDocument());
+    expect(res.body).toEqual(openApiDocument);
     expect(res.body.openapi).toMatch(/^3\.1/);
   });
 

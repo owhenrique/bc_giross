@@ -56,6 +56,7 @@ Hoje o contrato existe só na seção "Contrato" do README: rotas, exemplos e a 
 - P: o que acontece com a seção "Contrato" do README? → R: fica enxuta (rotas e tabela de erros) e aponta para `/docs` e para o `openapi.yaml`.
 - P: `/docs` conta no rate limit? → R: conta, como as outras rotas, porque é registrado depois do `rateLimitMiddleware`.
 - P: o JS do Scalar vem do CDN? → R: sim, do CDN padrão.
+- P (revisão da implementação): o `openapi-contract.test.ts` estava solto na raiz de `presentation/http` e o `loadOpenApiDocument` não é HTTP. → R: o teste de contrato foi para `tests/contract/`, ao lado do helper. O `loadOpenApiDocument` lê arquivo do disco, então foi para `src/infrastructure/openapi/`. O helper do contrato reusa o loader, e o `docs-route.test.ts` usa o documento exportado pelo helper, porque a regra de camadas do lint impede `presentation` de importar `infrastructure`.
 
 ## Premissas
 Nenhuma.
@@ -85,7 +86,7 @@ Nenhuma.
 
 ## Arquivos que a mudança toca
 - `openapi.yaml` — criar: documento OpenAPI 3.1 completo — dados/config, não conta
-- `src/presentation/http/openapi/load-openapi-document.ts` — criar: `loadOpenApiDocument()` — ~8 linhas
+- `src/infrastructure/openapi/load-openapi-document.ts` — criar: `loadOpenApiDocument()` — ~8 linhas
 - `src/presentation/http/routes/docs-route.ts` — criar: `docsRouter(document)` com `GET /docs/openapi.json` e o Scalar em `/docs` — ~12 linhas
 - `src/presentation/http/app.ts` — alterar: `AppDeps.openApiDocument`, import e registro condicional — ~4 linhas
 - `src/config/env.ts` — alterar: `NODE_ENV` obrigatório no schema, `Env.nodeEnv` e retorno — ~4 linhas
@@ -93,7 +94,7 @@ Nenhuma.
 - `src/config/env.test.ts` — alterar: `NODE_ENV` no `base`, ausente → erro, valor inválido → erro — teste, não conta
 - `src/presentation/http/routes/docs-route.test.ts` — criar: critérios 1, 2, 5 e 8 — teste, não conta
 - `tests/contract/openapi-contract.ts` — criar: Ajv + `expectMatchesContract` — teste, não conta
-- `src/presentation/http/openapi-contract.test.ts` — criar: cenários do critério 6 (setup como em `app.test.ts` e `cache-route.test.ts`) e cobertura do catálogo (critérios 3 e 4) — teste, não conta
+- `tests/contract/openapi-contract.test.ts` — criar: cenários do critério 6 (setup como em `app.test.ts` e `cache-route.test.ts`) e cobertura do catálogo (critérios 3 e 4) — teste, não conta
 - `docker-compose.yml` — alterar: `NODE_ENV` obrigatório nos serviços `api` e `seed` — config, não conta
 - `.env.example` — alterar: `NODE_ENV` — config, não conta
 - `package.json` / `package-lock.json` — alterar: dependências novas — config/lockfile, não conta
@@ -139,7 +140,7 @@ A US inteira sai num PR, mergeável sozinho, com **até 500 linhas de lógica** 
 Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste confere por HTTP que `/docs` devolve o HTML apontando para `/docs/openapi.json`, e a renderização é conferida manualmente no navegador.
 
 ## Testes
-- `src/presentation/http/openapi-contract.test.ts`, com Supertest sobre `createApp` e fakes como em `app.test.ts` e `cache-route.test.ts`. Cada resposta passa pelo `expectMatchesContract`:
+- `tests/contract/openapi-contract.test.ts`, com Supertest sobre `createApp` e fakes como em `app.test.ts` e `cache-route.test.ts`. Cada resposta passa pelo `expectMatchesContract`:
   - `200` em `GET /ceps-proximos/{cep}`, `GET /ceps-proximos/{cep}/detalhes` (com `fonte: base` e endereço, e com `fonte: nominatim` e `endereco: null`) e `GET /saude`;
   - `204` em `DELETE /cache` e `DELETE /cache/{cep}`;
   - `400 CEP_INVALIDO`, `400 PARAMETRO_INVALIDO` (`pagina` e `limite`), `401 NAO_AUTORIZADO`, `404 CEP_NAO_ENCONTRADO`, `404 NAO_ENCONTRADO`, `422 CEP_FORA_DA_COBERTURA`, `422 CEP_SEM_GEOLOCALIZACAO`, `429 LIMITE_EXCEDIDO`, `503 PROVEDOR_INDISPONIVEL`, `503 CACHE_INDISPONIVEL` e `500 ERRO_INTERNO`;

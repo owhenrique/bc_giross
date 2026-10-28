@@ -1,19 +1,16 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
-import {
-  expectMatchesContract,
-  openApiDocument,
-} from '../../../tests/contract/openapi-contract.js';
-import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
-import { clearCache } from '../../application/cache/clear-cache.js';
-import type { AddressLookup } from '../../application/providers/cep-address-provider.js';
-import type { GeocodeLookup } from '../../application/providers/geocoder.js';
-import { OriginGeocoder } from '../../application/providers/origin-geocoder.js';
-import type { CepRepository, StoredCep } from '../../application/use-cases/cep-repository.js';
-import { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
-import { createApp } from './app.js';
-import { ERROR_CATALOG, HTTP_ERRORS } from './errors/errors.js';
+import { expectMatchesContract, openApiDocument } from './openapi-contract.js';
+import { InMemoryCache } from '../fakes/in-memory-cache.js';
+import { clearCache } from '../../src/application/cache/clear-cache.js';
+import type { AddressLookup } from '../../src/application/providers/cep-address-provider.js';
+import type { GeocodeLookup } from '../../src/application/providers/geocoder.js';
+import { OriginGeocoder } from '../../src/application/providers/origin-geocoder.js';
+import type { CepRepository, StoredCep } from '../../src/application/use-cases/cep-repository.js';
+import { findNearbyCeps } from '../../src/application/use-cases/find-nearby-ceps.js';
+import { createApp } from '../../src/presentation/http/app.js';
+import { ERROR_CATALOG, HTTP_ERRORS } from '../../src/presentation/http/errors/errors.js';
 
 const TOKEN = 'a-secret-token-123';
 const AUTH = `Bearer ${TOKEN}`;

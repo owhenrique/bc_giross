@@ -10,7 +10,7 @@ import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provi
 import { NominatimGeocoder } from './infrastructure/http/nominatim-geocoder.js';
 import { createLogger } from './infrastructure/logger.js';
 import { createApp } from './presentation/http/app.js';
-import { loadOpenApiDocument } from './presentation/http/openapi/load-openapi-document.js';
+import { loadOpenApiDocument } from './infrastructure/openapi/load-openapi-document.js';
 
 let env: Env;
 try {
