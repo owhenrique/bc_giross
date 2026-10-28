@@ -6,8 +6,7 @@ import type {
   GeocodeQuery,
   Geocoder,
 } from '../../application/geocoder.js';
-import { WindowRateLimiter } from './window-rate-limiter.js';
-import type { RateLimiter } from './rate-limiter.js';
+import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
 
 const UF_PATTERN = /^BR-([A-Z]{2})$/;
 
@@ -30,7 +29,7 @@ export interface NominatimGeocoderOptions {
   baseUrl: string;
   userAgent: string;
   timeoutMs?: number;
-  limiter?: RateLimiter;
+  limiter?: WindowRateLimiter;
   logger: Pick<Logger, 'warn'>;
 }
 
@@ -39,7 +38,7 @@ export class NominatimGeocoder implements Geocoder {
   private readonly baseUrl: string;
   private readonly userAgent: string;
   private readonly timeoutMs: number;
-  private readonly limiter: RateLimiter;
+  private readonly limiter: WindowRateLimiter;
   private readonly logger: Pick<Logger, 'warn'>;
 
   constructor(options: NominatimGeocoderOptions) {
@@ -52,7 +51,7 @@ export class NominatimGeocoder implements Geocoder {
   }
 
   async search(query: GeocodeQuery): Promise<GeocodeLookup> {
-    if (!(await this.limiter.tryAcquire())) {
+    if (!this.limiter.tryAcquire()) {
       this.logger.warn(query, 'Nominatim rate limit reached, skipping search');
       return { status: 'unavailable' };
     }

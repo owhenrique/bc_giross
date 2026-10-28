@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NominatimGeocoder } from './nominatim-geocoder.js';
-import type { RateLimiter } from './rate-limiter.js';
+import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
 
 const QUERY = { street: 'Praça da Sé', city: 'São Paulo' };
 
@@ -8,7 +8,10 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function setup(fetchImpl: typeof fetch, extra: { timeoutMs?: number; limiter?: RateLimiter } = {}) {
+function setup(
+  fetchImpl: typeof fetch,
+  extra: { timeoutMs?: number; limiter?: WindowRateLimiter } = {},
+) {
   const logger = { warn: vi.fn() };
   const fetchMock = vi.fn(fetchImpl);
   const geocoder = new NominatimGeocoder({
@@ -136,8 +139,8 @@ describe('NominatimGeocoder', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('returns unavailable without calling fetch when the async limiter denies', async () => {
-    const limiter = { tryAcquire: async () => false };
+  it('returns unavailable without calling fetch when the limiter denies', async () => {
+    const limiter = new WindowRateLimiter(0, 1000);
     const { geocoder, fetchMock } = setup(async () => json([]), { limiter });
     expect(await geocoder.search(QUERY)).toEqual({ status: 'unavailable' });
     expect(fetchMock).not.toHaveBeenCalled();

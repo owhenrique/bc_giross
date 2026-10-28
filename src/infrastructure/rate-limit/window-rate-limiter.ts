@@ -1,7 +1,5 @@
-import type { RateLimiter } from './rate-limiter.js';
-
 /** In-memory sliding-window limiter: allows up to `max` acquisitions per `windowMs`, never waits. */
-export class WindowRateLimiter implements RateLimiter {
+export class WindowRateLimiter {
   private readonly timestamps: number[] = [];
 
   constructor(
