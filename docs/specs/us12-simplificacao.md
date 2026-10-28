@@ -30,7 +30,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - [x] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
 - [ ] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
 - [x] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
-- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 27 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; o `application/` sem arquivos na raiz, com as pastas `use-cases/` (`find-nearby-ceps.ts` e a porta `cep-repository.ts`), `cache/` (porta `Cache` com as chaves e `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (portas `cep-address-provider.ts` e `geocoder.ts`, `caching-cep-address-provider.ts` e `origin-geocoder.ts`), sem `ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
+- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 29 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; o `application/` sem arquivos na raiz, com as pastas `use-cases/` (`find-nearby-ceps.ts` e a porta `cep-repository.ts`), `cache/` (porta `Cache` com as chaves e `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (portas `cep-address-provider.ts` e `geocoder.ts`, `caching-cep-address-provider.ts` e `origin-geocoder.ts`), sem `ports.ts`; o `presentation/http/` com `app.ts` na raiz e as pastas `routes/` (só os `Router`s), `middlewares/` (`bearer-auth.ts`, `rate-limit.ts`, `error-handler.ts`), `errors/` (catálogo, `HTTP_ERRORS` e `sendError` em `errors.ts`, sem a const `ErrorCode`) e `mappers/` (`nearby-ceps-mapper.ts`, com a leitura da query e a tradução para o contrato); o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
 - [x] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
 - [x] 7. Dado os trechos repetidos da análise, então cada um existe uma vez só: `toRad` (o `bounding-box` usa o de `haversine`); a deduplicação dos pontos (só no `assessCep`; o `centroid` só tira a média); `errorMessage(e)` no seed; o header do CSV (`DATASET_HEADER`); e um `split` por linha no seed. O `findNearbyCeps` fica sem a compatibilidade com cache antigo e com `neighbors: Neighbor[]`.
 - [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
@@ -44,7 +44,8 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - `index.ts` sem o `await` do `redis.connect()`.
 - `limitedFetch` para as chamadas da BrasilAPI e do Nominatim.
 - `application/` em pastas por responsabilidade (`use-cases/`, `cache/`, `errors/`, `providers/`), com cada porta num arquivo, junto do código que a usa.
-- `presentation/http/errors.ts` com o catálogo, a tabela `HTTP_ERRORS` e `sendError(res, entry)`.
+- `presentation/http/errors/errors.ts` com o catálogo, a tabela `HTTP_ERRORS` e `sendError(res, entry)`.
+- `presentation/http/` em pastas: `routes/`, `middlewares/`, `errors/` e `mappers/`; a rota fica só com o `Router`.
 - `InMemoryCache` e o teste dele em `tests/fakes/`.
 - Domínio com um arquivo por pasta: `domain/cep/cep.ts` e `domain/geo/geo.ts`, com os testes juntados.
 - Trechos repetidos: `toRad`, `centroid`, compatibilidade com cache antigo e `Neighbor[]` no `findNearbyCeps`, `errorMessage`, `DATASET_HEADER` e `allowedUf` no seed.
@@ -84,6 +85,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - P: A US9 e a US10 continuam? → R: Sim, depois desta. A US9 mantém o critério do `/saude` fora do rate limit.
 - P: Como o `DECISOES.md` registra a mudança? → R: Reescrever a D22. A D30 fica, porque o contador de entrada continua (a primeira resposta, apagar a D30, partia da saída do limite de entrada).
 - P: Uma US ou duas? → R: Uma, a US12.
+- P: O `presentation/` também se divide? As funções da `nearby-ceps-route.ts` que não são rota (leitura da query, `round2`, `toSummaryResponse`, `toDetailedResponse`...) se movem ou a lógica muda? → R: Depois do `/implement`, o usuário pediu a divisão. As funções se movem para `mappers/nearby-ceps-mapper.ts`, que traduz nos dois sentidos (req → input do caso de uso, resultado → JSON em português), porque a tradução do contrato é da borda (AGENTS.md) e não pode subir para `application/`. O `errors.ts` se divide: o catálogo e o `sendError` em `errors/`, o `notFoundHandler` e o `errorHandler` em `middlewares/error-handler.ts` (tarefa 12).
 
 ## Premissas
 Nenhuma.
@@ -190,6 +192,27 @@ export function sendError(res: Response, { status, codigo, mensagem }: ErrorCata
 
 - `notFoundHandler`, `errorHandler` e `bearer-auth.ts` chamam `sendError(res, HTTP_ERRORS.<erro>)` ou `sendError(res, ERROR_CATALOG[err.kind])`. As respostas ficam iguais, byte a byte.
 
+### Apresentação em pastas (`presentation/http/`)
+```
+src/presentation/http/
+  app.ts (+test)
+  routes/
+    nearby-ceps-route.ts           só o Router
+    cache-route.ts (+test)
+  middlewares/
+    bearer-auth.ts
+    rate-limit.ts (+test)
+    error-handler.ts (+test)       notFoundHandler e errorHandler
+  errors/
+    errors.ts (+test)              ErrorCatalogEntry, ERROR_CATALOG, HTTP_ERRORS e sendError
+  mappers/
+    nearby-ceps-mapper.ts          toNearbyCepsInput(req, withAddress), toSummaryResponse e toDetailedResponse
+```
+
+- O `nearbyCepsRouter` só registra as duas rotas: `res.json(toSummaryResponse(await find(toNearbyCepsInput(req, false))))`.
+- O `parseQueryNumber`, o `round2`, o `toPagination`, o `toCeps` e o `toAddress` ficam privados no mapper. As respostas não mudam.
+- O `errors.test.ts` fica com a cobertura do catálogo, e os casos do `errorHandler` vão para `error-handler.test.ts`.
+
 ### Fake de cache (`tests/fakes/in-memory-cache.ts`)
 O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests/fakes/`, sem mudar o comportamento (TTL com relógio injetável). O `tsconfig.json` já inclui `tests`. Como nenhum código de produção o usa, ele passa a ser código de teste.
 
@@ -260,7 +283,10 @@ Produção e scripts (contam no limite):
 - `src/presentation/http/errors.ts` — `ERROR_CATALOG`, `ErrorCatalogEntry`, `HTTP_ERRORS`, `sendError(res, entry)`; sem `ErrorCode` — ~65 linhas
 - `src/presentation/http/error-catalog.ts` — remover — 0
 - `src/presentation/http/bearer-auth.ts` — `sendError(res, HTTP_ERRORS.unauthorized)` — ~2 linhas
-- `src/presentation/http/nearby-ceps-route.ts` — import do `ports` — ~1 linha
+- `src/presentation/http/nearby-ceps-route.ts` → `routes/` — só o `Router` (tarefa 12) — ~5 linhas
+- `src/presentation/http/mappers/nearby-ceps-mapper.ts` — criar com as funções que saem da rota (tarefa 12) — ~65 linhas
+- `src/presentation/http/middlewares/error-handler.ts` — criar com `notFoundHandler` e `errorHandler`, que saem do `errors.ts` (tarefa 12) — ~25 linhas
+- `src/presentation/http/errors.ts`, `bearer-auth.ts`, `rate-limit.ts`, `cache-route.ts` → `errors/`, `middlewares/` e `routes/` — mover e ajustar imports (tarefa 12) — ~10 linhas
 - `src/domain/geo/geo.ts` — criar a partir de `haversine.ts` + `bounding-box.ts` — ~40 linhas
 - `src/domain/cep/cep.ts` — criar a partir de `cep-code.ts` + `cep-centroid.ts` — ~50 linhas
 - `src/domain/geo/haversine.ts`, `src/domain/geo/bounding-box.ts`, `src/domain/cep/cep-code.ts`, `src/domain/cep/cep-centroid.ts` — remover — 0
@@ -324,6 +350,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 9. Documentação: README e `DECISOES.md` (D22, D11 cont., D21 cont. e tabela de status).
 - [x] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
 - [x] 11. `application/` em pastas: sai o `ports.ts`; `cache/` (`cache.ts`, `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (`cep-address-provider.ts`, `geocoder.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts`); `use-cases/` (`find-nearby-ceps.ts`, `cep-repository.ts`); testes junto dos arquivos e imports atualizados.
+- [ ] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).
