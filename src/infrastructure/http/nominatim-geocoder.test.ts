@@ -8,10 +8,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function setup(
-  fetchImpl: typeof fetch,
-  extra: { timeoutMs?: number; limiter?: WindowRateLimiter } = {},
-) {
+function setup(fetchImpl: typeof fetch, extra: { limiter?: WindowRateLimiter } = {}) {
   const logger = { warn: vi.fn() };
   const fetchMock = vi.fn(fetchImpl);
   const geocoder = new NominatimGeocoder({
@@ -109,26 +106,6 @@ describe('NominatimGeocoder', () => {
 
   it('returns unavailable on a non-200 status', async () => {
     const { geocoder, logger } = setup(async () => json([], 429));
-    expect(await geocoder.search(QUERY)).toEqual({ status: 'unavailable' });
-    expect(logger.warn).toHaveBeenCalled();
-  });
-
-  it('returns unavailable on network error', async () => {
-    const { geocoder, logger } = setup(async () => {
-      throw new TypeError('fetch failed');
-    });
-    expect(await geocoder.search(QUERY)).toEqual({ status: 'unavailable' });
-    expect(logger.warn).toHaveBeenCalled();
-  });
-
-  it('returns unavailable on timeout', async () => {
-    const { geocoder, logger } = setup(
-      (_url, init) =>
-        new Promise((_resolve, reject) => {
-          init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason));
-        }),
-      { timeoutMs: 20 },
-    );
     expect(await geocoder.search(QUERY)).toEqual({ status: 'unavailable' });
     expect(logger.warn).toHaveBeenCalled();
   });

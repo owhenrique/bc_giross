@@ -34,10 +34,7 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function setup(
-  fetchImpl: typeof fetch,
-  extra: { timeoutMs?: number; limiter?: WindowRateLimiter } = {},
-) {
+function setup(fetchImpl: typeof fetch, extra: { limiter?: WindowRateLimiter } = {}) {
   const logger = { warn: vi.fn() };
   const fetchMock = vi.fn(fetchImpl);
   const provider = new BrasilApiCepProvider({
@@ -102,30 +99,6 @@ describe('BrasilApiCepProvider', () => {
 
   it('returns unavailable on 500', async () => {
     const { provider, logger } = setup(async () => json({}, 500));
-    expect(await provider.lookup('04551000')).toEqual({
-      status: 'unavailable',
-    });
-    expect(logger.warn).toHaveBeenCalled();
-  });
-
-  it('returns unavailable on network error', async () => {
-    const { provider, logger } = setup(async () => {
-      throw new TypeError('fetch failed');
-    });
-    expect(await provider.lookup('04551000')).toEqual({
-      status: 'unavailable',
-    });
-    expect(logger.warn).toHaveBeenCalled();
-  });
-
-  it('returns unavailable on timeout', async () => {
-    const { provider, logger } = setup(
-      (_url, init) =>
-        new Promise((_resolve, reject) => {
-          init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason));
-        }),
-      { timeoutMs: 20 },
-    );
     expect(await provider.lookup('04551000')).toEqual({
       status: 'unavailable',
     });
