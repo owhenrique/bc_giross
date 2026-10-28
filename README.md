@@ -46,7 +46,7 @@ O compose tem o serviço `redis` (`maxmemory` de 256 MB com política `allkeys-l
 
 - **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
-- **Redis fora do ar:** a API sobe sem esperar por ele e segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
+- **Redis fora do ar:** a API sobe sem esperar por ele e segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco. No compose, a `api` não depende do Redis e o seed é dependência opcional dela: com o Redis fora na subida, o compose avisa, o seed falha e a API sobe com a base que já estava carregada.
 - **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
 
 #### TTLs
