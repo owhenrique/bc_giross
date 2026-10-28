@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { RequestHandler } from 'express';
-import { ErrorCode, sendError } from './errors.js';
+import { HTTP_ERRORS, sendError } from './errors.js';
 
 const BEARER_PREFIX = /^Bearer /i;
 
@@ -22,6 +22,6 @@ export function requireBearerToken(token: string): RequestHandler {
       }
     }
     res.set('WWW-Authenticate', 'Bearer');
-    sendError(res, 401, ErrorCode.Unauthorized, 'Token de acesso inválido ou ausente');
+    sendError(res, HTTP_ERRORS.unauthorized);
   };
 }
