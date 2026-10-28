@@ -113,7 +113,7 @@ Detalhes em [Arquitetura](./docs/architecture.md).
 
 ---
 
-## Documentação live (Scalar)
+## Documentação e Testes (Scalar)
 
 Com a API no ar e `NODE_ENV` diferente de `production`:
 
