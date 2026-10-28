@@ -3,7 +3,8 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import type { findNearbyCeps } from '../../../application/use-cases/find-nearby-ceps.js';
 import { createApp } from '../app.js';
-import { openApiDocument } from '../../../../tests/contract/openapi-contract.js';
+
+const openApiDocument = { openapi: '3.1.0', info: { title: 'test', version: '0' }, paths: {} };
 
 function setup(options: { withDocs?: boolean; limit?: number } = {}) {
   return createApp({
@@ -24,12 +25,11 @@ describe('GET /docs', () => {
     expect(res.text).toContain('/docs/openapi.json');
   });
 
-  it('serves the OpenAPI 3.1 document from openapi.yaml', async () => {
+  it('serves the injected OpenAPI document as JSON', async () => {
     const res = await request(setup()).get('/docs/openapi.json');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(res.body).toEqual(openApiDocument);
-    expect(res.body.openapi).toMatch(/^3\.1/);
   });
 
   it.each(['/docs', '/docs/openapi.json'])(

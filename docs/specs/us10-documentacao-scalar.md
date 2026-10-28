@@ -56,7 +56,7 @@ Hoje o contrato existe só na seção "Contrato" do README: rotas, exemplos e a 
 - P: o que acontece com a seção "Contrato" do README? → R: fica enxuta (rotas e tabela de erros) e aponta para `/docs` e para o `openapi.yaml`.
 - P: `/docs` conta no rate limit? → R: conta, como as outras rotas, porque é registrado depois do `rateLimitMiddleware`.
 - P: o JS do Scalar vem do CDN? → R: sim, do CDN padrão.
-- P (revisão da implementação): o `openapi-contract.test.ts` estava solto na raiz de `presentation/http` e o `loadOpenApiDocument` não é HTTP. → R: o teste de contrato foi para `tests/contract/`, ao lado do helper. O `loadOpenApiDocument` lê arquivo do disco, então foi para `src/infrastructure/openapi/`. O helper do contrato reusa o loader, e o `docs-route.test.ts` usa o documento exportado pelo helper, porque a regra de camadas do lint impede `presentation` de importar `infrastructure`.
+- P (revisão da implementação): o `openapi-contract.test.ts` estava solto na raiz de `presentation/http` e o `loadOpenApiDocument` não é HTTP. → R: o teste de contrato foi para `tests/contract/`, ao lado do helper. O `loadOpenApiDocument` lê arquivo do disco, então foi para `src/infrastructure/openapi/`. O helper do contrato reusa o loader. O `docs-route.test.ts` usa uma fixture inline, já que a rota só serve o documento que recebe. O "igual ao `openapi.yaml`" do critério 2 fica no `load-openapi-document.test.ts`, ao lado do loader, sem atravessar a regra de camadas.
 
 ## Premissas
 Nenhuma.
@@ -87,12 +87,13 @@ Nenhuma.
 ## Arquivos que a mudança toca
 - `openapi.yaml` — criar: documento OpenAPI 3.1 completo — dados/config, não conta
 - `src/infrastructure/openapi/load-openapi-document.ts` — criar: `loadOpenApiDocument()` — ~8 linhas
+- `src/infrastructure/openapi/load-openapi-document.test.ts` — criar: o loader devolve o conteúdo do `openapi.yaml` (critério 2) — teste, não conta
 - `src/presentation/http/routes/docs-route.ts` — criar: `docsRouter(document)` com `GET /docs/openapi.json` e o Scalar em `/docs` — ~12 linhas
 - `src/presentation/http/app.ts` — alterar: `AppDeps.openApiDocument`, import e registro condicional — ~4 linhas
 - `src/config/env.ts` — alterar: `NODE_ENV` obrigatório no schema, `Env.nodeEnv` e retorno — ~4 linhas
 - `src/index.ts` — alterar: import e `openApiDocument` no `createApp` — ~2 linhas
 - `src/config/env.test.ts` — alterar: `NODE_ENV` no `base`, ausente → erro, valor inválido → erro — teste, não conta
-- `src/presentation/http/routes/docs-route.test.ts` — criar: critérios 1, 2, 5 e 8 — teste, não conta
+- `src/presentation/http/routes/docs-route.test.ts` — criar: critérios 1, 2 (serve o documento injetado), 5 e 8, com fixture inline — teste, não conta
 - `tests/contract/openapi-contract.ts` — criar: Ajv + `expectMatchesContract` — teste, não conta
 - `tests/contract/openapi-contract.test.ts` — criar: cenários do critério 6 (setup como em `app.test.ts` e `cache-route.test.ts`) e cobertura do catálogo (critérios 3 e 4) — teste, não conta
 - `docker-compose.yml` — alterar: `NODE_ENV` obrigatório nos serviços `api` e `seed` — config, não conta
@@ -147,9 +148,10 @@ Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste c
   - cobertura: todo `codigo` de `ERROR_CATALOG` e `HTTP_ERRORS` está no `enum` do schema `Erro`, e os 5 endpoints existem no `paths`.
 - `src/presentation/http/routes/docs-route.test.ts`:
   - com `openApiDocument`, `GET /docs` → `200 text/html`, com a referência a `/docs/openapi.json`;
-  - `GET /docs/openapi.json` → `200`, com o mesmo objeto do `loadOpenApiDocument()` e `openapi` começando com `3.1`;
+  - `GET /docs/openapi.json` → `200`, com o mesmo objeto injetado (fixture inline);
   - sem `openApiDocument`, as duas rotas → `404 NAO_ENCONTRADO`;
   - com `rateLimit.limit = 1`, a segunda chamada → `429`.
+- `src/infrastructure/openapi/load-openapi-document.test.ts`: o loader devolve o `openapi.yaml` da raiz parseado, com `openapi` começando com `3.1.`.
 - `src/config/env.test.ts`: `NODE_ENV` ausente → erro que cita `NODE_ENV`; valor fora do enum → erro.
 - Suítes: `npm test`, `npm run lint`, `npm run typecheck`, `npm run format:check`.
 - Manual:
