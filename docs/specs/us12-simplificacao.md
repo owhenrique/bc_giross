@@ -7,7 +7,7 @@ titulo: Simplificação do projeto
 status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-28
-implementada_em:
+implementada_em: 2026-10-28
 verificada_em:
 branch: feat/us12-simplificacao
 merge_request:
@@ -26,16 +26,16 @@ Esta US mantém os dois limites, agora em memória e por processo. A entrada (60
 No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o número é só de cadastro. A US9 e a US10 continuam depois desta.
 
 ## Critérios de aceite
-- [ ] 1. Dado mais de `RATE_LIMIT_MAX` requisições (padrão 60) do mesmo IP dentro da janela, quando ele chama a API, então recebe `429 LIMITE_EXCEDIDO` com `Retry-After` e os headers `RateLimit`/`RateLimit-Policy`, como hoje. O contador fica em memória, por processo, no store padrão do `express-rate-limit`: um contador por IP, que sai da memória depois de uma janela sem requisições. O `rate-limit-redis` saiu das dependências.
-- [ ] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
+- [x] 1. Dado mais de `RATE_LIMIT_MAX` requisições (padrão 60) do mesmo IP dentro da janela, quando ele chama a API, então recebe `429 LIMITE_EXCEDIDO` com `Retry-After` e os headers `RateLimit`/`RateLimit-Policy`, como hoje. O contador fica em memória, por processo, no store padrão do `express-rate-limit`: um contador por IP, que sai da memória depois de uma janela sem requisições. O `rate-limit-redis` saiu das dependências.
+- [x] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
 - [ ] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
-- [ ] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
-- [ ] 5. Dado o `src/` (fora `src/generated`), então ele tem 26 arquivos de produção e nenhuma pasta foi achatada: as interfaces da aplicação e as chaves do cache em `application/ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
-- [ ] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
-- [ ] 7. Dado os trechos repetidos da análise, então cada um existe uma vez só: `toRad` (o `bounding-box` usa o de `haversine`); a deduplicação dos pontos (só no `assessCep`; o `centroid` só tira a média); `errorMessage(e)` no seed; o header do CSV (`DATASET_HEADER`); e um `split` por linha no seed. O `findNearbyCeps` fica sem a compatibilidade com cache antigo e com `neighbors: Neighbor[]`.
-- [ ] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
-- [ ] 9. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
-- [ ] 10. Dado a documentação, então o README e o `DECISOES.md` descrevem os dois limites em memória, por processo, com o custo do contador de entrada (~205 bytes por IP) e o trade-off com réplicas; a D22 foi reescrita e a D30 continua; e o mapa traz a US12 e a nota de simplificação na US7.
+- [x] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
+- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 26 arquivos de produção e nenhuma pasta foi achatada: as interfaces da aplicação e as chaves do cache em `application/ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
+- [x] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
+- [x] 7. Dado os trechos repetidos da análise, então cada um existe uma vez só: `toRad` (o `bounding-box` usa o de `haversine`); a deduplicação dos pontos (só no `assessCep`; o `centroid` só tira a média); `errorMessage(e)` no seed; o header do CSV (`DATASET_HEADER`); e um `split` por linha no seed. O `findNearbyCeps` fica sem a compatibilidade com cache antigo e com `neighbors: Neighbor[]`.
+- [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
+- [x] 9. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
+- [x] 10. Dado a documentação, então o README e o `DECISOES.md` descrevem os dois limites em memória, por processo, com o custo do contador de entrada (~205 bytes por IP) e o trade-off com réplicas; a D22 foi reescrita e a D30 continua; e o mapa traz a US12 e a nota de simplificação na US7.
 
 ## Escopo
 **Dentro:**
@@ -343,3 +343,7 @@ Preenchido no `/pato/close-spec`.
 - **Medição:** conteúdo que muda de arquivo conta como linha adicionada. A estimativa já inclui isso.
 - **Branch `fix/compose-env`:** é local, parece obsoleta e toca README e `package.json`, que esta US também altera. Se for mergeada depois, precisa de rebase.
 - **Branch `docs`:** mover `docs/specs/` e `docs/HISTORIAS.md` é o passo final, depois do close-spec da US10, e está registrado no mapa.
+- **Critério 3 sem teste automatizado:** o `redis.connect()` sem `await` está no `index.ts`, mas a subida com o Redis fora só é exercida no passo 4 do teste manual. O critério fica aberto até lá.
+- **Header do `ceps-removidos.csv`:** o `build-dataset` também passou a montar esse header a partir do `DATASET_HEADER` (`${DATASET_HEADER};p90_km`). A saída não muda.
+- **`(error as Error).message` restantes:** um no `catch` do `clearResultCache` do seed e um no `main()` do `build-dataset`. Não são as 4 cópias de `instanceof Error`, e ficaram como estavam. Sugestão: usar o `errorMessage` também no seed.
+- **Medição:** o placar final é 292, contra ~270 estimados. A diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
