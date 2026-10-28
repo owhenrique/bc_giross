@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
-import { ALL_UFS, clearResultCache, matchesUf, parseSeedUfs, ufsWithCeps } from './index.js';
+import { ALL_UFS, allowedUf, clearResultCache, parseSeedUfs, ufsWithCeps } from './index.js';
 
 describe('parseSeedUfs', () => {
   it('returns all 27 UFs when empty', () => {
@@ -21,20 +21,20 @@ describe('parseSeedUfs', () => {
   });
 });
 
-describe('matchesUf', () => {
+describe('allowedUf', () => {
   const sp = new Set(['SP']);
 
-  it('keeps lines of a requested UF', () => {
-    expect(matchesUf('01002001;SP;-23.548462;-46.634938', sp)).toBe(true);
+  it('returns the UF of a line of a requested UF', () => {
+    expect(allowedUf('01002001;SP;-23.548462;-46.634938', sp)).toBe('SP');
   });
 
-  it('drops lines of other UFs', () => {
-    expect(matchesUf('20010000;RJ;-22.9;-43.1', sp)).toBe(false);
+  it('returns null for lines of other UFs', () => {
+    expect(allowedUf('20010000;RJ;-22.9;-43.1', sp)).toBeNull();
   });
 
-  it('ignores the header and blank lines', () => {
-    expect(matchesUf('cep;uf;latitude;longitude', sp)).toBe(false);
-    expect(matchesUf('', sp)).toBe(false);
+  it('returns null for the header and blank lines', () => {
+    expect(allowedUf('cep;uf;latitude;longitude', sp)).toBeNull();
+    expect(allowedUf('', sp)).toBeNull();
   });
 });
 

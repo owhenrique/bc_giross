@@ -436,14 +436,4 @@ describe('findNearbyCeps Nominatim fallback', () => {
     expect(second.origin.source).toBe('nominatim');
     expect(calls).toHaveLength(1);
   });
-
-  it('treats a cached result without source as dataset', async () => {
-    const { run, cache } = setup(hit(0, 0));
-    await cache.set(
-      'result:1:04551000',
-      { origin: { cep: '04551000', lat: -23.59, lon: -46.68 }, neighbors: [] },
-      60,
-    );
-    expect((await run({ cep: '04551000' })).origin.source).toBe('dataset');
-  });
 });

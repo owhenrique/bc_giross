@@ -34,6 +34,11 @@ const isIntegerAtLeast = (value: number, min: number) => Number.isInteger(value)
 
 export type OriginSource = 'dataset' | 'nominatim';
 
+interface Neighbor {
+  cep: string;
+  distanceKm: number;
+}
+
 export interface NearbyCepsResult {
   origin: {
     cep: string;
@@ -44,17 +49,11 @@ export interface NearbyCepsResult {
   };
   radiusKm: number;
   pagination: { page: number; limit: number; total: number; totalPages: number };
-  neighbors: { cep: string; distanceKm: number }[];
-}
-
-interface Neighbor {
-  cep: string;
-  distanceKm: number;
+  neighbors: Neighbor[];
 }
 
 interface CachedResult {
-  // `source` is absent in results cached before the Nominatim fallback existed; those came from the dataset.
-  origin: { cep: string; lat: number; lon: number; source?: OriginSource };
+  origin: { cep: string; lat: number; lon: number; source: OriginSource };
   neighbors: Neighbor[];
 }
 
@@ -128,7 +127,7 @@ export function findNearbyCeps(
     const all = result.neighbors;
     const total = all.length;
     return {
-      origin: { ...result.origin, source: result.origin.source ?? 'dataset', address },
+      origin: { ...result.origin, address },
       radiusKm,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       neighbors: all.slice((page - 1) * limit, page * limit),

@@ -10,6 +10,7 @@ import { pino } from 'pino';
 import { RESULT_KEY_PREFIX, type Cache } from '../../src/application/ports.js';
 import { loadEnv } from '../../src/config/env.js';
 import { RedisCache, createRedisClient } from '../../src/infrastructure/cache/redis-cache.js';
+import { DATASET_HEADER } from '../build-dataset/index.js';
 
 export const ALL_UFS = [
   'AC',
@@ -42,7 +43,6 @@ export const ALL_UFS = [
 ];
 
 const DATASET_PATH = fileURLToPath(new URL('../../data/ceps.csv.gz', import.meta.url));
-const HEADER = 'cep;uf;latitude;longitude';
 
 /** Parses the SEED_UFS value. Empty means every UF; an unknown UF throws. */
 export function parseSeedUfs(raw: string): string[] {
@@ -60,10 +60,15 @@ export function parseSeedUfs(raw: string): string[] {
   return [...new Set(ufs)];
 }
 
-/** True for a data line (not the header) whose UF is in the allowed set. */
-export function matchesUf(line: string, ufs: ReadonlySet<string>): boolean {
-  if (line === '' || line === HEADER) return false;
-  return ufs.has(line.split(';')[1] ?? '');
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** UF of a data line (not the header) when it is in the allowed set; null otherwise. */
+export function allowedUf(line: string, ufs: ReadonlySet<string>): string | null {
+  if (line === '' || line === DATASET_HEADER) return null;
+  const uf = line.split(';')[1] ?? '';
+  return ufs.has(uf) ? uf : null;
 }
 
 /** UFs that got at least one CEP loaded. */
@@ -77,7 +82,7 @@ export async function clearResultCache(cache: Pick<Cache, 'deleteByPrefix'>): Pr
     await cache.deleteByPrefix(RESULT_KEY_PREFIX);
   } catch (error) {
     throw new Error(
-      `Seed carregou a base, mas não limpou o cache de resultados: ${error instanceof Error ? error.message : String(error)}`,
+      `Seed carregou a base, mas não limpou o cache de resultados: ${errorMessage(error)}`,
       { cause: error },
     );
   }
@@ -94,7 +99,7 @@ async function main(): Promise<void> {
     databaseUrl = env.databaseUrl;
     ufs = parseSeedUfs(env.seedUfs);
   } catch (error) {
-    console.error(`Seed abortado: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Seed abortado: ${errorMessage(error)}`);
     process.exit(1);
   }
 
@@ -104,7 +109,7 @@ async function main(): Promise<void> {
     await redis.connect();
     await redis.ping();
   } catch (error) {
-    console.error(`Seed abortado: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Seed abortado: ${errorMessage(error)}`);
     await redis.destroy();
     process.exit(1);
   }
@@ -130,8 +135,8 @@ async function load(
       crlfDelay: Infinity,
     });
     for await (const line of lines) {
-      if (!matchesUf(line, allowed)) continue;
-      const uf = line.split(';')[1] as string;
+      const uf = allowedUf(line, allowed);
+      if (uf === null) continue;
       totals.set(uf, (totals.get(uf) ?? 0) + 1);
       yield `${line}\n`;
     }
@@ -153,7 +158,7 @@ async function load(
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
-    console.error(`Seed falhou: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Seed falhou: ${errorMessage(error)}`);
     process.exitCode = 1;
     return;
   } finally {

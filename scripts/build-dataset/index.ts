@@ -8,6 +8,8 @@ import { buildReport, type UfStats } from './report.js';
 const MAX_PRECISION = 4;
 const VALID_CEP = /^\d{8}$/;
 
+export const DATASET_HEADER = 'cep;uf;latitude;longitude';
+
 interface FinalCep {
   cep: string;
   uf: string;
@@ -97,12 +99,12 @@ export async function buildDataset(folder: string, output: string): Promise<void
 
   mkdirSync(output, { recursive: true });
   const csv = [
-    'cep;uf;latitude;longitude',
+    DATASET_HEADER,
     ...keptCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)}`),
   ];
   writeFileSync(join(output, 'ceps.csv.gz'), gzipSync(csv.join('\n') + '\n'));
   const removedCsv = [
-    'cep;uf;latitude;longitude;p90_km',
+    `${DATASET_HEADER};p90_km`,
     ...removedCeps.map((c) => `${c.cep};${c.uf};${fmt(c.lat)};${fmt(c.lon)};${c.p90Km.toFixed(3)}`),
   ];
   writeFileSync(join(output, 'ceps-removidos.csv'), removedCsv.join('\n') + '\n');

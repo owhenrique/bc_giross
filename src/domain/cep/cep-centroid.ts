@@ -9,15 +9,14 @@ export function uniquePoints(points: Point[]): Point[] {
   return [...unique.values()];
 }
 
-export function uniquePointsCentroid(points: Point[]): Point {
-  const unique = uniquePoints(points);
+export function centroid(points: Point[]): Point {
   let lat = 0;
   let lon = 0;
-  for (const p of unique) {
+  for (const p of points) {
     lat += p.lat;
     lon += p.lon;
   }
-  return { lat: lat / unique.length, lon: lon / unique.length };
+  return { lat: lat / points.length, lon: lon / points.length };
 }
 
 /** Lower-index percentile: the value at index floor(p * (n - 1)) of the sorted data. */
@@ -36,7 +35,7 @@ export interface CepAssessment {
 export function assessCep(points: Point[]): CepAssessment {
   if (points.length === 0) throw new Error('CEP without points');
   const unique = uniquePoints(points);
-  const center = uniquePointsCentroid(unique);
+  const center = centroid(unique);
   const p90Km = percentile(
     unique.map((p) => haversineKm(p, center)),
     0.9,

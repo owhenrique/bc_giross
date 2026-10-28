@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { assessCep, percentile, uniquePointsCentroid } from './cep-centroid.js';
+import { assessCep, centroid, percentile } from './cep-centroid.js';
 
-describe('uniquePointsCentroid', () => {
-  it('ignores repeated points in the average', () => {
-    const c = uniquePointsCentroid([
+describe('centroid', () => {
+  it('is the plain average, counting repeated points', () => {
+    const c = centroid([
       { lat: 0, lon: 0 },
       { lat: 0, lon: 0 },
       { lat: 0, lon: 0 },
-      { lat: 2, lon: 4 },
+      { lat: 4, lon: 8 },
     ]);
     expect(c).toEqual({ lat: 1, lon: 2 });
   });
 
   it('a single point returns itself', () => {
-    expect(uniquePointsCentroid([{ lat: -9.97, lon: -67.8 }])).toEqual({ lat: -9.97, lon: -67.8 });
+    expect(centroid([{ lat: -9.97, lon: -67.8 }])).toEqual({ lat: -9.97, lon: -67.8 });
   });
 });
 
@@ -36,6 +36,16 @@ describe('percentile (index floor(p * (n - 1)))', () => {
 });
 
 describe('assessCep', () => {
+  it('centers on the unique points: repeated points count once', () => {
+    const r = assessCep([
+      { lat: 0, lon: 0 },
+      { lat: 0, lon: 0 },
+      { lat: 0, lon: 0 },
+      { lat: 2, lon: 4 },
+    ]);
+    expect(r.center).toEqual({ lat: 1, lon: 2 });
+  });
+
   it('one point: p90 = 0 and it stays', () => {
     const r = assessCep([{ lat: -23.55, lon: -46.63 }]);
     expect(r.p90Km).toBe(0);

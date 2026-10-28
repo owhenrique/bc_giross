@@ -293,7 +293,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 4. `InMemoryCache` em `tests/fakes/`: move o fake e o teste dele e atualiza os imports dos testes.
 - [x] 5. `application/ports.ts`: junta as 4 interfaces e as chaves do cache e atualiza os imports de produção, testes, fake e seed.
 - [x] 6. Erros da apresentação: o `errors.ts` absorve o catálogo e ganha `HTTP_ERRORS` e `sendError(res, entry)`; saem a const `ErrorCode` e o `error-catalog.ts`; o `bearer-auth.ts` passa a usar a tabela; o teste do catálogo vai para `errors.test.ts`.
-- [ ] 7. Trechos repetidos: `toRad` no `bounding-box`, `centroid`, `findNearbyCeps` sem compatibilidade com cache antigo e com `Neighbor[]`, e `DATASET_HEADER`, `errorMessage` e `allowedUf` no seed.
+- [x] 7. Trechos repetidos: `toRad` no `bounding-box`, `centroid`, `findNearbyCeps` sem compatibilidade com cache antigo e com `Neighbor[]`, e `DATASET_HEADER`, `errorMessage` e `allowedUf` no seed.
 - [ ] 8. Raiz: remove `.git-blame-ignore-revs` e `.nvmrc`; move o Prettier para o `package.json` (`npm run format:check` sem diferença); remove o `vitest.config.ts` e o tira do `tsconfig.json`, conferindo que o Vitest roda os mesmos arquivos e testes antes e depois.
 - [ ] 9. Documentação: README e `DECISOES.md` (D22, D11 cont., D21 cont. e tabela de status).
 

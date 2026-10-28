@@ -1,4 +1,4 @@
-import { EARTH_RADIUS_KM, type Point } from './haversine.js';
+import { EARTH_RADIUS_KM, toRad, type Point } from './haversine.js';
 
 export interface BoundingBox {
   minLat: number;
@@ -7,12 +7,12 @@ export interface BoundingBox {
   maxLon: number;
 }
 
-const KM_PER_DEGREE = (EARTH_RADIUS_KM * Math.PI) / 180;
+const KM_PER_DEGREE = EARTH_RADIUS_KM * toRad(1);
 
 /** Box that contains the circle of radiusKm around center. */
 export function boundingBox(center: Point, radiusKm: number): BoundingBox {
   const dLat = radiusKm / KM_PER_DEGREE;
-  const dLon = dLat / Math.cos((center.lat * Math.PI) / 180);
+  const dLon = dLat / Math.cos(toRad(center.lat));
   return {
     minLat: center.lat - dLat,
     maxLat: center.lat + dLat,

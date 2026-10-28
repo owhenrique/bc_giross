@@ -5,7 +5,7 @@ export interface Point {
 
 export const EARTH_RADIUS_KM = 6371.0088;
 
-const toRad = (degrees: number): number => (degrees * Math.PI) / 180;
+export const toRad = (degrees: number): number => (degrees * Math.PI) / 180;
 
 export function haversineKm(a: Point, b: Point): number {
   const dLat = toRad(b.lat - a.lat);
