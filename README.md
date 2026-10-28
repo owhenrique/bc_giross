@@ -1,154 +1,125 @@
-# bc-giross
+# bc-giross — CEPs Próximos
 
-API que lista os CEPs num raio de um CEP de referência, com a distância de cada um. A base (`data/ceps.csv.gz`, 898.455 CEPs com latitude/longitude) é carregada no Postgres por um seed.
-
-## Como rodar
+API que recebe um CEP e devolve os CEPs num raio de 1 km, cada um com a distância até a origem. A base (`data/ceps.csv.gz`, 898.455 CEPs do Brasil com latitude e longitude) vem do CNEFE 2022 do IBGE e é carregada no Postgres por um seed.
 
 ```bash
 cp .env.example .env
 docker compose up --build
+curl localhost:3000/ceps-proximos/04551-000
 ```
 
-O `.env` precisa de `NODE_ENV` (o `.env.example` já traz); sem ela, o compose aborta com `defina NODE_ENV no .env`.
+## 📚 Documentação Técnica
 
-Sobem o Postgres, o Redis, o `seed` (aplica a migration, carrega a base e termina) e, só depois, a `api` em `http://localhost:3000`.
+- **[Guia Rápido (Getting Started)](./docs/getting-started.md)**: como rodar com Docker ou localmente, variáveis de ambiente, endpoints e testes.
+- **[Arquitetura](./docs/architecture.md)**: camadas, ports and adapters, estrutura de pastas, princípios, erros e observabilidade.
+- **[Base de CEPs e Busca no Raio](./docs/dataset.md)**: por que uma base própria, como ela é gerada e a estratégia do raio, com o trade-off entre precisão e performance.
+- **[Origem e Fallback](./docs/geocoding.md)**: BrasilAPI para o endereço, Nominatim como fallback de coordenada e o tratamento de cada falha.
+- **[Cache](./docs/cache.md)**: chaves no Redis, TTLs e a justificativa de cada um, Redis fora do ar e limpeza manual.
+- **[Rate Limit](./docs/rate-limit.md)**: limite de entrada por IP e limites de saída para a BrasilAPI e o Nominatim.
+- **[CI e Docker](./docs/ci.md)**: pipeline do GitHub Actions, testes e containers.
+- **[Registro de Decisões](./docs/DECISOES.md)**: todas as decisões, com contexto, alternativas e o porquê.
 
-Para subir mais rápido, carregue só algumas UFs:
+O planejamento do desenvolvimento fica na branch [`docs`](https://github.com/owhenrique/bc_giross/tree/docs): as [histórias de usuário](https://github.com/owhenrique/bc_giross/blob/docs/HISTORIAS.md) (US1 a US12) e a [spec de cada uma](https://github.com/owhenrique/bc_giross/tree/docs/specs), com critérios de aceite, decisões, tarefas e o registro de testes. Cada história virou uma branch e um PR.
 
-```bash
-SEED_UFS=SP,RJ docker compose up --build
+---
+
+## O problema
+
+> **Business Case – Desenvolvedor Fullstack Jr.**
+>
+> A Giross precisa localizar regiões de entrega próximas a um CEP de referência (ex.: para agrupar entregas de uma mesma área ou avaliar a cobertura de uma nova praça).
+
+**Desafio:** construir uma API REST em Node.js (sem front-end) que receba um CEP e devolva todos os CEPs num raio de 1 km, cada um com a distância calculada até o CEP de origem.
+
+### Requisitos funcionais
+
+1. Endpoint `GET /ceps-proximos/:cep`.
+2. Buscar a geolocalização (lat/lng) do CEP informado usando uma API pública ou uma base própria, com a decisão justificada no README.
+3. A partir da lat/lng do CEP de origem, encontrar os demais CEPs num raio de 1 km.
+4. Calcular a distância entre o CEP de origem e cada CEP encontrado.
+5. Retornar uma lista ordenada pela distância, com `cep` e `distancia_km` (2 casas decimais) de cada um.
+
+### Cache
+
+- Cache do geocoding de um CEP já consultado e do resultado da busca no raio para uma origem já processada.
+- Cache em memória é aceitável; Redis é diferencial.
+- Definir e justificar um TTL razoável no README.
+
+### Requisitos técnicos
+
+- Node.js (Express, Fastify ou similar).
+- Tratamento de erros: CEP inválido, CEP inexistente e indisponibilidade da API externa.
+- README explicando a estratégia para "buscar CEPs num raio" e o trade-off entre precisão e performance.
+
+### Diferenciais
+
+Redis para o cache, rate limiting para a API externa de geocoding, endpoint para limpar o cache manualmente e Dockerfile.
+
+### Critérios de avaliação
+
+Corretude do cálculo de distância, estratégia para localizar CEPs próximos, eficácia do cache, qualidade e legibilidade do código e tratamento de casos de borda.
+
+### Como a solução atende
+
+| Requisito | Onde |
+| --- | --- |
+| `GET /ceps-proximos/:cep`, ordenado, com `distancia_km` | rota enxuta e `/detalhes` com origem e endereço ([Guia Rápido](./docs/getting-started.md#5-endpoints)) |
+| Geolocalização justificada | base própria do CNEFE, com fallback BrasilAPI → Nominatim ([Origem e Fallback](./docs/geocoding.md)) |
+| Raio e distância | bounding box no Postgres + Haversine no domínio, testado contra distâncias conhecidas ([Base de CEPs](./docs/dataset.md#4-estratégia-da-busca-no-raio)) |
+| Cache e TTL justificado | Redis: endereço e coordenada 30 d, resultado 24 h, não encontrado 1 h ([Cache](./docs/cache.md#2-ttls)) |
+| Erros | `400`, `404`, `422`, `503` e `500` com `{ erro: { codigo, mensagem } }` ([Arquitetura](./docs/architecture.md#5-tratamento-de-erros)) |
+| Diferenciais | Redis, rate limit de entrada e de saída, `DELETE /cache` com token e Docker Compose |
+
+---
+
+## Estratégia: CEPs num raio
+
+1. **Origem:** a coordenada do CEP sai da base. Fora dela, a API busca o endereço na BrasilAPI e a coordenada no Nominatim.
+2. **Pré-filtro no banco:** uma *bounding box* que contém o círculo de 1 km, consultada com índice em `(latitude, longitude)`.
+3. **Distância exata:** Haversine sobre cada candidato da caixa, mantendo só os que ficam a ≤ 1 km. O arredondamento a 2 casas acontece só na saída.
+4. **Cache:** a lista inteira, ordenada, fica no Redis por 24 h, e a paginação sai dela.
+
+**Precisão × performance:** cada CEP é representado por um ponto, a média dos endereços dele no CNEFE. Isso deixa a busca em milissegundos e a base em 8,2 MB, mas um CEP é uma área, e a distância é entre centróides. CEPs com endereços espalhados por mais de 2 km (p90) ficam fora da base, para não poluir o raio. O PostGIS seria o passo para raios maiores ou buscas por polígono. Detalhes em [Base de CEPs e Busca no Raio](./docs/dataset.md#5-trade-off-entre-precisão-e-performance).
+
+---
+
+## Principais decisões
+
+- **Base própria do CNEFE 2022 (D4):** nenhuma API pública responde "quais CEPs existem a X km". O CNEFE traz a coordenada de cada endereço do Censo, e o centróide por CEP ficou a até 50 m da referência em 16 de 25 CEPs testados. No mesmo ponto em que o CNEFE achou 174 CEPs no raio, o Overpass (OSM) achou 58.
+- **A coordenada da BrasilAPI não é usada (D12):** na maioria dos casos ela é o centro do município (todos os CEPs de SP testados voltaram na mesma coordenada). A BrasilAPI fica só com rua, bairro, cidade e UF.
+- **AwesomeAPI descartada (D11):** bloqueou o IP com `429` depois de ~30 chamadas, com um limite não documentado.
+- **Nominatim como fallback, com limite (D11):** só para CEP fora da base. A política do Nominatim público exige no máximo 1 req/s, `User-Agent` identificado e cache, e o resultado só vale se a cidade e a UF baterem com as da BrasilAPI.
+- **TTLs pela memória (D20):** endereço e coordenada mudam pouco e custam chamadas externas limitadas (30 d); o resultado só muda num seed novo, e o TTL de 24 h controla a memória do Redis de 256 MB.
+
+O registro completo, com contexto e alternativas descartadas, está em [`docs/DECISOES.md`](./docs/DECISOES.md).
+
+---
+
+## Arquitetura
+
+```
+presentation  ──▶  application  ──▶  domain
+(Express, rotas,   (casos de uso,    (Haversine, bounding box,
+ mappers, erros)    portas)           centróide, vizinhos)
+                        ▲
+infrastructure ─────────┘
+(Prisma, Redis, BrasilAPI, Nominatim)
 ```
 
-`SEED_UFS` vazio carrega o Brasil inteiro. Para recarregar com outras UFs: `SEED_UFS=SP docker compose run --rm seed`.
+- **Camadas:** apresentação → aplicação → domínio, com a infraestrutura implementando as portas da aplicação. Cada camada só importa as de baixo, e o ESLint barra o import proibido.
+- **Ports and adapters:** o caso de uso depende de `CepRepository`, `Cache`, `CepAddressProvider` e `Geocoder`. Postgres, Redis, BrasilAPI e Nominatim são adaptadores trocáveis, e os testes usam fakes. Um terceiro provider de CEP é uma classe nova e uma linha na composição.
+- **DRY:** cada regra num lugar só: limite, timeout e log das chamadas externas no `limitedFetch`, status HTTP dos erros só no catálogo, deduplicação dos pontos só no `assessCep`.
+- **KISS:** a peça mais simples que resolve: Postgres puro em vez de PostGIS, rate limit em memória em vez de coordenação distribuída, uma tabela para os erros da borda HTTP.
 
-### Variáveis de ambiente
+Detalhes em [Arquitetura](./docs/architecture.md).
 
-| Variável | Padrão | Descrição |
-| --- | --- | --- |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | — | credenciais do Postgres (obrigatórias no compose, que monta a `DATABASE_URL` dos contêineres a partir delas) |
-| `POSTGRES_PORT`, `API_PORT` | `5432`, `3000` | portas publicadas no host pelo compose |
-| `DATABASE_URL` | — | conexão Postgres (obrigatória; o compose a monta sozinho, defina à mão só para rodar fora do docker) |
-| `PORT` | `3000` | porta da API |
-| `SEARCH_RADIUS_KM` | `1` | raio de busca em km |
-| `SEED_UFS` | vazio | UFs a carregar, separadas por vírgula |
-| `REDIS_URL` | — | conexão Redis (obrigatória; o compose já define) |
-| `CACHE_TTL_ADDRESS_SECONDS` | `2592000` (30 d) | TTL do endereço (BrasilAPI) e da coordenada do Nominatim |
-| `CACHE_TTL_RESULT_SECONDS` | `86400` (24 h) | TTL do resultado (origem + lista de vizinhos) |
-| `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra e do "sem match" do Nominatim |
-| `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | base do Nominatim, usado como fallback de coordenada |
-| `NOMINATIM_USER_AGENT` | `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)` | `User-Agent` enviado ao Nominatim (a política de uso exige identificar o cliente) |
-| `CACHE_ADMIN_TOKEN` | vazio | token dos endpoints de limpeza de cache (mínimo de 12 caracteres; vazio desliga os endpoints) |
-| `RATE_LIMIT_MAX` | `60` | requisições por IP dentro da janela (inteiro ≥ 1) |
-| `RATE_LIMIT_WINDOW_SECONDS` | `60` | janela do limite de entrada, em segundos (inteiro ≥ 1) |
-| `TRUST_PROXY` | vazio | de onde sai o IP do cliente atrás de proxy: número de saltos (`1`), `loopback`, lista de CIDRs. Vazio usa o IP do socket e ignora o `X-Forwarded-For` |
-| `NODE_ENV` | — | `development`, `test` ou `production` (obrigatória, sem padrão). Sem ela, a API, o seed e o `docker compose up` não sobem. `production` desliga o `/docs` e o `/docs/openapi.json` |
-| `LOG_LEVEL` | `info` | nível do Pino |
+---
 
-### Cache (Redis)
+## Documentação e Testes (Scalar)
 
-O compose tem o serviço `redis` (`maxmemory` de 256 MB com política `allkeys-lru`, sem persistência), e a `api` e o `seed` só sobem com ele saudável. Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
+Com a API no ar e `NODE_ENV` diferente de `production`:
 
-- **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
-- **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
-- **Redis fora do ar:** a API sobe sem esperar por ele e segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. O seed também segue sem ele. No compose, a `api` não depende do Redis, e o seed o tem como dependência opcional: se o Redis falhar na subida, o compose avisa, e o seed e a API sobem mesmo assim.
-- **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Sem o Redis, ou se a limpeza falhar, ele carrega a base, avisa que não limpou o cache e termina com sucesso. Resultados da base anterior que sobrarem saem pelo TTL (24 h) ou por um `DELETE /cache`; o Redis do compose não tem persistência, então volta vazio depois de cair.
+- **`http://localhost:3000/docs`**: UI do Scalar, com todas as rotas, parâmetros, exemplos de resposta, erros e o esquema Bearer da limpeza de cache. Dá para testar as chamadas direto pelo navegador.
+- **`http://localhost:3000/docs/openapi.json`**: o documento OpenAPI 3.1.
 
-#### TTLs
-
-Longos o bastante para poupar o banco e as APIs externas, curtos o bastante para não servir dado velho nem ocupar o Redis com CEP que ninguém consulta mais.
-
-- **Endereço e coordenada encontrados** (`address:` e `geocode:`, 30 d): rua, bairro e coordenada de um CEP quase nunca mudam. Cada miss custa uma chamada externa com limite (BrasilAPI a 5 req/s; Nominatim a 1 req/s, cuja política exige cache), e cada chave ocupa ~200 bytes. Para corrigir antes do prazo: `DELETE /cache/:cep`.
-- **Resultado** (`result:`, 24 h): a lista de vizinhos sai da base (CNEFE 2022), que só muda num seed novo, e o seed já apaga essas chaves. Aqui o TTL não evita dado velho, só controla a memória. Como os mesmos CEPs são consultados com frequência, os que voltam todo dia ficam em cache e são recalculados no máximo uma vez por dia, só com consultas indexadas ao banco; os consultados uma vez saem no dia seguinte. Um TTL menor recalcularia várias vezes por dia os CEPs que voltam, sem liberar memória que falte.
-- **Não encontrado e sem match** (`address:` e `geocode:`, 1 h): segura as repetições de um mesmo CEP sem prender por muito tempo um CEP ou uma rua que acabaram de surgir, nem um falso `404`, que a BrasilAPI pode devolver quando um serviço interno dela cai.
-
-A conta do resultado, num raio de 1 km, sobre os 898.455 CEPs da base:
-
-| | Brasil | Capital paulista |
-| --- | --- | --- |
-| Vizinhos por CEP (média · máximo) | 115 · 971 | 171 · 437 |
-| Resultado no Redis (média) | ~6,5 KB | ~9,6 KB |
-| Todos os resultados | ~5,5 GB | ~430 MB |
-| Cabem nos 256 MB do Redis | ~40 mil | ~27 mil |
-
-Com 10 mil origens novas por dia na capital, os resultados ocupam ~90 MB com 24 h e chegariam a ~650 MB com 7 d. Acima dos 256 MB, o `allkeys-lru`, que despeja pela ordem de uso sem saber o custo, tiraria também endereços e coordenadas, que custam uma chamada externa, para guardar resultados que o banco recalcula.
-
-### Limpeza de cache
-
-Dois endpoints protegidos por token, para forçar dados atualizados sem reiniciar a API. Ficam ligados só quando `CACHE_ADMIN_TOKEN` está definido (mínimo de 12 caracteres; menos que isso faz a API falhar ao subir). Vazio ou ausente, eles respondem `404 NAO_ENCONTRADO`, como qualquer rota inexistente.
-
-```bash
-export TOKEN=troque-por-um-token-longo
-curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:3000/cache
-curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:3000/cache/04551000
-```
-
-- **`DELETE /cache`:** apaga todas as chaves `result:*`, `address:*` e `geocode:*`. Outras chaves do Redis ficam.
-- **`DELETE /cache/:cep`:** apaga `address:<cep>`, `geocode:<cep>` e `result:<raio>:<cep>` (o raio atual). `:cep` aceita `04551000` ou `04551-000`.
-- **Autenticação:** header `Authorization: Bearer <token>` (esquema sem diferença de maiúsculas). Sem header, com outro esquema ou com token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`. A autenticação vem antes da validação do CEP.
-- **Respostas:** `204` sem corpo (idempotente, também para CEP sem nada em cache), `400 CEP_INVALIDO`, `401 NAO_AUTORIZADO`, `404 NAO_ENCONTRADO` (endpoints desligados) e `503 CACHE_INDISPONIVEL` (Redis fora do ar ou timeout; pode ter apagado só parte, e repetir é seguro).
-- **Limitação:** o `DELETE /cache/:cep` não tira o CEP limpo das listas de vizinhos de outros CEPs. Essas listas (`result:*`) só saem por TTL (24 h) ou por um `DELETE /cache`.
-
-### Fallback de coordenada (Nominatim)
-
-Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um "sujo" removido pelo `build-dataset`), a API busca a coordenada no Nominatim a partir do endereço da BrasilAPI (rua e cidade) e calcula os vizinhos da base a partir dela. Nas duas rotas a resposta é `200`; no `/detalhes`, `origem.fonte` vem `"nominatim"`.
-
-- **Validação:** o Nominatim só vale se a cidade e a UF do candidato baterem com as da BrasilAPI (sem acento, sem diferença de maiúsculas e sem espaços extras). Sem candidato válido: `422 CEP_SEM_GEOLOCALIZACAO`.
-- **Sem rua, cidade ou UF** na BrasilAPI: `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. UF não carregada continua `422 CEP_FORA_DA_COBERTURA`.
-- **Nominatim fora do ar** (timeout de 3 s, erro, status ≠ 200, corpo inválido) ou limite de 1 req/s atingido: `503 PROVEDOR_INDISPONIVEL`.
-- **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h). Indisponibilidade nunca entra. O seed não apaga essas chaves.
-- **Política de uso do Nominatim público:** máximo de 1 req/s (limite em memória, por processo), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
-- **Precisão:** em ruas longas o ponto devolvido é algum trecho da rua, não o centro do CEP.
-
-**Atenção ao migrar à mão:** a tabela `loaded_uf` (UFs carregadas) é preenchida pelo seed. Depois de um `prisma migrate deploy`, rode o seed; sem ele, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O `docker compose up` já roda o seed antes da API.
-
-### Rate limit
-
-- **Entrada:** 60 req/min por IP (`RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`), em todas as rotas. Passou do limite: `429 LIMITE_EXCEDIDO` com `Retry-After`. Toda resposta traz `RateLimit` e `RateLimit-Policy` (IETF draft-8). IPv6 conta por sub-rede /56. O contador fica em memória, por processo, em janela fixa: ~205 bytes por IP, e um IP sem requisição por uma janela sai da memória.
-- **Atrás de proxy:** sem `TRUST_PROXY`, todos os clientes atrás do mesmo proxy dividem um contador. Prefira o número de saltos (`TRUST_PROXY=1`); `true` confia em qualquer `X-Forwarded-For`.
-- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) também contam em memória, por processo, em janela deslizante. Passou do limite, a chamada não sai e o serviço conta como fora do ar: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base e `origem.endereco: null` no `/detalhes` de CEP na base.
-- **Sem Redis:** os limites não dependem dele e continuam valendo com o Redis fora do ar.
-- **Réplicas:** com mais de uma réplica da API, cada uma conta separado. O compose sobe uma.
-
-## Contrato
-
-A fonte da verdade do contrato é o [`openapi.yaml`](openapi.yaml) (OpenAPI 3.1), com parâmetros, exemplos de resposta e erros de cada rota. Um teste de contrato confere as respostas da API contra ele e quebra se o código divergir. Fora de `production`, a documentação navegável (Scalar) fica em `http://localhost:3000/docs`.
-
-- `GET /ceps-proximos/:cep`: origem e CEPs próximos (resumo). `:cep` aceita `04551000` ou `04551-000`; query `pagina` (≥ 1, padrão 1) e `limite` (1–200, padrão 50).
-- `GET /ceps-proximos/:cep/detalhes`: o mesmo, com coordenada e endereço da origem e o raio.
-- `GET /saude`: `{ "status": "ok" }`, sem checar banco, cache nem provedores.
-- `DELETE /cache` e `DELETE /cache/:cep`: limpeza de cache com token (ver [Limpeza de cache](#limpeza-de-cache)).
-- `GET /docs` e `GET /docs/openapi.json`: UI do Scalar e o documento OpenAPI (desligados com `NODE_ENV=production`).
-
-**Migração:** quem usava `/ceps-proximos/:cep` com o contrato completo (`origem` objeto, `raio_km`) deve passar a usar `/ceps-proximos/:cep/detalhes`.
-
-### Erros
-
-Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
-
-| Status | `codigo` | Quando |
-| --- | --- | --- |
-| 400 | `CEP_INVALIDO` | `:cep` fora do formato `00000000`/`00000-000` |
-| 400 | `PARAMETRO_INVALIDO` | `pagina` ou `limite` inválidos |
-| 401 | `NAO_AUTORIZADO` | token ausente ou inválido nos endpoints de limpeza de cache |
-| 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
-| 404 | `NAO_ENCONTRADO` | rota ou método inexistente (inclui os endpoints de limpeza com `CACHE_ADMIN_TOKEN` vazio) |
-| 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
-| 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas nem a base nem o Nominatim dão a coordenada dele (ou o endereço não tem rua, cidade ou UF) |
-| 429 | `LIMITE_EXCEDIDO` | mais de `RATE_LIMIT_MAX` requisições do mesmo IP dentro da janela |
-| 503 | `CACHE_INDISPONIVEL` | Redis fora do ar ou com timeout durante a limpeza de cache |
-| 503 | `PROVEDOR_INDISPONIVEL` | CEP fora da base e o serviço de CEP (BrasilAPI, limite de 5 req/s) ou o Nominatim (limite de 1 req/s) está fora do ar ou estourou o timeout |
-| 500 | `ERRO_INTERNO` | erro inesperado (sem detalhes na resposta) |
-
-## Testes
-
-```bash
-npm ci
-npm test
-npm run lint
-npm run typecheck
-npm run format:check
-```
-
-Todo PR para a `main` roda esses comandos no GitHub Actions (`.github/workflows/ci.yml`).
-
-Para formatar o código, rode `npm run format`.
+A fonte da verdade é o [`openapi.yaml`](./openapi.yaml), escrito à mão. Um teste de contrato valida as respostas da API contra ele, então o código e a documentação não divergem. Com `NODE_ENV=production`, as duas rotas respondem `404`.
