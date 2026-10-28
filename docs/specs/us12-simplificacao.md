@@ -115,7 +115,8 @@ Nenhuma.
 ```ts
 const redis = createRedisClient(env.redisUrl, logger);
 // Not awaited: until Redis connects, the cache degrades to miss, as it does when Redis drops at runtime.
-void redis.connect().catch((error: unknown) => logger.warn({ err: error }, 'redis connect failed'));
+// The client keeps retrying and logs each failure through its 'error' handler, so connect() rarely rejects.
+void redis.connect().catch(() => undefined);
 ```
 O `await` só existia para o store do rate limit no Redis carregar os scripts com o cliente conectado. O `REDIS_CONNECT_TIMEOUT_MS` sai, e o `withTimeout` deixa de ser exportado, porque só o `redis-cache.ts` o usa.
 
@@ -218,7 +219,7 @@ src/presentation/http/
 ### Arquitetura em camadas (tarefas 13 a 15)
 - **Tarefa 13 — 429 na borda:** saem o `RateLimitExceededError` e o kind `rate_limit_exceeded` da `application`, e a entrada do `ERROR_CATALOG`. O `HTTP_ERRORS` ganha `rateLimitExceeded: { status: 429, codigo: 'LIMITE_EXCEDIDO', mensagem: 'Limite de requisições excedido' }`, e o handler do `rateLimitMiddleware` chama `sendError(res, HTTP_ERRORS.rateLimitExceeded)`. O `express-rate-limit` grava o `Retry-After` e os headers `RateLimit` antes de chamar o handler, e o contrato não muda.
 - **Tarefa 14 — vizinhos no domínio:** `domain/cep/cep.ts` ganha `nearestCeps(origin, ceps, radiusKm)`, com os tipos `CepPoint` e `Neighbor`: calcula `distanceKm`, filtra pelo raio e ordena por distância e depois por CEP. Fica no `cep.ts`, e não no `geo.ts`, porque trabalha com CEPs, e o `geo.ts` só tem geometria. O `findNearbyCeps` tira a origem da lista, converte `StoredCep` em `CepPoint` e chama o `nearestCeps`; fica com cache, repositório, providers e paginação, e usa o `Neighbor` do domínio no lugar da interface local.
-- **Tarefa 15 — camadas no lint:** `no-restricted-imports` por pasta no `eslint.config.js`: `src/domain` não importa `application`, `infrastructure`, `presentation` nem `config`; `src/application` não importa `infrastructure`, `presentation` nem `config`; `src/infrastructure` não importa `presentation`; `src/presentation` não importa `infrastructure` nem `config`. A composition root (`src/index.ts`) e os `scripts/` ficam fora da regra.
+- **Tarefa 15 — camadas no lint:** `no-restricted-imports` por pasta no `eslint.config.js`: `src/domain` não importa `application`, `infrastructure`, `presentation` nem `config`; `src/application` não importa `infrastructure`, `presentation` nem `config`; `src/infrastructure` não importa `presentation`; `src/presentation` não importa `infrastructure` nem `config`. `domain`, `application` e `presentation` também não importam `src/generated` (o cliente do Prisma). A composition root (`src/index.ts`) e os `scripts/` ficam fora da regra.
 
 ### Fake de cache (`tests/fakes/in-memory-cache.ts`)
 O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests/fakes/`, sem mudar o comportamento (TTL com relógio injetável). O `tsconfig.json` já inclui `tests`. Como nenhum código de produção o usa, ele passa a ser código de teste.
@@ -242,7 +243,7 @@ O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests
 - Remover `.git-blame-ignore-revs`, `.nvmrc` e `vitest.config.ts`. O Vitest passa a usar o `include` padrão.
 - O `.prettierrc.json` vira a chave `"prettier"` do `package.json`, com os mesmos valores.
 - `tsconfig.json`: o `include` perde `vitest.config.ts`.
-- `.prettierignore`, `eslint.config.js`, `.gitignore` e `.dockerignore` não mudam, e o `graphify-out` fica.
+- `.prettierignore`, `.gitignore` e `.dockerignore` não mudam, e o `graphify-out` fica. O `eslint.config.js` só ganha as regras de camada da tarefa 15 e mantém o `graphify-out` no `ignores`.
 
 ### Contrato e configuração
 - O contrato não muda: continuam o `429 LIMITE_EXCEDIDO`, o `Retry-After` e os headers `RateLimit` e `RateLimit-Policy`.
@@ -304,10 +305,9 @@ Produção e scripts (contam no limite):
 Testes (não contam):
 - Criar: `src/infrastructure/http/limited-fetch.test.ts`; `src/presentation/http/middlewares/error-handler.test.ts` (a partir do `errors.test.ts` da `main`, com `notFoundHandler` e `errorHandler`).
 - Juntar: `haversine.test.ts` + `bounding-box.test.ts` → `src/domain/geo/geo.test.ts`; `cep-code.test.ts` + `cep-centroid.test.ts` → `src/domain/cep/cep.test.ts` (com os casos do `nearestCeps`).
-- Mover para as pastas novas, junto dos arquivos: os testes da `application` (`cache/`, `errors/`, `providers/`, `use-cases/`) e da `presentation/http` (`errors/`, `middlewares/`, `routes/`); o `error-catalog.test.ts` vira `errors/errors.test.ts`.
-- Mover: `src/infrastructure/cache/in-memory-cache.test.ts` → `tests/fakes/in-memory-cache.test.ts`; `src/infrastructure/http/window-rate-limiter.test.ts` → `src/infrastructure/rate-limit/window-rate-limiter.test.ts`.
-- Remover: `src/infrastructure/rate-limit/redis-rate-limit-store.test.ts`, `src/infrastructure/rate-limit/redis-window-rate-limiter.test.ts` e `src/presentation/http/error-catalog.test.ts` (o teste de cobertura do catálogo vai para `errors.test.ts`).
-- Alterar: `src/presentation/http/rate-limit.test.ts` (saem os casos de falha do store e do adaptador de logger), `src/infrastructure/http/brasil-api-cep-provider.test.ts`, `src/infrastructure/http/nominatim-geocoder.test.ts`, `src/presentation/http/errors.test.ts`, `src/presentation/http/app.test.ts`, `src/presentation/http/cache-route.test.ts`, `src/application/caching-cep-address-provider.test.ts`, `src/application/clear-cache.test.ts`, `src/application/find-nearby-ceps.test.ts`, `src/application/origin-geocoder.test.ts`, `src/domain/cep/cep-centroid.test.ts` e `scripts/seed/index.test.ts`.
+- Mover para as pastas novas, junto dos arquivos: os testes da `application` (`cache/`, `errors/`, `providers/`, `use-cases/`) e da `presentation/http` (`errors/`, `middlewares/`, `routes/`); o `error-catalog.test.ts` vira `src/presentation/http/errors/errors.test.ts`, com o teste de cobertura do catálogo; `src/infrastructure/cache/in-memory-cache.test.ts` → `tests/fakes/in-memory-cache.test.ts`; `src/infrastructure/http/window-rate-limiter.test.ts` → `src/infrastructure/rate-limit/window-rate-limiter.test.ts`.
+- Remover: `src/infrastructure/rate-limit/redis-rate-limit-store.test.ts` e `src/infrastructure/rate-limit/redis-window-rate-limiter.test.ts`.
+- Alterar (caminhos finais): `src/presentation/http/middlewares/rate-limit.test.ts` (saem os casos de falha do store e do adaptador de logger), `src/infrastructure/http/brasil-api-cep-provider.test.ts`, `src/infrastructure/http/nominatim-geocoder.test.ts`, `src/presentation/http/app.test.ts`, `src/presentation/http/routes/cache-route.test.ts`, `src/application/providers/caching-cep-address-provider.test.ts`, `src/application/cache/clear-cache.test.ts`, `src/application/use-cases/find-nearby-ceps.test.ts`, `src/application/providers/origin-geocoder.test.ts` e `scripts/seed/index.test.ts`.
 
 Configuração e documentação (não contam):
 - Alterar: `package.json`, `package-lock.json`, `tsconfig.json`, `README.md`, `docs/DECISOES.md` e `docs/HISTORIAS.md` (já alterado neste `/spec`).
@@ -338,7 +338,7 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 | --- | --- |
 | Tarefas | 9 estimadas; 15 ao fim (as tarefas 10 a 15 entraram durante a implementação) |
 | Arquivos que a mudança toca | ~59 estimados (31 de produção e scripts, 18 de teste, 10 de configuração e docs); 71 ao fim, pelas tarefas 10 a 15 |
-| Linhas de lógica estimadas | ~270; 337 medidas ao fim (ver "Riscos") |
+| Linhas de lógica estimadas | ~270; 339 medidas ao fim (ver "Riscos") |
 | Toca em tela (E2E) | Não |
 | Migração de dados | Não |
 | Muda contrato de API | Não |
@@ -415,4 +415,4 @@ Preenchido no `/pato/close-spec`.
 - **Header do `ceps-removidos.csv`:** o `build-dataset` também passou a montar esse header a partir do `DATASET_HEADER` (`${DATASET_HEADER};p90_km`). A saída não muda.
 - **`(error as Error).message` restante:** só o do `main()` do `build-dataset`, que não tem o `errorMessage`. O do `catch` do `clearResultCache` no seed passou a usar o `errorMessage` depois da verificação.
 - **Seed importa o `build-dataset`:** para usar o `DATASET_HEADER`, o seed carrega o módulo do `build-dataset`, que traz o `read-cnefe` e o `yauzl`. O `main()` do build não roda (guard no fim do `index.ts`), e o `yauzl` está em `dependencies`, então a imagem do compose tem tudo. Ficou assim para não criar um arquivo só para a constante.
-- **Medição:** o placar final é 337, contra ~270 estimados (292 até a tarefa 9; 340 com a tarefa 10, porque o git vê `geo.ts` e `cep.ts` como arquivos novos; 267 com a tarefa 11, porque as portas voltaram aos arquivos da `main` e o git as vê como renomeação; 294 com a tarefa 12, pelo mapper e pelo `error-handler.ts` novos; 337 com as tarefas 13 a 15, pelo `nearestCeps` e pelas regras de camada no `eslint.config.js`, que a medição conta por ser `.js`). O resto da diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
+- **Medição:** o placar final é 339, contra ~270 estimados (292 até a tarefa 9; 340 com a tarefa 10, porque o git vê `geo.ts` e `cep.ts` como arquivos novos; 267 com a tarefa 11, porque as portas voltaram aos arquivos da `main` e o git as vê como renomeação; 294 com a tarefa 12, pelo mapper e pelo `error-handler.ts` novos; 337 com as tarefas 13 a 15, pelo `nearestCeps` e pelas regras de camada no `eslint.config.js`, que a medição conta por ser `.js`; 339 com as correções da verificação, pelo comentário do `connect` no `index.ts` e pelo `errorMessage` no seed). O resto da diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
