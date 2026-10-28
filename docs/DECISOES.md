@@ -27,7 +27,7 @@ Cada decisão tem o contexto, o que foi escolhido e o porquê. Alternativas desc
 | D19 | Cache | Redis (implementação em memória para testes) | ✅ |
 | D20 | TTLs | Endereço 30 d · resultado 7 d · inexistente 1 h | ✅ |
 | D21 | Limpeza de cache | `DELETE /cache` e `DELETE /cache/:cep` com token via env | ✅ |
-| D22 | Rate limit | Nossa API 60 req/min por IP (Redis) · BrasilAPI 5 req/s · Nominatim 1 req/s | ✅ |
+| D22 | Rate limit | Nossa API 60 req/min por IP · BrasilAPI 5 req/s · Nominatim 1 req/s, em memória por processo | ✅ |
 | D23 | Timeout externo | 3 s, sem retry | ✅ |
 | D24 | Validação | Zod | ✅ |
 | D25 | Testes | Vitest + Supertest; Haversine com distâncias conhecidas | ✅ |
@@ -131,7 +131,7 @@ O token vem da variável `CACHE_ADMIN_TOKEN` e vai no header `Authorization: Bea
 - **Rotas:** `DELETE /cache` (tudo) e `DELETE /cache/:cep` (um CEP), com `204` sem corpo e idempotentes.
 - **Desligamento:** sem `CACHE_ADMIN_TOKEN` (ausente ou vazio) as rotas nem são registradas e caem no `404 NAO_ENCONTRADO` genérico, sem revelar que existem. Token com menos de 12 caracteres faz o `loadEnv` falhar, para não subir com um token fraco.
 - **Autenticação:** `Authorization: Bearer <token>`, esquema sem diferença de maiúsculas (RFC 6750). Sem header, esquema errado ou token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`, sempre com o mesmo corpo, e antes da validação do CEP. A comparação é `timingSafeEqual` sobre `sha256` dos dois lados: os digests têm o mesmo tamanho, então um token de tamanho diferente não lança exceção nem vaza o tamanho. O 401 não é `AppError`, porque é preocupação de HTTP e não há caso de uso por trás.
-- **O que apaga:** `DELETE /cache` roda `deleteByPrefix` só nos prefixos da API (`result:`, `address:`, `geocode:`). `FLUSHDB` foi descartado porque zeraria chaves de outras features, como o contador do rate limit da US7, no mesmo Redis. `DELETE /cache/:cep` apaga `address:<cep>`, `geocode:<cep>` e `result:<raio atual>:<cep>`; resultados de raios antigos já são inalcançáveis e saem por TTL/LRU.
+- **O que apaga:** `DELETE /cache` roda `deleteByPrefix` só nos prefixos da API (`result:`, `address:`, `geocode:`). `FLUSHDB` foi descartado porque zeraria, no mesmo Redis, chaves que não são da API. `DELETE /cache/:cep` apaga `address:<cep>`, `geocode:<cep>` e `result:<raio atual>:<cep>`; resultados de raios antigos já são inalcançáveis e saem por TTL/LRU.
 - **Redis fora do ar:** `503 CACHE_INDISPONIVEL` (`CacheUnavailableError`, `kind: 'cache_unavailable'`). Ao contrário das leituras, que degradam (D19), aqui a falha precisa aparecer para o operador. Falha no meio do `DELETE /cache` deixa a limpeza parcial, e repetir é seguro.
 - **Limitação aceita:** `DELETE /cache/:cep` não invalida o CEP limpo dentro das listas de vizinhos de outros CEPs. Essas listas saem por TTL (7 d) ou por um `DELETE /cache`. Varrer todas as listas para achar o CEP custaria mais do que a limpeza vale.
 - **Logs:** o `redact` do logger oculta o header `Authorization`, para o token não aparecer nos logs.
@@ -199,15 +199,23 @@ Consequência: o `docker compose up` falha sem um `.env`, então o README manda 
 - **TTLs do geocoding** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h), os mesmos da D20. O resultado final fica em `result:<raio>:<cep>` com a fonte (`base` ou `nominatim`), então a repetição não vai ao banco nem ao Nominatim. O seed não apaga as chaves `geocode:*`, porque a coordenada do Nominatim não depende da base.
 - **Comparação normalizada:** a cidade e a UF do candidato precisam bater com as da BrasilAPI, sem acento, sem diferença de maiúsculas e sem espaços extras. A cidade vem de `city`/`town`/`village`/`municipality`, e a UF vem de `ISO3166-2-lvl4` (`BR-SP` → `SP`). Grafias diferentes da cidade (ex.: "Embu" × "Embu das Artes") viram `422`.
 - **Busca sem `state` e com `limit=5`:** o parâmetro `state` do Nominatim espera o nome do estado, não a UF, então a busca leva só `street` e `city` (mais `countrycodes=br`), e a UF é validada depois. O `limit=5` dá a chance de achar o candidato certo quando o primeiro é um homônimo; vale o primeiro que bater.
-- **Política de uso:** `User-Agent` identificado (`NOMINATIM_USER_AGENT`), no máximo 1 req/s e cache dos resultados. O limiter era em memória, por processo; com mais de uma réplica da API ele seria agregado e teria de ir para o Redis, o que a US7 fez (D22 cont.). `NOMINATIM_URL` permite apontar para uma instância própria.
+- **Política de uso:** `User-Agent` identificado (`NOMINATIM_USER_AGENT`), no máximo 1 req/s e cache dos resultados. O limiter é em memória, por processo; com mais de uma réplica, cada uma conta separado (D22 cont.). `NOMINATIM_URL` permite apontar para uma instância própria.
 
-## D22 (cont.) — Rate limit na US7
+## D22 (cont.) — Rate limits em memória (US12)
 
-- **Entrada:** 60 req/min por IP, com `express-rate-limit` e `rate-limit-redis` (janela fixa, chave `ratelimit:api:<ip>`), em todas as rotas, e `429 LIMITE_EXCEDIDO` pelo catálogo de erros. Headers `RateLimit` e `RateLimit-Policy` (draft-8) e `Retry-After`; sem os legados `X-RateLimit-*`. Configurável por `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`.
-- **Redis fora (entrada):** fail-open. A requisição passa sem limite e o erro é logado como `warn`. Timeout de 500 ms na store.
+Na US7 os dois limites contavam no Redis: a entrada com o store `rate-limit-redis` (fail-open com o Redis fora) e a saída com um limiter em Lua, compartilhado entre réplicas. A US12 tirou os contadores do Redis: saíram o store `rate-limit-redis` e o limiter Redis/Lua, e os dois limites ficaram em memória, por processo.
+
+- **Entrada:** 60 req/min por IP, com `express-rate-limit`, em todas as rotas, e `429 LIMITE_EXCEDIDO` pela tabela de erros da camada HTTP (`HTTP_ERRORS`), porque o limite de entrada é da borda e não de um caso de uso. Headers `RateLimit` e `RateLimit-Policy` (draft-8) e `Retry-After`; sem os legados `X-RateLimit-*`. Configurável por `RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`. Requisições que recebem `429` também contam na janela.
+- **Como a entrada guarda os dados:** o `MemoryStore` padrão do `express-rate-limit` guarda um contador por IP, em janela fixa, com custo fixo de ~205 bytes por IP (medido com 100 mil IPs). São dois `Map`s, o da janela atual e o da anterior; a cada janela, os IPs que não voltaram são descartados. IPv6 conta por sub-rede /56. A memória fica nos IPs distintos das últimas ~2 janelas: 10 mil IPs ≈ 2–4 MB e 100 mil ≈ 20–40 MB. Um volume de ataque precisa ser barrado antes da API (proxy ou WAF).
 - **IP atrás de proxy:** `TRUST_PROXY` é repassada ao `trust proxy` do Express e vem desligada. Sem ela, vale o IP do socket.
-- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) contam no Redis, em janela deslizante (sorted set e Lua, com o relógio do Redis), compartilhados entre réplicas. Redis fora ou lento: cai no `WindowRateLimiter` em memória, com log `warn`, e volta ao Redis sozinho quando ele retorna.
-- **Evicção:** uma chave `ratelimit:*` despejada pelo `allkeys-lru` só zera um contador (falha a favor do cliente). Requisições que recebem `429` também contam na janela.
+- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) com o `WindowRateLimiter`, em janela deslizante. Cada provider tem um limiter, que guarda só os timestamps das chamadas da janela (no máximo 5 e 1), então o custo é desprezível. Sem vaga, a chamada não sai e o provider conta como indisponível (`503 PROVEDOR_INDISPONIVEL` ou `origem.endereco: null`).
+- **Por que o `WindowRateLimiter` não serve para a entrada:** ele guarda um timestamp por chamada (até ~830 bytes por IP a 60 req/min, medido) e não descarta IPs parados.
+
+**Trade-offs:**
+- **Limite por processo:** com N réplicas, a entrada vira N × 60/min por IP, e o Nominatim, cuja política pede 1 req/s no total, receberia até N req/s. O compose sobe uma réplica.
+- **Janela fixa na entrada:** um cliente consegue até 2 vezes o limite em poucos segundos, na virada da janela. A janela deslizante custaria até 4 vezes mais memória por IP (medido).
+- **Redis fora do ar:** não afeta os limites. Antes, a entrada passava sem limite.
+- **Subida sem esperar o Redis:** o `await` do `redis.connect()` só existia para o store do Redis. A API sobe sem ele, e até o Redis conectar o cache degrada para miss.
 
 ## D30 — Composição interna em processo
 

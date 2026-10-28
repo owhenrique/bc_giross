@@ -5,9 +5,9 @@ import type {
   GeocodeLookup,
   GeocodeQuery,
   Geocoder,
-} from '../../application/geocoder.js';
-import { WindowRateLimiter } from './window-rate-limiter.js';
-import type { RateLimiter } from './rate-limiter.js';
+} from '../../application/providers/geocoder.js';
+import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
+import { limitedFetch, type LimitedFetchOptions } from './limited-fetch.js';
 
 const UF_PATTERN = /^BR-([A-Z]{2})$/;
 
@@ -30,32 +30,29 @@ export interface NominatimGeocoderOptions {
   baseUrl: string;
   userAgent: string;
   timeoutMs?: number;
-  limiter?: RateLimiter;
+  limiter?: WindowRateLimiter;
   logger: Pick<Logger, 'warn'>;
 }
 
 export class NominatimGeocoder implements Geocoder {
-  private readonly fetchFn: typeof globalThis.fetch;
   private readonly baseUrl: string;
-  private readonly userAgent: string;
-  private readonly timeoutMs: number;
-  private readonly limiter: RateLimiter;
   private readonly logger: Pick<Logger, 'warn'>;
+  private readonly http: LimitedFetchOptions;
 
   constructor(options: NominatimGeocoderOptions) {
-    this.fetchFn = options.fetch ?? globalThis.fetch;
     this.baseUrl = options.baseUrl;
-    this.userAgent = options.userAgent;
-    this.timeoutMs = options.timeoutMs ?? 3000;
-    this.limiter = options.limiter ?? new WindowRateLimiter(1, 1000);
     this.logger = options.logger;
+    this.http = {
+      service: 'Nominatim',
+      limiter: options.limiter ?? new WindowRateLimiter(1, 1000),
+      timeoutMs: options.timeoutMs ?? 3000,
+      logger: options.logger,
+      headers: { 'User-Agent': options.userAgent, 'Accept-Language': 'pt-BR' },
+      fetch: options.fetch,
+    };
   }
 
   async search(query: GeocodeQuery): Promise<GeocodeLookup> {
-    if (!(await this.limiter.tryAcquire())) {
-      this.logger.warn(query, 'Nominatim rate limit reached, skipping search');
-      return { status: 'unavailable' };
-    }
     // The UF is not sent: `state` expects the state name, so the UF is checked on the result instead.
     const params = new URLSearchParams({
       street: query.street,
@@ -65,21 +62,13 @@ export class NominatimGeocoder implements Geocoder {
       addressdetails: '1',
       limit: '5',
     });
-    try {
-      const response = await this.fetchFn(`${this.baseUrl}/search?${params}`, {
-        headers: { 'User-Agent': this.userAgent, 'Accept-Language': 'pt-BR' },
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-      if (response.status !== 200) {
-        this.logger.warn({ ...query, status: response.status }, 'Nominatim unexpected status');
-        return { status: 'unavailable' };
-      }
-      const body: unknown = await response.json().catch(() => undefined);
-      return this.parse(query, body);
-    } catch (error) {
-      this.logger.warn({ ...query, err: error }, 'Nominatim request failed');
+    const response = await limitedFetch(`${this.baseUrl}/search?${params}`, this.http);
+    if (!response.ok) return { status: 'unavailable' };
+    if (response.status !== 200) {
+      this.logger.warn({ ...query, status: response.status }, 'Nominatim unexpected status');
       return { status: 'unavailable' };
     }
+    return this.parse(query, response.body);
   }
 
   private parse(query: GeocodeQuery, body: unknown): GeocodeLookup {

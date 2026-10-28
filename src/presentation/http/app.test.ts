@@ -1,12 +1,12 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
-import { InMemoryCache } from '../../infrastructure/cache/in-memory-cache.js';
-import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
-import type { AddressLookup } from '../../application/cep-address-provider.js';
-import type { GeocodeLookup } from '../../application/geocoder.js';
-import { OriginGeocoder } from '../../application/origin-geocoder.js';
-import { findNearbyCeps } from '../../application/find-nearby-ceps.js';
+import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
+import type { AddressLookup } from '../../application/providers/cep-address-provider.js';
+import type { CepRepository, StoredCep } from '../../application/use-cases/cep-repository.js';
+import type { GeocodeLookup } from '../../application/providers/geocoder.js';
+import { OriginGeocoder } from '../../application/providers/origin-geocoder.js';
+import { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
 import { createApp } from './app.js';
 
 const KM_PER_DEGREE = 111.195;

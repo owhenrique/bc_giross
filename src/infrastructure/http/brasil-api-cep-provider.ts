@@ -1,8 +1,11 @@
 import type { Logger } from 'pino';
 import { z } from 'zod';
-import type { AddressLookup, CepAddressProvider } from '../../application/cep-address-provider.js';
-import { WindowRateLimiter } from './window-rate-limiter.js';
-import type { RateLimiter } from './rate-limiter.js';
+import type {
+  AddressLookup,
+  CepAddressProvider,
+} from '../../application/providers/cep-address-provider.js';
+import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
+import { limitedFetch, type LimitedFetchOptions } from './limited-fetch.js';
 
 const NOT_FOUND_PATTERN = /n[aã]o encontrado|not found/i;
 
@@ -26,43 +29,34 @@ export interface BrasilApiCepProviderOptions {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
   timeoutMs?: number;
-  limiter?: RateLimiter;
+  limiter?: WindowRateLimiter;
   logger: Pick<Logger, 'warn'>;
 }
 
 export class BrasilApiCepProvider implements CepAddressProvider {
-  private readonly fetchFn: typeof globalThis.fetch;
   private readonly baseUrl: string;
-  private readonly timeoutMs: number;
-  private readonly limiter: RateLimiter;
   private readonly logger: Pick<Logger, 'warn'>;
+  private readonly http: LimitedFetchOptions;
 
   constructor(options: BrasilApiCepProviderOptions) {
-    this.fetchFn = options.fetch ?? globalThis.fetch;
     this.baseUrl = options.baseUrl ?? 'https://brasilapi.com.br/api/cep/v2';
-    this.timeoutMs = options.timeoutMs ?? 3000;
-    this.limiter = options.limiter ?? new WindowRateLimiter(5, 1000);
     this.logger = options.logger;
+    this.http = {
+      service: 'BrasilAPI',
+      limiter: options.limiter ?? new WindowRateLimiter(5, 1000),
+      timeoutMs: options.timeoutMs ?? 3000,
+      logger: options.logger,
+      fetch: options.fetch,
+    };
   }
 
   async lookup(cep: string): Promise<AddressLookup> {
-    if (!(await this.limiter.tryAcquire())) {
-      this.logger.warn({ cep }, 'BrasilAPI rate limit reached, skipping lookup');
-      return { status: 'unavailable' };
-    }
-    try {
-      const response = await this.fetchFn(`${this.baseUrl}/${cep}`, {
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-      const body: unknown = await response.json().catch(() => undefined);
-      if (response.status === 200) return this.parseFound(cep, body);
-      if (response.status === 404) return this.parseNotFound(cep, body);
-      this.logger.warn({ cep, status: response.status }, 'BrasilAPI unexpected status');
-      return { status: 'unavailable' };
-    } catch (error) {
-      this.logger.warn({ cep, err: error }, 'BrasilAPI request failed');
-      return { status: 'unavailable' };
-    }
+    const response = await limitedFetch(`${this.baseUrl}/${cep}`, this.http);
+    if (!response.ok) return { status: 'unavailable' };
+    if (response.status === 200) return this.parseFound(cep, response.body);
+    if (response.status === 404) return this.parseNotFound(cep, response.body);
+    this.logger.warn({ cep, status: response.status }, 'BrasilAPI unexpected status');
+    return { status: 'unavailable' };
   }
 
   private parseFound(cep: string, body: unknown): AddressLookup {

@@ -46,7 +46,7 @@ O compose tem o serviço `redis` (`maxmemory` com política `allkeys-lru`, sem p
 
 - **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
-- **Redis fora do ar:** a API segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
+- **Redis fora do ar:** a API sobe sem esperar por ele e segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
 - **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
 
 ### Limpeza de cache
@@ -73,17 +73,18 @@ Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um 
 - **Sem rua, cidade ou UF** na BrasilAPI: `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. UF não carregada continua `422 CEP_FORA_DA_COBERTURA`.
 - **Nominatim fora do ar** (timeout de 3 s, erro, status ≠ 200, corpo inválido) ou limite de 1 req/s atingido: `503 PROVEDOR_INDISPONIVEL`.
 - **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra. O seed não apaga essas chaves.
-- **Política de uso do Nominatim público:** máximo de 1 req/s (limite compartilhado entre as réplicas, via Redis), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
+- **Política de uso do Nominatim público:** máximo de 1 req/s (limite em memória, por processo), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
 - **Precisão:** em ruas longas o ponto devolvido é algum trecho da rua, não o centro do CEP.
 
 **Atenção ao migrar à mão:** a tabela `loaded_uf` (UFs carregadas) é preenchida pelo seed. Depois de um `prisma migrate deploy`, rode o seed; sem ele, todo CEP fora da base com UF existente cai em `CEP_FORA_DA_COBERTURA`. O `docker compose up` já roda o seed antes da API.
 
 ### Rate limit
 
-- **Entrada:** 60 req/min por IP (`RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`), em todas as rotas. Passou do limite: `429 LIMITE_EXCEDIDO` com `Retry-After`. Toda resposta traz `RateLimit` e `RateLimit-Policy` (IETF draft-8). IPv6 conta por sub-rede /56. O contador fica no Redis (`ratelimit:api:<ip>`, janela fixa) e o `DELETE /cache` não o apaga.
+- **Entrada:** 60 req/min por IP (`RATE_LIMIT_MAX` e `RATE_LIMIT_WINDOW_SECONDS`), em todas as rotas. Passou do limite: `429 LIMITE_EXCEDIDO` com `Retry-After`. Toda resposta traz `RateLimit` e `RateLimit-Policy` (IETF draft-8). IPv6 conta por sub-rede /56. O contador fica em memória, por processo, em janela fixa: ~205 bytes por IP, e um IP sem requisição por uma janela sai da memória.
 - **Atrás de proxy:** sem `TRUST_PROXY`, todos os clientes atrás do mesmo proxy dividem um contador. Prefira o número de saltos (`TRUST_PROXY=1`); `true` confia em qualquer `X-Forwarded-For`.
-- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) contam no Redis (`ratelimit:brasilapi`, `ratelimit:nominatim`), em janela deslizante, e o limite vale para todas as réplicas juntas.
-- **Redis fora do ar:** a entrada passa sem limite (fail-open, com log `warn`); a saída usa um limiter em memória do processo e volta ao Redis quando ele retorna.
+- **Saída:** BrasilAPI (5 req/s) e Nominatim (1 req/s) também contam em memória, por processo, em janela deslizante. Passou do limite, a chamada não sai e o serviço conta como fora do ar: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base e `origem.endereco: null` no `/detalhes` de CEP na base.
+- **Sem Redis:** os limites não dependem dele e continuam valendo com o Redis fora do ar.
+- **Réplicas:** com mais de uma réplica da API, cada uma conta separado. O compose sobe uma.
 
 ## Contrato
 
@@ -162,4 +163,4 @@ npm run typecheck
 npm run format:check
 ```
 
-Para formatar o código, rode `npm run format`. Para o `git blame` ignorar o commit de reformatação com Prettier, rode uma vez `git config blame.ignoreRevsFile .git-blame-ignore-revs` (o GitHub já lê o arquivo sozinho).
+Para formatar o código, rode `npm run format`.

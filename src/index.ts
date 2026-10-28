@@ -1,22 +1,14 @@
-import { CachingCepAddressProvider } from './application/caching-cep-address-provider.js';
-import { clearCache } from './application/clear-cache.js';
-import { findNearbyCeps } from './application/find-nearby-ceps.js';
-import { OriginGeocoder } from './application/origin-geocoder.js';
+import { CachingCepAddressProvider } from './application/providers/caching-cep-address-provider.js';
+import { clearCache } from './application/cache/clear-cache.js';
+import { findNearbyCeps } from './application/use-cases/find-nearby-ceps.js';
+import { OriginGeocoder } from './application/providers/origin-geocoder.js';
 import { loadEnv, type Env } from './config/env.js';
-import {
-  createRedisClient,
-  RedisCache,
-  REDIS_CONNECT_TIMEOUT_MS,
-  withTimeout,
-} from './infrastructure/cache/redis-cache.js';
+import { createRedisClient, RedisCache } from './infrastructure/cache/redis-cache.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';
 import { PrismaCepRepository } from './infrastructure/db/prisma-cep-repository.js';
 import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provider.js';
 import { NominatimGeocoder } from './infrastructure/http/nominatim-geocoder.js';
-import { WindowRateLimiter } from './infrastructure/http/window-rate-limiter.js';
 import { createLogger } from './infrastructure/logger.js';
-import { createRedisRateLimitStore } from './infrastructure/rate-limit/redis-rate-limit-store.js';
-import { RedisWindowRateLimiter } from './infrastructure/rate-limit/redis-window-rate-limiter.js';
 import { createApp } from './presentation/http/app.js';
 
 let env: Env;
@@ -31,40 +23,18 @@ const logger = createLogger(env.logLevel);
 const prisma = createPrismaClient(env.databaseUrl);
 const repository = new PrismaCepRepository(prisma);
 const redis = createRedisClient(env.redisUrl, logger);
-// Awaited (bounded) so the rate limit store loads its scripts on a connected client;
-// with Redis down, `connect()` never settles, so the API starts after the timeout and degrades.
-await withTimeout(redis.connect(), REDIS_CONNECT_TIMEOUT_MS).catch((error: unknown) =>
-  logger.warn({ err: error }, 'redis connect failed'),
-);
+// Not awaited: until Redis connects, the cache degrades to miss, as it does when Redis drops at runtime.
+// The client keeps retrying and logs each failure through its 'error' handler, so connect() rarely rejects.
+void redis.connect().catch(() => undefined);
 const cache = new RedisCache(redis, logger);
-const addressProvider = new CachingCepAddressProvider(
-  new BrasilApiCepProvider({
-    limiter: new RedisWindowRateLimiter(redis, {
-      key: 'ratelimit:brasilapi',
-      max: 5,
-      windowMs: 1000,
-      fallback: new WindowRateLimiter(5, 1000),
-      logger,
-    }),
-    logger,
-  }),
-  cache,
-  {
-    foundTtlSeconds: env.cacheTtl.addressSeconds,
-    notFoundTtlSeconds: env.cacheTtl.notFoundSeconds,
-  },
-);
+const addressProvider = new CachingCepAddressProvider(new BrasilApiCepProvider({ logger }), cache, {
+  foundTtlSeconds: env.cacheTtl.addressSeconds,
+  notFoundTtlSeconds: env.cacheTtl.notFoundSeconds,
+});
 const originGeocoder = new OriginGeocoder(
   new NominatimGeocoder({
     baseUrl: env.nominatim.url,
     userAgent: env.nominatim.userAgent,
-    limiter: new RedisWindowRateLimiter(redis, {
-      key: 'ratelimit:nominatim',
-      max: 1,
-      windowMs: 1000,
-      fallback: new WindowRateLimiter(1, 1000),
-      logger,
-    }),
     logger,
   }),
   cache,
@@ -80,7 +50,6 @@ const app = createApp({
   rateLimit: {
     limit: env.rateLimit.max,
     windowMs: env.rateLimit.windowSeconds * 1000,
-    store: createRedisRateLimitStore(redis),
   },
   cacheAdmin: env.cacheAdminToken
     ? {

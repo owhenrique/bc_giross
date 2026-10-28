@@ -1,20 +1,19 @@
 import express from 'express';
-import type { Store } from 'express-rate-limit';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
-import type { clearCache } from '../../application/clear-cache.js';
-import type { findNearbyCeps } from '../../application/find-nearby-ceps.js';
-import { cacheRouter } from './cache-route.js';
-import { errorHandler, notFoundHandler } from './errors.js';
-import { nearbyCepsRouter } from './nearby-ceps-route.js';
-import { rateLimitMiddleware } from './rate-limit.js';
+import type { clearCache } from '../../application/cache/clear-cache.js';
+import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
+import { cacheRouter } from './routes/cache-route.js';
+import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
+import { nearbyCepsRouter } from './routes/nearby-ceps-route.js';
+import { rateLimitMiddleware } from './middlewares/rate-limit.js';
 
 export interface AppDeps {
   findNearbyCeps: ReturnType<typeof findNearbyCeps>;
   logger: Logger;
   /** When absent, the cache admin routes are not registered and fall to the 404 handler. */
   cacheAdmin?: { clearCache: ReturnType<typeof clearCache>; token: string };
-  rateLimit: { limit: number; windowMs: number; store?: Store };
+  rateLimit: { limit: number; windowMs: number };
   /** Express `trust proxy` setting; defaults to false (use the socket address). */
   trustProxy?: boolean | number | string;
 }

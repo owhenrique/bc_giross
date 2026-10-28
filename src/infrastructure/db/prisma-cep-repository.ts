@@ -1,5 +1,5 @@
-import type { BoundingBox } from '../../domain/geo/bounding-box.js';
-import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
+import type { BoundingBox } from '../../domain/geo/geo.js';
+import type { CepRepository, StoredCep } from '../../application/use-cases/cep-repository.js';
 import type { PrismaClient } from '../../generated/prisma/client.js';
 
 const select = { cep: true, uf: true, latitude: true, longitude: true } as const;
