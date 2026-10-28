@@ -1,21 +1,19 @@
 import express from 'express';
-import { MemoryStore, type Store } from 'express-rate-limit';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { errorHandler, notFoundHandler } from './errors.js';
 import { rateLimitMiddleware } from './rate-limit.js';
 
-const logger = () => ({ warn: vi.fn() });
+const logger = () => ({ warn: vi.fn(), error: vi.fn() });
 
-function appWith(options: { store?: Store; trustProxy?: number; log?: { warn: () => void } } = {}) {
+function appWith(options: { trustProxy?: number } = {}) {
   const app = express();
   app.set('trust proxy', options.trustProxy ?? false);
   app.use(
     rateLimitMiddleware({
       limit: 2,
       windowMs: 60_000,
-      store: options.store,
-      logger: options.log ?? logger(),
+      logger: logger(),
     }),
   );
   app.get('/ok', (_req, res) => {
@@ -61,15 +59,6 @@ describe('rateLimitMiddleware', () => {
     await request(app).get('/ok').set('X-Forwarded-For', '1.1.1.1');
     await request(app).get('/ok').set('X-Forwarded-For', '2.2.2.2');
     expect((await request(app).get('/ok').set('X-Forwarded-For', '3.3.3.3')).status).toBe(429);
-  });
-
-  it('fails open and warns when the store throws', async () => {
-    const log = logger();
-    const failing = new MemoryStore();
-    failing.increment = () => Promise.reject(new Error('store down'));
-    const res = await request(appWith({ store: failing, log })).get('/ok');
-    expect(res.status).toBe(200);
-    expect(log.warn).toHaveBeenCalled();
   });
 
   it('counts once when mounted on the app and again on a router at the same path', async () => {

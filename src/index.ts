@@ -15,7 +15,6 @@ import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provi
 import { NominatimGeocoder } from './infrastructure/http/nominatim-geocoder.js';
 import { WindowRateLimiter } from './infrastructure/http/window-rate-limiter.js';
 import { createLogger } from './infrastructure/logger.js';
-import { createRedisRateLimitStore } from './infrastructure/rate-limit/redis-rate-limit-store.js';
 import { RedisWindowRateLimiter } from './infrastructure/rate-limit/redis-window-rate-limiter.js';
 import { createApp } from './presentation/http/app.js';
 
@@ -80,7 +79,6 @@ const app = createApp({
   rateLimit: {
     limit: env.rateLimit.max,
     windowMs: env.rateLimit.windowSeconds * 1000,
-    store: createRedisRateLimitStore(redis),
   },
   cacheAdmin: env.cacheAdminToken
     ? {

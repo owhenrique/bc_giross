@@ -287,7 +287,7 @@ Preenchido no `/pato/spec`; o `/pato/implement` confirma o modo com o usuário a
 
 ## Tarefas
 Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
-- [ ] 1. Rate limit de entrada em memória: saem o `redis-rate-limit-store.ts` (e o teste dele) e a dependência `rate-limit-redis`; o `rateLimitMiddleware` perde `store` e `passOnStoreError` e recebe o logger do pino direto; `app.ts` e `index.ts` ficam sem o store. O `rate-limit.test.ts` perde os casos de falha do store.
+- [x] 1. Rate limit de entrada em memória: saem o `redis-rate-limit-store.ts` (e o teste dele) e a dependência `rate-limit-redis`; o `rateLimitMiddleware` perde `store` e `passOnStoreError` e recebe o logger do pino direto; `app.ts` e `index.ts` ficam sem o store. O `rate-limit.test.ts` perde os casos de falha do store.
 - [ ] 2. Rate limit de saída em memória: saem o `redis-window-rate-limiter.ts` e a interface `RateLimiter`; o `window-rate-limiter.ts` e o teste dele vão para `infrastructure/rate-limit/`; os providers recebem `WindowRateLimiter`, com o limite no default; o `index.ts` não passa limiter nem espera o `redis.connect()`; o `withTimeout` fica privado e sai o `REDIS_CONNECT_TIMEOUT_MS`.
 - [ ] 3. `limitedFetch`: cria `limited-fetch.ts` e o teste dele (limite, timeout, falha de rede, corpo não JSON, headers). BrasilAPI e Nominatim passam a usá-lo, e os testes dos providers ficam com URL, status e parse.
 - [ ] 4. `InMemoryCache` em `tests/fakes/`: move o fake e o teste dele e atualiza os imports dos testes.

@@ -1,5 +1,4 @@
 import express from 'express';
-import type { Store } from 'express-rate-limit';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import type { clearCache } from '../../application/clear-cache.js';
@@ -14,7 +13,7 @@ export interface AppDeps {
   logger: Logger;
   /** When absent, the cache admin routes are not registered and fall to the 404 handler. */
   cacheAdmin?: { clearCache: ReturnType<typeof clearCache>; token: string };
-  rateLimit: { limit: number; windowMs: number; store?: Store };
+  rateLimit: { limit: number; windowMs: number };
   /** Express `trust proxy` setting; defaults to false (use the socket address). */
   trustProxy?: boolean | number | string;
 }
