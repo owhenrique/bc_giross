@@ -1,6 +1,6 @@
 import { rateLimit } from 'express-rate-limit';
 import type { Logger } from 'pino';
-import { RateLimitExceededError } from '../../../application/errors/errors.js';
+import { HTTP_ERRORS, sendError } from '../errors/errors.js';
 
 export interface RateLimitOptions {
   limit: number;
@@ -20,6 +20,7 @@ export function rateLimitMiddleware({ limit, windowMs, logger }: RateLimitOption
     // composition is in-process, never an HTTP call to the API itself).
     skip: (req) => (req as { rateLimit?: unknown }).rateLimit !== undefined,
     logger,
-    handler: (_req, _res, next) => next(new RateLimitExceededError()),
+    // The library sets Retry-After and the RateLimit headers before calling the handler.
+    handler: (_req, res) => sendError(res, HTTP_ERRORS.rateLimitExceeded),
   });
 }

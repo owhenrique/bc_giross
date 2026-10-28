@@ -40,11 +40,6 @@ export const ERROR_CATALOG: Record<AppErrorKind, ErrorCatalogEntry> = {
     codigo: 'CACHE_INDISPONIVEL',
     mensagem: 'Não foi possível limpar o cache',
   },
-  rate_limit_exceeded: {
-    status: 429,
-    codigo: 'LIMITE_EXCEDIDO',
-    mensagem: 'Limite de requisições excedido',
-  },
 };
 
 /** Errors raised by the HTTP layer itself, outside the use cases. */
@@ -53,6 +48,11 @@ export const HTTP_ERRORS = {
     status: 401,
     codigo: 'NAO_AUTORIZADO',
     mensagem: 'Token de acesso inválido ou ausente',
+  },
+  rateLimitExceeded: {
+    status: 429,
+    codigo: 'LIMITE_EXCEDIDO',
+    mensagem: 'Limite de requisições excedido',
   },
   routeNotFound: { status: 404, codigo: 'NAO_ENCONTRADO', mensagem: 'Recurso não encontrado' },
   badRequest: { status: 400, codigo: 'PARAMETRO_INVALIDO', mensagem: 'Requisição inválida' },

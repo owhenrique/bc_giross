@@ -358,7 +358,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
 - [x] 11. `application/` em pastas: sai o `ports.ts`; `cache/` (`cache.ts`, `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (`cep-address-provider.ts`, `geocoder.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts`); `use-cases/` (`find-nearby-ceps.ts`, `cep-repository.ts`); testes junto dos arquivos e imports atualizados.
 - [x] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
-- [ ] 13. `429` na borda: sai o `RateLimitExceededError` da `application`; `HTTP_ERRORS.rateLimitExceeded` e `sendError` no handler do `rateLimitMiddleware`; testes do `429` sem mudar o esperado.
+- [x] 13. `429` na borda: sai o `RateLimitExceededError` da `application`; `HTTP_ERRORS.rateLimitExceeded` e `sendError` no handler do `rateLimitMiddleware`; testes do `429` sem mudar o esperado.
 - [ ] 14. `nearestWithin` em `domain/geo/geo.ts`, com teste próprio (raio, ordem, desempate por CEP); o `findNearbyCeps` passa a usá-lo.
 - [ ] 15. Camadas no ESLint: `no-restricted-imports` por pasta no `eslint.config.js`, conferindo que um import proibido faz o `npm run lint` falhar.
 

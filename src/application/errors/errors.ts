@@ -7,7 +7,6 @@ export const APP_ERROR_KINDS = [
   'cep_without_location',
   'address_provider_unavailable',
   'cache_unavailable',
-  'rate_limit_exceeded',
 ] as const;
 
 export type AppErrorKind = (typeof APP_ERROR_KINDS)[number];
@@ -54,9 +53,4 @@ export class AddressProviderUnavailableError extends AppError {
 export class CacheUnavailableError extends AppError {
   readonly kind = 'cache_unavailable';
   override readonly name = 'CacheUnavailableError';
-}
-
-export class RateLimitExceededError extends AppError {
-  readonly kind = 'rate_limit_exceeded';
-  override readonly name = 'RateLimitExceededError';
 }
