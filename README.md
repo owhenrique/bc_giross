@@ -19,6 +19,8 @@ curl localhost:3000/ceps-proximos/04551-000
 - **[CI e Docker](./docs/ci.md)**: pipeline do GitHub Actions, testes e containers.
 - **[Registro de Decisões](./docs/DECISOES.md)**: todas as decisões, com contexto, alternativas e o porquê.
 
+O planejamento do desenvolvimento fica na branch [`docs`](https://github.com/owhenrique/bc_giross/tree/docs): as [histórias de usuário](https://github.com/owhenrique/bc_giross/blob/docs/HISTORIAS.md) (US1 a US12) e a [spec de cada uma](https://github.com/owhenrique/bc_giross/tree/docs/specs), com critérios de aceite, decisões, tarefas e o registro de testes. Cada história virou uma branch e um PR.
+
 ---
 
 ## O problema
