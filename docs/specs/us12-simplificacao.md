@@ -30,7 +30,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - [x] 2. Dado a BrasilAPI já chamada 5 vezes no último segundo, quando uma consulta precisa dela, então o provider devolve indisponível sem chamá-la, com a mesma resposta de hoje: `503 PROVEDOR_INDISPONIVEL` para CEP fora da base, `origem.endereco: null` no `/detalhes` para CEP na base. O mesmo vale para o Nominatim com 1 req/s. A contagem fica em memória, por processo, e nenhum dos dois limites grava chave `ratelimit:*` no Redis.
 - [ ] 3. Dado o Redis fora do ar, quando a API sobe, então ela sobe sem esperar por ele e responde sem cache, como já faz quando ele cai com a API rodando, e os dois rate limits continuam valendo.
 - [x] 4. Dado as rotas e os erros de hoje (`GET /ceps-proximos/:cep`, `GET /ceps-proximos/:cep/detalhes`, `DELETE /cache`, `DELETE /cache/:cep`, rota inexistente, token errado, requisição malformada, limite excedido e erro interno), quando chamados, então status, corpo e headers são os mesmos de antes: os testes HTTP passam sem mudar o status, o corpo nem os headers esperados. Só saem os testes do store do Redis.
-- [x] 5. Dado o `src/` (fora `src/generated`), então ele tem 26 arquivos de produção e nenhuma pasta foi achatada: as interfaces da aplicação e as chaves do cache em `application/ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
+- [ ] 5. Dado o `src/` (fora `src/generated`), então ele tem 24 arquivos de produção e nenhuma pasta foi achatada: `domain/cep/cep.ts` (`cep-code` + `cep-centroid`) e `domain/geo/geo.ts` (`haversine` + `bounding-box`), cada um com um teste; as interfaces da aplicação e as chaves do cache em `application/ports.ts`; o catálogo de erros e a tabela `HTTP_ERRORS` em `presentation/http/errors.ts`, sem a const `ErrorCode`; o `WindowRateLimiter` em `infrastructure/rate-limit/`; e o `InMemoryCache` em `tests/fakes/`.
 - [x] 6. Dado os providers da BrasilAPI e do Nominatim, então limite, timeout e log de falha ficam no `limitedFetch`, cada provider só monta a URL e interpreta a resposta, e o `limitedFetch` tem teste próprio para limite, timeout e falha de rede.
 - [x] 7. Dado os trechos repetidos da análise, então cada um existe uma vez só: `toRad` (o `bounding-box` usa o de `haversine`); a deduplicação dos pontos (só no `assessCep`; o `centroid` só tira a média); `errorMessage(e)` no seed; o header do CSV (`DATASET_HEADER`); e um `split` por linha no seed. O `findNearbyCeps` fica sem a compatibilidade com cache antigo e com `neighbors: Neighbor[]`.
 - [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
@@ -46,6 +46,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - `application/ports.ts` com as 4 interfaces e as chaves do cache.
 - `presentation/http/errors.ts` com o catálogo, a tabela `HTTP_ERRORS` e `sendError(res, entry)`.
 - `InMemoryCache` e o teste dele em `tests/fakes/`.
+- Domínio com um arquivo por pasta: `domain/cep/cep.ts` e `domain/geo/geo.ts`, com os testes juntados.
 - Trechos repetidos: `toRad`, `centroid`, compatibilidade com cache antigo e `Neighbor[]` no `findNearbyCeps`, `errorMessage`, `DATASET_HEADER` e `allowedUf` no seed.
 - Raiz: remover `.git-blame-ignore-revs`, `.nvmrc` e `vitest.config.ts`; Prettier no `package.json`.
 - README, `DECISOES.md` e o mapa.
@@ -56,7 +57,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - Janela deslizante na entrada → fora: custa até 4 vezes mais memória por IP (medido), e o pico na virada da janela fixa fica registrado na D22.
 - Helper genérico de cache (`getOrCompute`) → fora, porque piora a leitura.
 - Juntar as subclasses de `AppError`, deixar `logger.ts` e `prisma-client.ts` inline, juntar `bearer-auth.ts` ao `cache-route.ts` → fora.
-- Achatar pastas, inclusive juntar `haversine` + `bounding-box` ou `cep-code` + `cep-centroid` → fora.
+- Achatar pastas (as pastas `domain/cep` e `domain/geo` ficam) → fora.
 - `ALL_UFS` (a repetição fica) e `data/ceps-removidos.csv` (fica no repositório) → fora.
 
 ## Decisões e respostas do usuário
@@ -65,7 +66,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - P: Juntar `errors.ts` e `error-catalog.ts` da apresentação e tirar a const `ErrorCode`? → R: Sim.
 - P: Onde ficam os erros que só a camada HTTP gera (401, 404 de rota, 400 genérico, 500)? → R: Numa tabela `HTTP_ERRORS` no `errors.ts`, com `sendError(res, entry)`.
 - P: Trocar as 9 subclasses de `AppError` por `new AppError(kind)`? → R: Não.
-- P: Juntar `haversine` + `bounding-box` e `cep-code` + `cep-centroid`? → R: Não achatar pastas: os arquivos ficam, e a duplicação do `toRad` e do `centroid` se corrige no lugar.
+- P: Juntar `haversine` + `bounding-box` e `cep-code` + `cep-centroid`? → R: Primeiro não, e a duplicação do `toRad` e do `centroid` foi corrigida no lugar. Depois do `/implement`, o usuário revisou e pediu a unificação: um arquivo por pasta, `domain/cep/cep.ts` e `domain/geo/geo.ts`, com as pastas mantidas e os testes juntados (tarefa 10).
 - P: Deixar `logger.ts` e `prisma-client.ts` inline? E o `bearer-auth.ts` dentro do `cache-route.ts`? → R: Não.
 - P: O `InMemoryCache` vira fake de teste? → R: Sim, em `tests/fakes/`.
 - P: O cache da BrasilAPI e do Nominatim é em memória? → R: Não. Ele fica no Redis (`address:`, `geocode:` e `result:`). Em memória ficam só os rate limits, e o `InMemoryCache` é usado só nos testes.
@@ -187,6 +188,11 @@ O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests
   - `errorMessage(error)` substitui as 4 cópias de `error instanceof Error ? error.message : String(error)`;
   - `matchesUf(line, ufs): boolean` vira `allowedUf(line, ufs): string | null`, que devolve a UF da linha, e o `filteredLines` usa o retorno sem um segundo `split`.
 
+### Domínio com um arquivo por pasta
+- `domain/geo/geo.ts` junta `haversine.ts` e `bounding-box.ts`: `Point`, `EARTH_RADIUS_KM`, `toRad`, `haversineKm`, `BoundingBox` e `boundingBox`, nessa ordem.
+- `domain/cep/cep.ts` junta `cep-code.ts` e `cep-centroid.ts`: `normalizeCep` e depois `P90_THRESHOLD_KM`, `uniquePoints`, `centroid`, `percentile`, `CepAssessment` e `assessCep`.
+- Os testes viram `geo.test.ts` e `cep.test.ts`, com os mesmos casos. Os imports de `application`, `infrastructure` e `scripts/build-dataset` passam a apontar para os arquivos novos.
+
 ### Raiz
 - Remover `.git-blame-ignore-revs`, `.nvmrc` e `vitest.config.ts`. O Vitest passa a usar o `include` padrão.
 - O `.prettierrc.json` vira a chave `"prettier"` do `package.json`, com os mesmos valores.
@@ -238,7 +244,10 @@ Produção e scripts (contam no limite):
 - `src/presentation/http/error-catalog.ts` — remover — 0
 - `src/presentation/http/bearer-auth.ts` — `sendError(res, HTTP_ERRORS.unauthorized)` — ~2 linhas
 - `src/presentation/http/nearby-ceps-route.ts` — import do `ports` — ~1 linha
-- `scripts/build-dataset/index.ts` — `DATASET_HEADER` — ~3 linhas
+- `src/domain/geo/geo.ts` — criar a partir de `haversine.ts` + `bounding-box.ts` — ~40 linhas
+- `src/domain/cep/cep.ts` — criar a partir de `cep-code.ts` + `cep-centroid.ts` — ~50 linhas
+- `src/domain/geo/haversine.ts`, `src/domain/geo/bounding-box.ts`, `src/domain/cep/cep-code.ts`, `src/domain/cep/cep-centroid.ts` — remover — 0
+- `scripts/build-dataset/index.ts` — `DATASET_HEADER`; import do `cep.ts` — ~4 linhas
 - `scripts/seed/index.ts` — import do `ports`; `DATASET_HEADER`; `errorMessage`; `allowedUf` — ~12 linhas
 
 Testes (não contam):
@@ -296,6 +305,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 7. Trechos repetidos: `toRad` no `bounding-box`, `centroid`, `findNearbyCeps` sem compatibilidade com cache antigo e com `Neighbor[]`, e `DATASET_HEADER`, `errorMessage` e `allowedUf` no seed.
 - [x] 8. Raiz: remove `.git-blame-ignore-revs` e `.nvmrc`; move o Prettier para o `package.json` (`npm run format:check` sem diferença); remove o `vitest.config.ts` e o tira do `tsconfig.json`, conferindo que o Vitest roda os mesmos arquivos e testes antes e depois.
 - [x] 9. Documentação: README e `DECISOES.md` (D22, D11 cont., D21 cont. e tabela de status).
+- [ ] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).
