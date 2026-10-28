@@ -24,7 +24,8 @@ const prisma = createPrismaClient(env.databaseUrl);
 const repository = new PrismaCepRepository(prisma);
 const redis = createRedisClient(env.redisUrl, logger);
 // Not awaited: until Redis connects, the cache degrades to miss, as it does when Redis drops at runtime.
-void redis.connect().catch((error: unknown) => logger.warn({ err: error }, 'redis connect failed'));
+// The client keeps retrying and logs each failure through its 'error' handler, so connect() rarely rejects.
+void redis.connect().catch(() => undefined);
 const cache = new RedisCache(redis, logger);
 const addressProvider = new CachingCepAddressProvider(new BrasilApiCepProvider({ logger }), cache, {
   foundTtlSeconds: env.cacheTtl.addressSeconds,

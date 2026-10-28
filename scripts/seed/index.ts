@@ -168,7 +168,7 @@ async function load(
   try {
     await clearResultCache(cache);
   } catch (error) {
-    console.error((error as Error).message);
+    console.error(errorMessage(error));
     process.exitCode = 1;
     return;
   }
