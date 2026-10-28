@@ -4,7 +4,7 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US7 (PR #9) e US8 (PR #3), mergeadas. Parte da `main` com a US7
 titulo: Simplificação do projeto
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
@@ -408,6 +408,9 @@ Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-28 | Automatizado | local | local | `npm test` (23 arquivos, 256 testes), `npm run lint`, `npm run typecheck` e `npm run format:check` | Aprovado | — |
+| 2026-10-28 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec em duas rodadas, suítes em cada commit e a API subida sem Redis | Aprovado | seção "Verificação independente" |
+| 2026-10-28 | Manual | owhenrique | local (`docker compose`) | passos 1 a 5 de "Testes": `429` depois de 60 requisições, headers `RateLimit`, nenhuma chave `ratelimit:*` no Redis, API respondendo sem Redis e `/detalhes` com fallback do Nominatim | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Limites por processo:** com mais de uma réplica, cada uma conta separado. Na entrada, o total vira N × 60/min; na saída, a política do Nominatim pede 1 req/s no total. O compose sobe uma réplica, e o trade-off fica registrado na D22.
