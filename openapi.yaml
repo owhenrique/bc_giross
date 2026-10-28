@@ -1,0 +1,481 @@
+openapi: 3.1.0
+info:
+  title: API de CEPs próximos
+  version: 0.1.0
+  description: >-
+    Recebe um CEP e devolve os CEPs num raio fixo em torno dele, ordenados por distância e
+    paginados. Todo erro sai no formato `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
+    Todas as rotas contam no limite de requisições por IP (`429 LIMITE_EXCEDIDO`). Rota ou
+    método inexistente devolve `404 NAO_ENCONTRADO`.
+servers:
+  - url: http://localhost:3000
+
+tags:
+  - name: CEPs próximos
+  - name: Saúde
+  - name: Cache
+
+paths:
+  /ceps-proximos/{cep}:
+    get:
+      tags: [CEPs próximos]
+      summary: CEPs próximos (resumo)
+      description: >-
+        Só a origem e a lista. Com o CEP na base, não consulta nenhum serviço de CEP. `ceps` vem
+        ordenado por distância (empate por CEP), sem a própria origem. Página além da última
+        devolve `ceps: []`.
+      operationId: buscarCepsProximos
+      parameters:
+        - $ref: '#/components/parameters/cep'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+      responses:
+        '200':
+          description: Origem e CEPs próximos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaResumo'
+              example:
+                origem: '04551000'
+                paginacao: { pagina: 1, limite: 50, total: 174, total_paginas: 4 }
+                ceps:
+                  - { cep: '04551010', distancia_km: 0.12 }
+                  - { cep: '04551020', distancia_km: 0.5 }
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '404':
+          $ref: '#/components/responses/CepNaoEncontrado'
+        '422':
+          $ref: '#/components/responses/CepNaoProcessavel'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+        '503':
+          $ref: '#/components/responses/ProvedorIndisponivel'
+
+  /ceps-proximos/{cep}/detalhes:
+    get:
+      tags: [CEPs próximos]
+      summary: CEPs próximos (completa)
+      description: >-
+        Traz a origem com coordenada e endereço, o raio e a lista. `origem.fonte` é `base`
+        (coordenada do CEP na base) ou `nominatim` (CEP fora da base, coordenada do fallback).
+        `origem.endereco` é `null` quando o serviço de endereço está fora do ar, estoura o timeout
+        ou não acha o CEP; a lista vem normalmente. Campos vazios do endereço saem como `null`.
+      operationId: buscarCepsProximosDetalhes
+      parameters:
+        - $ref: '#/components/parameters/cep'
+        - $ref: '#/components/parameters/pagina'
+        - $ref: '#/components/parameters/limite'
+      responses:
+        '200':
+          description: Origem com coordenada e endereço, raio e CEPs próximos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaDetalhes'
+              examples:
+                base:
+                  summary: CEP na base, com endereço
+                  value:
+                    origem:
+                      cep: '04551000'
+                      latitude: -23.59
+                      longitude: -46.68
+                      fonte: base
+                      endereco:
+                        { rua: Rua Funchal, bairro: Vila Olímpia, cidade: São Paulo, uf: SP }
+                    raio_km: 1
+                    paginacao: { pagina: 1, limite: 50, total: 174, total_paginas: 4 }
+                    ceps:
+                      - { cep: '04551010', distancia_km: 0.12 }
+                nominatim:
+                  summary: CEP fora da base, coordenada do Nominatim e sem endereço
+                  value:
+                    origem:
+                      cep: '01001000'
+                      latitude: -23.55
+                      longitude: -46.63
+                      fonte: nominatim
+                      endereco: null
+                    raio_km: 1
+                    paginacao: { pagina: 1, limite: 50, total: 1, total_paginas: 1 }
+                    ceps:
+                      - { cep: '01001001', distancia_km: 0.03 }
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '404':
+          $ref: '#/components/responses/CepNaoEncontrado'
+        '422':
+          $ref: '#/components/responses/CepNaoProcessavel'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+        '503':
+          $ref: '#/components/responses/ProvedorIndisponivel'
+
+  /saude:
+    get:
+      tags: [Saúde]
+      summary: Saúde da API
+      description: >-
+        Diz só que a API está no ar: corpo fixo, sem checar banco, cache nem provedores.
+      operationId: verificarSaude
+      responses:
+        '200':
+          description: A API está no ar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Saude'
+              example:
+                status: ok
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+
+  /cache:
+    delete:
+      tags: [Cache]
+      summary: Limpa todo o cache
+      description: >-
+        Apaga as chaves de endereço, geocodificação e resultado. Idempotente. Com
+        `CACHE_ADMIN_TOKEN` vazio, a rota não existe e devolve `404 NAO_ENCONTRADO`.
+      operationId: limparCache
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Cache limpo, sem corpo.
+        '401':
+          $ref: '#/components/responses/NaoAutorizado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+        '503':
+          $ref: '#/components/responses/CacheIndisponivel'
+
+  /cache/{cep}:
+    delete:
+      tags: [Cache]
+      summary: Limpa o cache de um CEP
+      description: >-
+        Apaga só as chaves do CEP informado. Idempotente. O token é conferido antes do CEP. Com
+        `CACHE_ADMIN_TOKEN` vazio, a rota não existe e devolve `404 NAO_ENCONTRADO`.
+      operationId: limparCacheDoCep
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/cep'
+      responses:
+        '204':
+          description: Cache do CEP limpo, sem corpo.
+        '400':
+          $ref: '#/components/responses/CepInvalido'
+        '401':
+          $ref: '#/components/responses/NaoAutorizado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '500':
+          $ref: '#/components/responses/ErroInterno'
+        '503':
+          $ref: '#/components/responses/CacheIndisponivel'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Valor de `CACHE_ADMIN_TOKEN`, no cabeçalho `Authorization` como `Bearer <token>`.
+
+  parameters:
+    cep:
+      name: cep
+      in: path
+      required: true
+      description: CEP com ou sem hífen.
+      schema:
+        type: string
+        pattern: '^\d{5}-?\d{3}$'
+      example: '04551000'
+    pagina:
+      name: pagina
+      in: query
+      required: false
+      description: Página, a partir de 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limite:
+      name: limite
+      in: query
+      required: false
+      description: Itens por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  schemas:
+    Cep:
+      type: string
+      description: CEP normalizado, só dígitos.
+      pattern: '^\d{8}$'
+      example: '04551000'
+
+    CepProximo:
+      type: object
+      additionalProperties: false
+      required: [cep, distancia_km]
+      properties:
+        cep:
+          $ref: '#/components/schemas/Cep'
+        distancia_km:
+          type: number
+          minimum: 0
+          description: Distância até a origem, em km, com 2 casas decimais.
+
+    Paginacao:
+      type: object
+      additionalProperties: false
+      required: [pagina, limite, total, total_paginas]
+      properties:
+        pagina:
+          type: integer
+          minimum: 1
+        limite:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+          description: Total de CEPs no raio, em todas as páginas.
+        total_paginas:
+          type: integer
+          minimum: 0
+
+    Endereco:
+      type: object
+      additionalProperties: false
+      required: [rua, bairro, cidade, uf]
+      properties:
+        rua:
+          type: [string, 'null']
+        bairro:
+          type: [string, 'null']
+        cidade:
+          type: [string, 'null']
+        uf:
+          type: [string, 'null']
+
+    RespostaResumo:
+      type: object
+      additionalProperties: false
+      required: [origem, paginacao, ceps]
+      properties:
+        origem:
+          $ref: '#/components/schemas/Cep'
+        paginacao:
+          $ref: '#/components/schemas/Paginacao'
+        ceps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CepProximo'
+
+    RespostaDetalhes:
+      type: object
+      additionalProperties: false
+      required: [origem, raio_km, paginacao, ceps]
+      properties:
+        origem:
+          type: object
+          additionalProperties: false
+          required: [cep, latitude, longitude, fonte, endereco]
+          properties:
+            cep:
+              $ref: '#/components/schemas/Cep'
+            latitude:
+              type: number
+            longitude:
+              type: number
+            fonte:
+              type: string
+              enum: [base, nominatim]
+              description: '`base`: coordenada da base. `nominatim`: coordenada do fallback.'
+            endereco:
+              description: '`null` quando o serviço de endereço falha ou não acha o CEP.'
+              oneOf:
+                - $ref: '#/components/schemas/Endereco'
+                - type: 'null'
+        raio_km:
+          type: number
+          description: Raio da busca, em km.
+        paginacao:
+          $ref: '#/components/schemas/Paginacao'
+        ceps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CepProximo'
+
+    Saude:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+
+    Erro:
+      type: object
+      additionalProperties: false
+      required: [erro]
+      properties:
+        erro:
+          type: object
+          additionalProperties: false
+          required: [codigo, mensagem]
+          properties:
+            codigo:
+              type: string
+              enum:
+                - CEP_INVALIDO
+                - PARAMETRO_INVALIDO
+                - NAO_AUTORIZADO
+                - CEP_NAO_ENCONTRADO
+                - NAO_ENCONTRADO
+                - CEP_FORA_DA_COBERTURA
+                - CEP_SEM_GEOLOCALIZACAO
+                - LIMITE_EXCEDIDO
+                - PROVEDOR_INDISPONIVEL
+                - CACHE_INDISPONIVEL
+                - ERRO_INTERNO
+            mensagem:
+              type: string
+
+  responses:
+    RequisicaoInvalida:
+      description: CEP fora do formato ou `pagina`/`limite` inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            cepInvalido:
+              summary: CEP fora do formato
+              value: { erro: { codigo: CEP_INVALIDO, mensagem: CEP inválido } }
+            paginaInvalida:
+              summary: pagina inválida
+              value:
+                erro:
+                  codigo: PARAMETRO_INVALIDO
+                  mensagem: pagina deve ser um inteiro maior ou igual a 1
+            limiteInvalido:
+              summary: limite inválido
+              value:
+                erro:
+                  codigo: PARAMETRO_INVALIDO
+                  mensagem: limite deve ser um inteiro entre 1 e 200
+    CepInvalido:
+      description: CEP fora do formato `00000000`/`00000-000`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: CEP_INVALIDO, mensagem: CEP inválido }
+    NaoAutorizado:
+      description: Token ausente ou inválido.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            const: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: NAO_AUTORIZADO, mensagem: Token de acesso inválido ou ausente }
+    CepNaoEncontrado:
+      description: Nem a base nem o serviço de CEP encontram o CEP.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: CEP_NAO_ENCONTRADO, mensagem: CEP não encontrado }
+    NaoEncontrado:
+      description: >-
+        Rota inexistente. Os endpoints de limpeza de cache só existem com `CACHE_ADMIN_TOKEN`
+        configurado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: NAO_ENCONTRADO, mensagem: Recurso não encontrado }
+    CepNaoProcessavel:
+      description: >-
+        O CEP existe, mas a UF dele não foi carregada na base (`CEP_FORA_DA_COBERTURA`), ou nem a
+        base nem o Nominatim dão a coordenada dele (`CEP_SEM_GEOLOCALIZACAO`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            foraDaCobertura:
+              summary: UF não carregada
+              value:
+                { erro: { codigo: CEP_FORA_DA_COBERTURA, mensagem: CEP fora da cobertura da base } }
+            semGeolocalizacao:
+              summary: Sem coordenada
+              value:
+                erro:
+                  codigo: CEP_SEM_GEOLOCALIZACAO
+                  mensagem: Não foi possível obter a coordenada do CEP
+    LimiteExcedido:
+      description: Mais de `RATE_LIMIT_MAX` requisições do mesmo IP dentro da janela.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: LIMITE_EXCEDIDO, mensagem: Limite de requisições excedido }
+    ProvedorIndisponivel:
+      description: CEP fora da base e o serviço de CEP ou o Nominatim está fora do ar ou estourou o timeout.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro:
+              { codigo: PROVEDOR_INDISPONIVEL, mensagem: Serviço de consulta de CEP indisponível }
+    CacheIndisponivel:
+      description: Redis fora do ar ou com timeout durante a limpeza.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: CACHE_INDISPONIVEL, mensagem: Não foi possível limpar o cache }
+    ErroInterno:
+      description: Erro inesperado, sem detalhes na resposta.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: { codigo: ERRO_INTERNO, mensagem: Erro interno }

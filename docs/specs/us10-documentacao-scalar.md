@@ -5,7 +5,7 @@ mapa: docs/HISTORIAS.md
 depende_de: US8 (PR #3) e US9 (PR #11), mergeadas
 titulo: Documentação da API com Scalar
 status: em-andamento
-modo:
+modo: agent-driven
 criada_em: 2026-10-28
 implementada_em:
 verificada_em:
@@ -131,7 +131,7 @@ A US inteira sai num PR, mergeável sozinho, com **até 500 linhas de lógica** 
 **Modo sugerido:** agent-driven. São 3 tarefas e dependências novas, e o `openapi.yaml` é grande, embora não conte como lógica.
 
 ## Tarefas
-- [ ] 1. `openapi.yaml` e teste de contrato: escrever o documento, adicionar `yaml` e `ajv`, criar o helper `expectMatchesContract` e o `openapi-contract.test.ts` com todos os cenários de sucesso e erro e a cobertura do catálogo (critérios 3, 4 e 6).
+- [x] 1. `openapi.yaml` e teste de contrato: escrever o documento, adicionar `yaml` e `ajv`, criar o helper `expectMatchesContract` e o `openapi-contract.test.ts` com todos os cenários de sucesso e erro e a cobertura do catálogo (critérios 3, 4 e 6).
 - [ ] 2. `/docs` com Scalar: `NODE_ENV` obrigatório no env, no compose (`api` e `seed`) e no `.env.example`, `loadOpenApiDocument`, `docsRouter`, registro no `createApp` e no `index.ts`, `@scalar/express-api-reference` e `docs-route.test.ts` (critérios 1, 2, 5, 7 e 8).
 - [ ] 3. README: "Contrato" enxuto apontando para `/docs` e `openapi.yaml`, e `NODE_ENV` obrigatório nas variáveis de ambiente, com o aviso de que `production` desliga o `/docs` (critério 9).
 
