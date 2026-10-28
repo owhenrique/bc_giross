@@ -160,7 +160,7 @@ US técnica, pedida explicitamente. Roda depois da US8 e antes da US9: o número
 - Dado a BrasilAPI (5 req/s) ou o Nominatim (1 req/s) sem vaga, então a chamada não sai e a consulta degrada como hoje. O limite fica em memória, por processo, sem Redis nem Lua.
 - Dado o Redis fora na subida, então a API sobe sem esperar por ele, responde sem cache e os limites continuam valendo.
 - Dado as rotas e os erros, então status, corpo e headers não mudam.
-- Dado o `src/`, então ele tem 29 arquivos de produção, sem achatar pastas: domínio com um arquivo por pasta (`cep.ts`, `geo.ts`), `application/` em pastas (`use-cases/`, `cache/`, `errors/`, `providers/`) com uma porta por arquivo, `presentation/http/` em pastas (`routes/`, `middlewares/`, `errors/`, `mappers/`) com as rotas só com o `Router`, catálogo e `HTTP_ERRORS` em `presentation/http/errors.ts`, `limitedFetch` para as chamadas externas e `InMemoryCache` em `tests/fakes/`. A raiz perde `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json`.
+- Dado o `src/`, então ele tem 29 arquivos de produção, sem achatar pastas: domínio com um arquivo por pasta (`cep.ts`, `geo.ts`), `application/` em pastas (`use-cases/`, `cache/`, `errors/`, `providers/`) com uma porta por arquivo, `presentation/http/` em pastas (`routes/`, `middlewares/`, `errors/`, `mappers/`) com as rotas só com o `Router`, catálogo e `HTTP_ERRORS` em `presentation/http/errors/errors.ts`, `limitedFetch` para as chamadas externas e `InMemoryCache` em `tests/fakes/`. A raiz perde `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json`.
 
 Decisões: D22 reescrita (os dois limites em memória, por processo); a D30 fica. Spec: `docs/specs/us12-simplificacao.md`.
 

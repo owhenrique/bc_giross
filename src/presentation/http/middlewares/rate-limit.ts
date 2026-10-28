@@ -1,6 +1,6 @@
 import { rateLimit } from 'express-rate-limit';
 import type { Logger } from 'pino';
-import { RateLimitExceededError } from '../../application/errors/errors.js';
+import { RateLimitExceededError } from '../../../application/errors/errors.js';
 
 export interface RateLimitOptions {
   limit: number;

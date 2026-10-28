@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { RequestHandler } from 'express';
-import { HTTP_ERRORS, sendError } from './errors.js';
+import { HTTP_ERRORS, sendError } from '../errors/errors.js';
 
 const BEARER_PREFIX = /^Bearer /i;
 

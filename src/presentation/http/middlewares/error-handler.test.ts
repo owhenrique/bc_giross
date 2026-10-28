@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  APP_ERROR_KINDS,
   AppError,
   AddressProviderUnavailableError,
   CepNotFoundError,
@@ -10,8 +9,9 @@ import {
   InvalidCepError,
   InvalidLimitError,
   InvalidPageError,
-} from '../../application/errors/errors.js';
-import { ERROR_CATALOG, errorHandler } from './errors.js';
+} from '../../../application/errors/errors.js';
+import { ERROR_CATALOG } from '../errors/errors.js';
+import { errorHandler } from './error-handler.js';
 
 function run(err: unknown) {
   const json = vi.fn();
@@ -21,12 +21,6 @@ function run(err: unknown) {
   errorHandler(err, req, res, vi.fn() as unknown as NextFunction);
   return { res, json, error };
 }
-
-describe('ERROR_CATALOG', () => {
-  it.each(APP_ERROR_KINDS)('has an entry for %s', (kind) => {
-    expect(ERROR_CATALOG[kind]).toBeDefined();
-  });
-});
 
 describe('errorHandler', () => {
   it.each([

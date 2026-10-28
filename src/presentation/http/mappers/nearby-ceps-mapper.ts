@@ -1,9 +1,9 @@
-import { Router, type Request } from 'express';
-import type { CepAddress } from '../../application/providers/cep-address-provider.js';
+import type { Request } from 'express';
+import type { CepAddress } from '../../../application/providers/cep-address-provider.js';
 import type {
-  findNearbyCeps,
+  FindNearbyCepsInput,
   NearbyCepsResult,
-} from '../../application/use-cases/find-nearby-ceps.js';
+} from '../../../application/use-cases/find-nearby-ceps.js';
 
 // Query values arrive as strings; anything that is not a plain number becomes NaN and is rejected by the use case.
 const parseQueryNumber = (value: unknown) =>
@@ -57,19 +57,11 @@ export function toDetailedResponse(result: NearbyCepsResult) {
   };
 }
 
-export function nearbyCepsRouter(find: ReturnType<typeof findNearbyCeps>): Router {
-  const router = Router();
-  const input = (req: Request, withAddress: boolean) => ({
+export function toNearbyCepsInput(req: Request, withAddress: boolean): FindNearbyCepsInput {
+  return {
     cep: req.params.cep as string,
     page: parseQueryNumber(req.query.pagina),
     limit: parseQueryNumber(req.query.limite),
     withAddress,
-  });
-  router.get('/ceps-proximos/:cep', async (req, res) => {
-    res.json(toSummaryResponse(await find(input(req, false))));
-  });
-  router.get('/ceps-proximos/:cep/detalhes', async (req, res) => {
-    res.json(toDetailedResponse(await find(input(req, true))));
-  });
-  return router;
+  };
 }

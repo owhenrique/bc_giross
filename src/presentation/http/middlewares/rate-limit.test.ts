@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
-import { errorHandler, notFoundHandler } from './errors.js';
+import { errorHandler, notFoundHandler } from './error-handler.js';
 import { rateLimitMiddleware } from './rate-limit.js';
 
 const logger = () => ({ warn: vi.fn(), error: vi.fn() });

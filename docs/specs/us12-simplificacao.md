@@ -350,7 +350,7 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 9. Documentação: README e `DECISOES.md` (D22, D11 cont., D21 cont. e tabela de status).
 - [x] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
 - [x] 11. `application/` em pastas: sai o `ports.ts`; `cache/` (`cache.ts`, `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (`cep-address-provider.ts`, `geocoder.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts`); `use-cases/` (`find-nearby-ceps.ts`, `cep-repository.ts`); testes junto dos arquivos e imports atualizados.
-- [ ] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
+- [x] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).

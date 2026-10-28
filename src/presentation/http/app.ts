@@ -3,10 +3,10 @@ import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import type { clearCache } from '../../application/cache/clear-cache.js';
 import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
-import { cacheRouter } from './cache-route.js';
-import { errorHandler, notFoundHandler } from './errors.js';
-import { nearbyCepsRouter } from './nearby-ceps-route.js';
-import { rateLimitMiddleware } from './rate-limit.js';
+import { cacheRouter } from './routes/cache-route.js';
+import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
+import { nearbyCepsRouter } from './routes/nearby-ceps-route.js';
+import { rateLimitMiddleware } from './middlewares/rate-limit.js';
 
 export interface AppDeps {
   findNearbyCeps: ReturnType<typeof findNearbyCeps>;
