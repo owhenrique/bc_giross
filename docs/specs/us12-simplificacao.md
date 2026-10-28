@@ -356,4 +356,4 @@ Preenchido no `/pato/close-spec`.
 - **Critério 3 sem teste automatizado:** o `redis.connect()` sem `await` está no `index.ts`, mas a subida com o Redis fora só é exercida no passo 4 do teste manual. O critério fica aberto até lá.
 - **Header do `ceps-removidos.csv`:** o `build-dataset` também passou a montar esse header a partir do `DATASET_HEADER` (`${DATASET_HEADER};p90_km`). A saída não muda.
 - **`(error as Error).message` restantes:** um no `catch` do `clearResultCache` do seed e um no `main()` do `build-dataset`. Não são as 4 cópias de `instanceof Error`, e ficaram como estavam. Sugestão: usar o `errorMessage` também no seed.
-- **Medição:** o placar final é 292, contra ~270 estimados. A diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
+- **Medição:** o placar final é 340, contra ~270 estimados (292 até a tarefa 9; a tarefa 10 somou 48, porque o git vê `geo.ts` e `cep.ts` como arquivos novos). O resto da diferença vem do Prettier, que quebrou em várias linhas os imports juntados e as entradas do `HTTP_ERRORS`, e dos comentários de seção do `ports.ts`.
