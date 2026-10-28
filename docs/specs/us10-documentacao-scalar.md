@@ -133,7 +133,7 @@ A US inteira sai num PR, mergeável sozinho, com **até 500 linhas de lógica** 
 ## Tarefas
 - [x] 1. `openapi.yaml` e teste de contrato: escrever o documento, adicionar `yaml` e `ajv`, criar o helper `expectMatchesContract` e o `openapi-contract.test.ts` com todos os cenários de sucesso e erro e a cobertura do catálogo (critérios 3, 4 e 6).
 - [x] 2. `/docs` com Scalar: `NODE_ENV` obrigatório no env, no compose (`api` e `seed`) e no `.env.example`, `loadOpenApiDocument`, `docsRouter`, registro no `createApp` e no `index.ts`, `@scalar/express-api-reference` e `docs-route.test.ts` (critérios 1, 2, 5, 7 e 8).
-- [ ] 3. README: "Contrato" enxuto apontando para `/docs` e `openapi.yaml`, e `NODE_ENV` obrigatório nas variáveis de ambiente, com o aviso de que `production` desliga o `/docs` (critério 9).
+- [x] 3. README: "Contrato" enxuto apontando para `/docs` e `openapi.yaml`, e `NODE_ENV` obrigatório nas variáveis de ambiente, com o aviso de que `production` desliga o `/docs` (critério 9).
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste confere por HTTP que `/docs` devolve o HTML apontando para `/docs/openapi.json`, e a renderização é conferida manualmente no navegador.
