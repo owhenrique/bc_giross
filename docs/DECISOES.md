@@ -25,7 +25,7 @@ Cada decisão tem o contexto, o que foi escolhido e o porquê. Alternativas desc
 | D17 | Paginação | `?pagina=1&limite=50` (máx. 200), paginada sobre a lista em cache | ✅ |
 | D18 | Raio | Variável de ambiente (padrão 1 km) | ✅ |
 | D19 | Cache | Redis (implementação em memória para testes) | ✅ |
-| D20 | TTLs | Endereço 30 d · resultado 7 d · inexistente 1 h | ✅ |
+| D20 | TTLs | Endereço e coordenada 30 d · resultado 24 h · não encontrado e sem match 1 h | ✅ |
 | D21 | Limpeza de cache | `DELETE /cache` e `DELETE /cache/:cep` com token via env | ✅ |
 | D22 | Rate limit | Nossa API 60 req/min por IP · BrasilAPI 5 req/s · Nominatim 1 req/s, em memória por processo | ✅ |
 | D23 | Timeout externo | 3 s, sem retry | ✅ |
@@ -133,7 +133,7 @@ O token vem da variável `CACHE_ADMIN_TOKEN` e vai no header `Authorization: Bea
 - **Autenticação:** `Authorization: Bearer <token>`, esquema sem diferença de maiúsculas (RFC 6750). Sem header, esquema errado ou token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`, sempre com o mesmo corpo, e antes da validação do CEP. A comparação é `timingSafeEqual` sobre `sha256` dos dois lados: os digests têm o mesmo tamanho, então um token de tamanho diferente não lança exceção nem vaza o tamanho. O 401 não é `AppError`, porque é preocupação de HTTP e não há caso de uso por trás.
 - **O que apaga:** `DELETE /cache` roda `deleteByPrefix` só nos prefixos da API (`result:`, `address:`, `geocode:`). `FLUSHDB` foi descartado porque zeraria, no mesmo Redis, chaves que não são da API. `DELETE /cache/:cep` apaga `address:<cep>`, `geocode:<cep>` e `result:<raio atual>:<cep>`; resultados de raios antigos já são inalcançáveis e saem por TTL/LRU.
 - **Redis fora do ar:** `503 CACHE_INDISPONIVEL` (`CacheUnavailableError`, `kind: 'cache_unavailable'`). Ao contrário das leituras, que degradam (D19), aqui a falha precisa aparecer para o operador. Falha no meio do `DELETE /cache` deixa a limpeza parcial, e repetir é seguro.
-- **Limitação aceita:** `DELETE /cache/:cep` não invalida o CEP limpo dentro das listas de vizinhos de outros CEPs. Essas listas saem por TTL (7 d) ou por um `DELETE /cache`. Varrer todas as listas para achar o CEP custaria mais do que a limpeza vale.
+- **Limitação aceita:** `DELETE /cache/:cep` não invalida o CEP limpo dentro das listas de vizinhos de outros CEPs. Essas listas saem por TTL (24 h) ou por um `DELETE /cache`. Varrer todas as listas para achar o CEP custaria mais do que a limpeza vale.
 - **Logs:** o `redact` do logger oculta o header `Authorization`, para o token não aparecer nos logs.
 
 ## D11 (cont.) — Nominatim como fallback de coordenada
@@ -162,12 +162,26 @@ O `404` da BrasilAPI lista erros dos serviços internos dela, então pode mascar
 
 ## D20 — TTLs
 
-O critério é a frequência de mudança do dado contra o custo de servir um dado desatualizado:
-- **Endereço (30 d):** rua e bairro de um CEP raramente mudam.
-- **Resultado (7 d):** só muda quando a base é recarregada, e o seed já limpa esse cache. O TTL serve para liberar memória.
-- **Inexistente (1 h):** protege a API externa de repetições, sem prender por muito tempo um CEP novo ou um falso `404`.
+Longos o bastante para poupar o banco e as APIs externas, curtos o bastante para não servir dado velho nem ocupar o Redis com CEP que ninguém consulta mais. Pesam três fatos: o dado de um CEP quase nunca muda, e a base é uma foto do CNEFE 2022 que só muda num seed novo; os mesmos CEPs são consultados com frequência; e o Redis tem 256 MB, com `allkeys-lru`.
 
-O Redis roda com `maxmemory` e a política `allkeys-lru`.
+- **Endereço e coordenada encontrados (30 d):** `address:<cep>` (BrasilAPI) e `geocode:<cep>` (Nominatim). Rua, bairro e coordenada raramente mudam, e cada miss é uma chamada externa com limite (5 req/s e 1 req/s; a política do Nominatim exige cache). Cada chave tem ~200 bytes, então os 30 d não pesam na memória. Uma correção antes do prazo sai pelo `DELETE /cache/:cep` (D21).
+- **Resultado (24 h):** `result:<raio>:<cep>`. A lista só muda quando a base é recarregada, e o seed já apaga essas chaves, então o TTL não protege contra dado velho: só controla a memória. As 24 h mantêm os CEPs que voltam todo dia, recalculados no máximo uma vez por dia só com consultas indexadas ao banco, e liberam no dia seguinte os consultados uma vez.
+- **Não encontrado e sem match (1 h):** o `404` da BrasilAPI pode mascarar a queda de um serviço interno dela (D12 cont.), e um CEP ou uma rua que acabaram de surgir precisam aparecer logo. 1 h ainda poupa as APIs externas de repetições do mesmo CEP.
+
+**Conta do resultado** (raio de 1 km, sobre os 898.455 CEPs, com o arredondamento do alocador do Redis e ~100 bytes por chave):
+
+| | Brasil | Capital paulista |
+|---|---|---|
+| Vizinhos por CEP (média · máximo) | 115 · 971 | 171 · 437 |
+| Resultado no Redis (média) | ~6,5 KB | ~9,6 KB |
+| Todos os resultados | ~5,5 GB | ~430 MB (46 mil CEPs) |
+| Cabem em 256 MB | ~40 mil | ~27 mil |
+
+Com 10 mil origens novas por dia na capital paulista, os resultados ocupam ~90 MB com 24 h e chegariam a ~650 MB com 7 d.
+
+**Por que o resultado saiu de 7 d para 24 h:** com 7 d, os CEPs consultados uma vez se acumulam e passam dos 256 MB. O `allkeys-lru` despeja pela ordem de uso, sem saber o custo: um resultado (~6 a 10 KB, recalculável no banco) ocupa o lugar de 30 a 50 endereços ou coordenadas, e cada um deles custa uma chamada externa com limite. As chaves `geocode:*` sofrem mais: enquanto o resultado do CEP está em cache, ninguém as lê, e elas parecem frias para o LRU. De quebra, a limitação do `DELETE /cache/:cep` (D21 cont.) cai de 7 d para 1 d.
+
+**Descartado:** guardar os vizinhos compactos (`[cep, km com 3 casas]`, ~2,6 vezes menor) para manter os 7 d. Muda o formato do cache e o código que o lê, para um ganho que as 24 h já dão.
 
 ## D19 (cont.) — Cache na US4
 

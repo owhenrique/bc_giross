@@ -7,7 +7,7 @@ const envSchema = z.object({
   SEED_UFS: z.string().default(''),
   REDIS_URL: z.string().min(1),
   CACHE_TTL_ADDRESS_SECONDS: z.coerce.number().int().positive().default(2592000),
-  CACHE_TTL_RESULT_SECONDS: z.coerce.number().int().positive().default(604800),
+  CACHE_TTL_RESULT_SECONDS: z.coerce.number().int().positive().default(86400),
   CACHE_TTL_NOT_FOUND_SECONDS: z.coerce.number().int().positive().default(3600),
   NOMINATIM_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   NOMINATIM_USER_AGENT: z

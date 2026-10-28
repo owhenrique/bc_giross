@@ -15,7 +15,7 @@ describe('loadEnv', () => {
       seedUfs: '',
       logLevel: 'info',
       redisUrl: base.REDIS_URL,
-      cacheTtl: { addressSeconds: 2592000, resultSeconds: 604800, notFoundSeconds: 3600 },
+      cacheTtl: { addressSeconds: 2592000, resultSeconds: 86400, notFoundSeconds: 3600 },
       nominatim: {
         url: 'https://nominatim.openstreetmap.org',
         userAgent: 'bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)',

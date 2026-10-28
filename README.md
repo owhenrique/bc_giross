@@ -29,9 +29,9 @@ SEED_UFS=SP,RJ docker compose up --build
 | `SEARCH_RADIUS_KM` | `1` | raio de busca em km |
 | `SEED_UFS` | vazio | UFs a carregar, separadas por vírgula |
 | `REDIS_URL` | — | conexão Redis (obrigatória; o compose já define) |
-| `CACHE_TTL_ADDRESS_SECONDS` | `2592000` (30 d) | TTL do endereço (BrasilAPI) |
-| `CACHE_TTL_RESULT_SECONDS` | `604800` (7 d) | TTL do resultado (origem + lista de vizinhos) |
-| `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra |
+| `CACHE_TTL_ADDRESS_SECONDS` | `2592000` (30 d) | TTL do endereço (BrasilAPI) e da coordenada do Nominatim |
+| `CACHE_TTL_RESULT_SECONDS` | `86400` (24 h) | TTL do resultado (origem + lista de vizinhos) |
+| `CACHE_TTL_NOT_FOUND_SECONDS` | `3600` (1 h) | TTL do CEP que a BrasilAPI não encontra e do "sem match" do Nominatim |
 | `NOMINATIM_URL` | `https://nominatim.openstreetmap.org` | base do Nominatim, usado como fallback de coordenada |
 | `NOMINATIM_USER_AGENT` | `bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)` | `User-Agent` enviado ao Nominatim (a política de uso exige identificar o cliente) |
 | `CACHE_ADMIN_TOKEN` | vazio | token dos endpoints de limpeza de cache (mínimo de 12 caracteres; vazio desliga os endpoints) |
@@ -42,12 +42,31 @@ SEED_UFS=SP,RJ docker compose up --build
 
 ### Cache (Redis)
 
-O compose tem o serviço `redis` (`maxmemory` com política `allkeys-lru`, sem persistência), e a `api` e o `seed` só sobem com ele saudável. Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
+O compose tem o serviço `redis` (`maxmemory` de 256 MB com política `allkeys-lru`, sem persistência), e a `api` e o `seed` só sobem com ele saudável. Para rodar a API localmente, suba só o Redis com `docker compose up redis` e use `REDIS_URL=redis://localhost:6379` (exemplo no `.env.example`).
 
 - **Resultado** (`result:<raio>:<cep>`): a lista inteira de vizinhos; `pagina` e `limite` saem dela.
 - **Endereço** (`address:<cep>`): o lookup da BrasilAPI. `found` usa `CACHE_TTL_ADDRESS_SECONDS` e `not_found` usa `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra no cache.
 - **Redis fora do ar:** a API sobe sem esperar por ele e segue respondendo, só sem cache, e cada falha vira log `warn`. Quando o Redis volta, o cache volta sem reiniciar a API. Já o seed falha (código ≠ 0) se não alcançar o Redis, antes de mexer no banco.
 - **Seed:** ao terminar, apaga as chaves `result:*` e mantém as `address:*`. Se a limpeza falhar depois do `COMMIT`, ele sai com código ≠ 0 e avisa que a base foi carregada mas o cache não foi limpo.
+
+#### TTLs
+
+Longos o bastante para poupar o banco e as APIs externas, curtos o bastante para não servir dado velho nem ocupar o Redis com CEP que ninguém consulta mais.
+
+- **Endereço e coordenada encontrados** (`address:` e `geocode:`, 30 d): rua, bairro e coordenada de um CEP quase nunca mudam. Cada miss custa uma chamada externa com limite (BrasilAPI a 5 req/s; Nominatim a 1 req/s, cuja política exige cache), e cada chave ocupa ~200 bytes. Para corrigir antes do prazo: `DELETE /cache/:cep`.
+- **Resultado** (`result:`, 24 h): a lista de vizinhos sai da base (CNEFE 2022), que só muda num seed novo, e o seed já apaga essas chaves. Aqui o TTL não evita dado velho, só controla a memória. Como os mesmos CEPs são consultados com frequência, os que voltam todo dia ficam em cache e são recalculados no máximo uma vez por dia, só com consultas indexadas ao banco; os consultados uma vez saem no dia seguinte. Um TTL menor recalcularia várias vezes por dia os CEPs que voltam, sem liberar memória que falte.
+- **Não encontrado e sem match** (`address:` e `geocode:`, 1 h): segura as repetições de um mesmo CEP sem prender por muito tempo um CEP ou uma rua que acabaram de surgir, nem um falso `404`, que a BrasilAPI pode devolver quando um serviço interno dela cai.
+
+A conta do resultado, num raio de 1 km, sobre os 898.455 CEPs da base:
+
+| | Brasil | Capital paulista |
+| --- | --- | --- |
+| Vizinhos por CEP (média · máximo) | 115 · 971 | 171 · 437 |
+| Resultado no Redis (média) | ~6,5 KB | ~9,6 KB |
+| Todos os resultados | ~5,5 GB | ~430 MB |
+| Cabem nos 256 MB do Redis | ~40 mil | ~27 mil |
+
+Com 10 mil origens novas por dia na capital, os resultados ocupam ~90 MB com 24 h e chegariam a ~650 MB com 7 d. Acima dos 256 MB, o `allkeys-lru`, que despeja pela ordem de uso sem saber o custo, tiraria também endereços e coordenadas, que custam uma chamada externa, para guardar resultados que o banco recalcula.
 
 ### Limpeza de cache
 
@@ -63,7 +82,7 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:3000/cache/04551000
 - **`DELETE /cache/:cep`:** apaga `address:<cep>`, `geocode:<cep>` e `result:<raio>:<cep>` (o raio atual). `:cep` aceita `04551000` ou `04551-000`.
 - **Autenticação:** header `Authorization: Bearer <token>` (esquema sem diferença de maiúsculas). Sem header, com outro esquema ou com token errado: `401 NAO_AUTORIZADO` com `WWW-Authenticate: Bearer`. A autenticação vem antes da validação do CEP.
 - **Respostas:** `204` sem corpo (idempotente, também para CEP sem nada em cache), `400 CEP_INVALIDO`, `401 NAO_AUTORIZADO`, `404 NAO_ENCONTRADO` (endpoints desligados) e `503 CACHE_INDISPONIVEL` (Redis fora do ar ou timeout; pode ter apagado só parte, e repetir é seguro).
-- **Limitação:** o `DELETE /cache/:cep` não tira o CEP limpo das listas de vizinhos de outros CEPs. Essas listas (`result:*`) só saem por TTL ou por um `DELETE /cache`.
+- **Limitação:** o `DELETE /cache/:cep` não tira o CEP limpo das listas de vizinhos de outros CEPs. Essas listas (`result:*`) só saem por TTL (24 h) ou por um `DELETE /cache`.
 
 ### Fallback de coordenada (Nominatim)
 
@@ -72,7 +91,7 @@ Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um 
 - **Validação:** o Nominatim só vale se a cidade e a UF do candidato baterem com as da BrasilAPI (sem acento, sem diferença de maiúsculas e sem espaços extras). Sem candidato válido: `422 CEP_SEM_GEOLOCALIZACAO`.
 - **Sem rua, cidade ou UF** na BrasilAPI: `422 CEP_SEM_GEOLOCALIZACAO`, sem chamar o Nominatim. UF não carregada continua `422 CEP_FORA_DA_COBERTURA`.
 - **Nominatim fora do ar** (timeout de 3 s, erro, status ≠ 200, corpo inválido) ou limite de 1 req/s atingido: `503 PROVEDOR_INDISPONIVEL`.
-- **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS`. Indisponibilidade nunca entra. O seed não apaga essas chaves.
+- **Cache** (`geocode:<cep>`): coordenada aceita por `CACHE_TTL_ADDRESS_SECONDS` (30 d) e "sem match" por `CACHE_TTL_NOT_FOUND_SECONDS` (1 h). Indisponibilidade nunca entra. O seed não apaga essas chaves.
 - **Política de uso do Nominatim público:** máximo de 1 req/s (limite em memória, por processo), `User-Agent` identificado e cache dos resultados. Uso pesado pode levar a bloqueio; para isso, aponte `NOMINATIM_URL` para uma instância própria.
 - **Precisão:** em ruas longas o ponto devolvido é algum trecho da rua, não o centro do CEP.
 
