@@ -10,7 +10,7 @@ criada_em: 2026-10-28
 implementada_em: 2026-10-28
 verificada_em: 2026-10-28
 branch: feat/us9-saude
-merge_request:
+merge_request: https://github.com/owhenrique/bc_giross/pull/11
 ---
 
 # US9 — Healthcheck (`/saude`)
