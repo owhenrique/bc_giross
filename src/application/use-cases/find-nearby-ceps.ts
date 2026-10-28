@@ -1,14 +1,13 @@
-import { normalizeCep } from '../domain/cep/cep.js';
-import { boundingBox, haversineKm } from '../domain/geo/geo.js';
-import {
-  resultKey,
-  type AddressLookup,
-  type Cache,
-  type CepAddress,
-  type CepAddressProvider,
-  type CepRepository,
-} from './ports.js';
-import type { OriginGeocoder } from './origin-geocoder.js';
+import { normalizeCep } from '../../domain/cep/cep.js';
+import { boundingBox, haversineKm } from '../../domain/geo/geo.js';
+import { resultKey, type Cache } from '../cache/cache.js';
+import type {
+  AddressLookup,
+  CepAddress,
+  CepAddressProvider,
+} from '../providers/cep-address-provider.js';
+import type { CepRepository } from './cep-repository.js';
+import type { OriginGeocoder } from '../providers/origin-geocoder.js';
 import {
   AddressProviderUnavailableError,
   CepNotFoundError,
@@ -17,7 +16,7 @@ import {
   InvalidCepError,
   InvalidLimitError,
   InvalidPageError,
-} from './errors.js';
+} from '../errors/errors.js';
 
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 200;

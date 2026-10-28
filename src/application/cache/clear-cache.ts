@@ -1,6 +1,6 @@
-import { normalizeCep } from '../domain/cep/cep.js';
-import { CACHE_KEY_PREFIXES, addressKey, geocodeKey, resultKey, type Cache } from './ports.js';
-import { CacheUnavailableError, InvalidCepError } from './errors.js';
+import { normalizeCep } from '../../domain/cep/cep.js';
+import { CACHE_KEY_PREFIXES, addressKey, geocodeKey, resultKey, type Cache } from './cache.js';
+import { CacheUnavailableError, InvalidCepError } from '../errors/errors.js';
 
 export interface ClearCacheOptions {
   radiusKm: number;

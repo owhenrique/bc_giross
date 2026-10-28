@@ -1,11 +1,11 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
-import { addressKey, geocodeKey, resultKey, type Cache } from '../../application/ports.js';
-import { clearCache } from '../../application/clear-cache.js';
+import { addressKey, geocodeKey, resultKey, type Cache } from '../../application/cache/cache.js';
+import { clearCache } from '../../application/cache/clear-cache.js';
 import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
 import { createApp } from './app.js';
-import type { findNearbyCeps } from '../../application/find-nearby-ceps.js';
+import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
 
 const TOKEN = 'a-secret-token-123';
 const RADIUS_KM = 1;

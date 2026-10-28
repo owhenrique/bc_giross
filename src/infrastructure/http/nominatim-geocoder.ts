@@ -5,7 +5,7 @@ import type {
   GeocodeLookup,
   GeocodeQuery,
   Geocoder,
-} from '../../application/ports.js';
+} from '../../application/providers/geocoder.js';
 import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
 import { limitedFetch, type LimitedFetchOptions } from './limited-fetch.js';
 

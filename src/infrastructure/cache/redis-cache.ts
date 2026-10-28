@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 import type { Logger } from 'pino';
-import type { Cache } from '../../application/ports.js';
+import type { Cache } from '../../application/cache/cache.js';
 
 export const CACHE_OPERATION_TIMEOUT_MS = 500;
 const SCAN_COUNT = 500;

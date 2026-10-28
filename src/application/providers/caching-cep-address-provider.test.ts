@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
+import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
 import { CachingCepAddressProvider } from './caching-cep-address-provider.js';
-import type { AddressLookup, CepAddressProvider } from './ports.js';
+import type { AddressLookup, CepAddressProvider } from './cep-address-provider.js';
 
 const options = { foundTtlSeconds: 1000, notFoundTtlSeconds: 100 };
 const found: AddressLookup = {

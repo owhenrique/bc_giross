@@ -10,7 +10,7 @@ import {
   InvalidCepError,
   InvalidLimitError,
   InvalidPageError,
-} from '../../application/errors.js';
+} from '../../application/errors/errors.js';
 import { ERROR_CATALOG, errorHandler } from './errors.js';
 
 function run(err: unknown) {

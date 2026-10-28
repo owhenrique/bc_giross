@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import { pino } from 'pino';
-import { RESULT_KEY_PREFIX, type Cache } from '../../src/application/ports.js';
+import { RESULT_KEY_PREFIX, type Cache } from '../../src/application/cache/cache.js';
 import { loadEnv } from '../../src/config/env.js';
 import { RedisCache, createRedisClient } from '../../src/infrastructure/cache/redis-cache.js';
 import { DATASET_HEADER } from '../build-dataset/index.js';

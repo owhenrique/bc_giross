@@ -1,7 +1,7 @@
-import { CachingCepAddressProvider } from './application/caching-cep-address-provider.js';
-import { clearCache } from './application/clear-cache.js';
-import { findNearbyCeps } from './application/find-nearby-ceps.js';
-import { OriginGeocoder } from './application/origin-geocoder.js';
+import { CachingCepAddressProvider } from './application/providers/caching-cep-address-provider.js';
+import { clearCache } from './application/cache/clear-cache.js';
+import { findNearbyCeps } from './application/use-cases/find-nearby-ceps.js';
+import { OriginGeocoder } from './application/providers/origin-geocoder.js';
 import { loadEnv, type Env } from './config/env.js';
 import { createRedisClient, RedisCache } from './infrastructure/cache/redis-cache.js';
 import { createPrismaClient } from './infrastructure/db/prisma-client.js';

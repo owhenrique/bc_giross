@@ -1,6 +1,9 @@
 import { Router, type Request } from 'express';
-import type { CepAddress } from '../../application/ports.js';
-import type { findNearbyCeps, NearbyCepsResult } from '../../application/find-nearby-ceps.js';
+import type { CepAddress } from '../../application/providers/cep-address-provider.js';
+import type {
+  findNearbyCeps,
+  NearbyCepsResult,
+} from '../../application/use-cases/find-nearby-ceps.js';
 
 // Query values arrive as strings; anything that is not a plain number becomes NaN and is rejected by the use case.
 const parseQueryNumber = (value: unknown) =>

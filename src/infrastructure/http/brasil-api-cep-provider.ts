@@ -1,6 +1,9 @@
 import type { Logger } from 'pino';
 import { z } from 'zod';
-import type { AddressLookup, CepAddressProvider } from '../../application/ports.js';
+import type {
+  AddressLookup,
+  CepAddressProvider,
+} from '../../application/providers/cep-address-provider.js';
 import { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
 import { limitedFetch, type LimitedFetchOptions } from './limited-fetch.js';
 

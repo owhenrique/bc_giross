@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler, Response } from 'express';
-import { AppError, type AppErrorKind } from '../../application/errors.js';
+import { AppError, type AppErrorKind } from '../../application/errors/errors.js';
 
 export interface ErrorCatalogEntry {
   status: number;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { clearCache } from '../../application/clear-cache.js';
+import type { clearCache } from '../../application/cache/clear-cache.js';
 import { requireBearerToken } from './bearer-auth.js';
 
 export function cacheRouter(clear: ReturnType<typeof clearCache>, token: string): Router {

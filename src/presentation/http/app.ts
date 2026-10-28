@@ -1,8 +1,8 @@
 import express from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
-import type { clearCache } from '../../application/clear-cache.js';
-import type { findNearbyCeps } from '../../application/find-nearby-ceps.js';
+import type { clearCache } from '../../application/cache/clear-cache.js';
+import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
 import { cacheRouter } from './cache-route.js';
 import { errorHandler, notFoundHandler } from './errors.js';
 import { nearbyCepsRouter } from './nearby-ceps-route.js';

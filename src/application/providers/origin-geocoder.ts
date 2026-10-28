@@ -1,4 +1,6 @@
-import { geocodeKey, type Cache, type CepAddress, type Geocoder } from './ports.js';
+import { geocodeKey, type Cache } from '../cache/cache.js';
+import type { CepAddress } from './cep-address-provider.js';
+import type { Geocoder } from './geocoder.js';
 
 export type OriginLocation =
   | { status: 'found'; lat: number; lon: number }
