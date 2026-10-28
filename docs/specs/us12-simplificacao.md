@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
-verificada_em:
+verificada_em: 2026-10-28
 branch: feat/us12-simplificacao
 merge_request:
 ---
@@ -385,14 +385,23 @@ Não se aplica (API sem telas).
 ## Verificação independente
 Preenchido no `/pato/verify`; o `/pato/close-spec` não começa sem esta seção.
 
-- **Data:**
-- **Verificador:**
-- **Suítes rodadas:**
-- **Critérios de aceite:**
-- **Entregável:**
-- **Linhas de lógica:**
-- **Achados:**
-- **Decisão do usuário:**
+- **Data:** 2026-10-28.
+- **Verificador:** subagente em contexto limpo, em duas rodadas: a verificação completa até `0668cdf` e uma re-verificação das correções (`0b36c87` e `3512a4d`).
+- **Suítes rodadas:** `npm test` (23 arquivos e 256 testes, 0 falhas), `npm run lint`, `npm run typecheck` e `npm run format:check`, todos com exit 0 no HEAD das duas rodadas. Na primeira rodada, as quatro suítes passaram em cada commit da branch, rodadas via `git archive`. No commit da tarefa 8, o Vitest rodou os mesmos 24 arquivos e 252 testes antes e depois de remover o `vitest.config.ts`. Não há Playwright, porque a API não tem telas.
+- **Critérios de aceite:** os 11 foram atendidos.
+  - O 1 e o 3 foram conferidos subindo o `src/index.ts`. Com `REDIS_URL=redis://127.0.0.1:1` e `RATE_LIMIT_MAX=3`, a API logou "api listening" antes do erro do Redis e respondeu `404 404 429 429 429`. O `429` veio com `Retry-After: 60`, `RateLimit`, `RateLimit-Policy` e o corpo `LIMITE_EXCEDIDO`, sem unhandled rejection.
+  - O 2 foi conferido com um script de teste, com o Redis fora e um `fetch` falso. Das 7 consultas de CEP fora da base, todas deram `503` e só 5 chamaram o `fetch`. O `/detalhes` de CEP na base deu `endereco: null`, e não sobra nenhum `ratelimit:` em `src/`.
+  - Para o 11, imports proibidos passados pelo `eslint --stdin` deram erro `no-restricted-imports`, inclusive um da `application` para o `src/generated`.
+- **Entregável:** sim. A branch parte da `main` (`89015ce`) e só tem commits desta US. Não há `TODO`, flag nem camada faltando, e a API sobe e atende de ponta a ponta.
+- **Linhas de lógica:** 339 contra 500 (337 ao fim da tarefa 15, mais 2 das correções).
+- **Achados:** nenhum de severidade Alta ou Média. Os de severidade Baixa foram:
+  1. Spec defasada: a triagem, a lista de arquivos e de testes, o `eslint.config.js` "não muda", o trecho antigo do `connect` e o critério 3 desmarcado. Foi corrigida em `3512a4d` e `1ae1bfd`.
+  2. A regra de camadas também barra o `src/generated`, o que a spec não registrava. Ficou registrado na tarefa 15 e na lista de arquivos.
+  3. O seed importa o `DATASET_HEADER` do `build-dataset` e, com ele, carrega o `read-cnefe` e o `yauzl`. Foi aceito e registrado em Riscos, para não criar um arquivo só para a constante.
+  4. Um `(error as Error).message` sobrava no seed. Agora usa o `errorMessage` (`0b36c87`).
+  5. O `.catch` do `redis.connect()` logava um warn que nunca aparecia. Agora o `catch` é vazio, com um comentário dizendo que quem loga a falha é o handler `'error'` (`0b36c87`).
+- **Não verificado:** o teste manual com `docker compose` (passos 1 a 5), o fluxo com Postgres e Redis reais, a reconexão do Redis depois de subir sem ele e o custo de ~205 B/IP do `MemoryStore`.
+- **Decisão do usuário:** corrigir os achados de severidade Baixa. Os itens 1, 2, 4 e 5 foram corrigidos, e o 3 foi aceito com registro.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
