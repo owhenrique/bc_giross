@@ -4,7 +4,7 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US8 (PR #3) e US12 (PR #10), mergeadas
 titulo: Healthcheck (`/saude`)
-status: em-andamento
+status: implementado
 modo: direto
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
@@ -140,10 +140,12 @@ Rodada em 2026-10-28 por um subagente em contexto limpo, sobre `feat/us9-saude` 
 **Decisão do usuário:** aceitar como está.
 
 ## Registro de testes
-Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-28 | Automatizado | local | local | `npm test` (24 arquivos, 260 testes), lint, typecheck, format:check | Aprovado | — |
+| 2026-10-28 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec, suítes e curl na API da branch | Aprovado | seção "Verificação independente" |
+| 2026-10-28 | Manual | owhenrique | local (docker compose) | `GET /saude` → 200, Postgres/Redis fora → 200, `POST /saude` → 404, rate limit → 429 | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - O `/saude` diz só que o processo responde HTTP. Ele não detecta o Postgres fora: nesse caso o `/saude` dá `200` e as consultas de CEP falham. Isso foi aceito no refinamento.
