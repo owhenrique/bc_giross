@@ -8,7 +8,7 @@ status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-28
 implementada_em: 2026-10-28
-verificada_em:
+verificada_em: 2026-10-28
 branch: feat/us10-documentacao-scalar
 merge_request:
 ---
@@ -44,7 +44,7 @@ Hoje o contrato existe só na seção "Contrato" do README: rotas, exemplos e a 
 - README enxuto e seção da US10 no mapa.
 
 **Fora** (fora do card, decidido no refinamento):
-- Servir o JS do Scalar pela própria API: a UI carrega o bundle do CDN (jsdelivr) padrão do pacote.
+- Servir o JS do Scalar pela própria API: a UI carrega o bundle do CDN (jsdelivr), com a versão fixada em `@scalar/api-reference@1.74.0` (ajuste da verificação).
 - Gerar o OpenAPI a partir do código (Zod, decorators): o yaml é escrito à mão.
 - Isentar `/docs` do rate limit.
 
@@ -74,7 +74,7 @@ Nenhuma.
 
   Campos que podem ser nulos usam `type: [..., 'null']` (3.1), por exemplo `origem.endereco` e os campos do endereço. Os schemas usam `additionalProperties: false`, para que um campo a mais no código quebre o teste.
 - **Leitura do documento:** `loadOpenApiDocument()` lê o `openapi.yaml` da raiz (caminho resolvido a partir de `import.meta.url`), faz o parse com `yaml` e devolve o objeto. É chamada uma vez, no `index.ts`.
-- **Camadas:** o `docsRouter(document)` é só HTTP: registra `GET /docs/openapi.json` (`res.json(document)`) antes de `router.use('/docs', apiReference({ url: '/docs/openapi.json' }))`, de `@scalar/express-api-reference`.
+- **Camadas:** o `docsRouter(document)` é só HTTP: registra `GET /docs/openapi.json` (`res.json(document)`) antes de `router.get('/docs', apiReference({ url: '/docs/openapi.json', bundle: SCALAR_BUNDLE }))`, de `@scalar/express-api-reference`. O `get` atende só `/docs`: qualquer outro caminho abaixo dele cai no 404 genérico (ajuste da verificação).
 - **Registro:** `AppDeps` ganha `openApiDocument?: object`. Quando ausente, as rotas não são registradas e caem no `notFoundHandler`, no mesmo padrão do `cacheAdmin`. Em `createApp`, `if (openApiDocument) app.use(docsRouter(openApiDocument))` vem depois do `rateLimitMiddleware` e antes do `notFoundHandler`. No `index.ts`: `openApiDocument: env.nodeEnv === 'production' ? undefined : loadOpenApiDocument()`.
 - **Configuração:**
   - No `env.ts`, `NODE_ENV: z.enum(['development', 'test', 'production'])`, obrigatório e sem `.default`, e `Env.nodeEnv`. O `loadEnv` é compartilhado com o seed (`scripts/seed/index.ts`), então o seed também passa a exigir a variável.
@@ -161,7 +161,50 @@ Não se aplica. A UI é renderizada pelo Scalar a partir do documento. O teste c
   - sem `NODE_ENV` no `.env`, o `docker compose up` aborta com `defina NODE_ENV no .env`, e o `npm run dev` sai com o erro de env.
 
 ## Verificação independente
-Preenchido no `/pato/verify`.
+**2026-10-28**, duas rodadas, cada uma com um subagente em contexto limpo.
+
+**Rodada 1:** 9 critérios atendidos e o 6 parcial. 303 testes passaram, sem falhas, e lint, typecheck e format:check passaram. 34 linhas de lógica, contra o limite de 500.
+- **Média:** o 429 e o 500 declarados no yaml não tinham requisição em todos os endpoints.
+- **Baixa:**
+  - qualquer subcaminho de `/docs` devolvia 200 com a UI;
+  - o bundle do CDN não tinha versão fixa;
+  - o commit `0b21492` está sem a tag `[us10]`;
+  - o comentário do `.env.example` está em português;
+  - um risco da spec estava desatualizado;
+  - a ordem da tabela de erros do README mudou.
+- **Decisão do usuário:** corrigir o achado Média e os dois primeiros Baixa.
+  - `f97d51a`: 429 nos 5 endpoints e 500 nos `DELETE /cache*`. O 500 de `/saude` saiu do yaml porque a rota não tem como falhar.
+  - `75e9a3a`: `/docs` passa a usar `router.get`, só no caminho exato, e o bundle fica fixado em `@scalar/api-reference@1.74.0`.
+
+**Rodada 2:**
+
+| # | Veredito |
+| --- | --- |
+| 1 | Atendido |
+| 2 | Atendido |
+| 3 | Atendido |
+| 4 | Atendido |
+| 5 | Atendido |
+| 6 | Atendido: todo par (path, método, status) do yaml tem requisição |
+| 7 | Atendido |
+| 8 | Atendido |
+| 9 | Atendido |
+| 10 | Atendido |
+
+- **Entregável:** sim. A branch parte do topo da `main` (`870143b`) e só tem commits da US10.
+- **Linhas de lógica:** 37 de 500.
+- **Suítes:** `npm test` rodou 27 arquivos e 308 testes, sem falhas. Lint, typecheck e format:check passaram.
+- **Média:** o `codigo` não fica restrito por status no yaml, porque o schema `Erro` é o mesmo para todos os erros.
+- **Baixa:**
+  - a spec estava desatualizada em relação ao `75e9a3a` (atualizada neste registro);
+  - a versão do bundle não acompanha a do pacote;
+  - o 400 genérico (`PARAMETRO_INVALIDO`, "Requisição inválida") não tem requisição própria;
+  - a tag que falta no `0b21492` e o idioma do `.env.example`, os dois já registrados.
+- **Decisão do usuário:** aceitar e registrar. Os achados restantes estão em "Riscos e pontos em aberto".
+- **Não verificado:**
+  - a renderização da UI no navegador;
+  - o `docker compose up --build` completo;
+  - o seed rodando de verdade sem `NODE_ENV`.
 
 ## Registro de testes
 Preenchido no `/pato/close-spec`.
@@ -174,8 +217,10 @@ Preenchido no `/pato/close-spec`.
 - **Merge da US9:** o PR #11 precisa estar mergeado antes do `/pato/implement`, que parte da `main`.
 - **CDN do Scalar:** a UI precisa de internet no navegador de quem abre `/docs`. O `/docs/openapi.json` funciona offline.
 - **Caminho do yaml:** o `loadOpenApiDocument` resolve o `openapi.yaml` relativo ao arquivo-fonte. Se o arquivo faltar no container (o `.dockerignore` não o exclui), a API não sobe fora de `production`, e esse erro aparece logo na subida.
-- **`.env` local sem `NODE_ENV`:** o `.env` desta máquina ainda não tem a variável; `npm run dev`, o seed e o `docker compose up` falham até acrescentar `NODE_ENV=development` (comportamento intencional).
+- **`.env` local:** já tem `NODE_ENV=development`. Quem tiver um `.env` sem a variável vê a API, o seed e o compose falharem até acrescentá-la (comportamento intencional).
 - **Idioma do `.env.example`:** o comentário novo do `NODE_ENV` saiu em português e os antigos estão em inglês. Sugestão: padronizar numa US futura.
 - **404 genérico no contrato:** o `404 NAO_ENCONTRADO` está documentado nos dois `DELETE /cache` (rota não registrada sem `CACHE_ADMIN_TOKEN`), e a `info.description` diz que qualquer rota inexistente devolve esse 404.
-- **Cobertura de 429 e 500 por requisição:** o 429 é exercitado em `/saude` e nas rotas de `/docs`, e o 500 nas rotas de CEP; nos outros endpoints eles estão só no documento.
+- **Cobertura por requisição:** todo par (path, método, status) do `openapi.yaml` tem requisição no teste de contrato. O 500 de `/saude` saiu do documento porque a rota não tem como falhar.
+- **`codigo` por status:** as respostas de erro usam o mesmo schema `Erro`, que aceita os 11 códigos; o par status/código é garantido pelos `expect` de cada teste, não pelo yaml.
+- **Versão do bundle do Scalar:** fixada à mão em `docs-route.ts`, independente da versão de `@scalar/express-api-reference`; um upgrade do pacote não a atualiza.
 - **Ajv e OpenAPI 3.1:** palavras-chave próprias do OpenAPI (`example`, `discriminator`) não são JSON Schema. Por isso o `strict: false`. Se o Ajv rejeitar algum `$ref` entre componentes, o helper resolve o ponteiro pelo id `openapi`.
