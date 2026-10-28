@@ -10,6 +10,7 @@ import { BrasilApiCepProvider } from './infrastructure/http/brasil-api-cep-provi
 import { NominatimGeocoder } from './infrastructure/http/nominatim-geocoder.js';
 import { createLogger } from './infrastructure/logger.js';
 import { createApp } from './presentation/http/app.js';
+import { loadOpenApiDocument } from './presentation/http/openapi/load-openapi-document.js';
 
 let env: Env;
 try {
@@ -47,6 +48,7 @@ const app = createApp({
   }),
   logger,
   trustProxy: env.trustProxy,
+  openApiDocument: env.nodeEnv === 'production' ? undefined : loadOpenApiDocument(),
   rateLimit: {
     limit: env.rateLimit.max,
     windowMs: env.rateLimit.windowSeconds * 1000,

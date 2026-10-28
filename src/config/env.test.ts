@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadEnv } from './env.js';
 
 const base = {
+  NODE_ENV: 'development',
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
 };
@@ -9,6 +10,7 @@ const base = {
 describe('loadEnv', () => {
   it('applies defaults', () => {
     expect(loadEnv(base)).toEqual({
+      nodeEnv: 'development',
       databaseUrl: base.DATABASE_URL,
       port: 3000,
       searchRadiusKm: 1,
@@ -50,11 +52,29 @@ describe('loadEnv', () => {
   });
 
   it('rejects missing DATABASE_URL', () => {
-    expect(() => loadEnv({ REDIS_URL: base.REDIS_URL })).toThrow(/DATABASE_URL/);
+    expect(() => loadEnv({ NODE_ENV: base.NODE_ENV, REDIS_URL: base.REDIS_URL })).toThrow(
+      /DATABASE_URL/,
+    );
   });
 
   it('rejects missing REDIS_URL', () => {
-    expect(() => loadEnv({ DATABASE_URL: base.DATABASE_URL })).toThrow(/REDIS_URL/);
+    expect(() => loadEnv({ NODE_ENV: base.NODE_ENV, DATABASE_URL: base.DATABASE_URL })).toThrow(
+      /REDIS_URL/,
+    );
+  });
+
+  it('rejects missing NODE_ENV', () => {
+    expect(() => loadEnv({ DATABASE_URL: base.DATABASE_URL, REDIS_URL: base.REDIS_URL })).toThrow(
+      /NODE_ENV/,
+    );
+  });
+
+  it.each(['development', 'test', 'production'])('reads NODE_ENV=%s', (value) => {
+    expect(loadEnv({ ...base, NODE_ENV: value }).nodeEnv).toBe(value);
+  });
+
+  it.each(['', 'staging', 'Production'])('rejects NODE_ENV=%j', (value) => {
+    expect(() => loadEnv({ ...base, NODE_ENV: value })).toThrow(/NODE_ENV/);
   });
 
   it('reads cache TTLs and rejects non-positive ones', () => {

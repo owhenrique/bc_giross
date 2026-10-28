@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
+  // Required with no default: forgetting it must not boot production with /docs exposed.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
   SEARCH_RADIUS_KM: z.coerce.number().positive().default(1),
@@ -36,6 +38,7 @@ const envSchema = z.object({
 });
 
 export interface Env {
+  nodeEnv: 'development' | 'test' | 'production';
   databaseUrl: string;
   port: number;
   searchRadiusKm: number;
@@ -55,6 +58,7 @@ export interface Env {
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.parse(source);
   return {
+    nodeEnv: parsed.NODE_ENV,
     databaseUrl: parsed.DATABASE_URL,
     port: parsed.PORT,
     searchRadiusKm: parsed.SEARCH_RADIUS_KM,
