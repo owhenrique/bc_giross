@@ -36,6 +36,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - [x] 8. Dado a raiz, então `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json` não existem, a config do Prettier está no `package.json`, e o `graphify-out` continua em `.gitignore`, `.prettierignore`, `eslint.config.js` e `.dockerignore`. No commit que remove o `vitest.config.ts`, o Vitest roda os mesmos arquivos e testes do commit anterior.
 - [x] 9. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
 - [x] 10. Dado a documentação, então o README e o `DECISOES.md` descrevem os dois limites em memória, por processo, com o custo do contador de entrada (~205 bytes por IP) e o trade-off com réplicas; a D22 foi reescrita e a D30 continua; e o mapa traz a US12 e a nota de simplificação na US7.
+- [ ] 11. Dado as camadas, então cada uma só importa as de baixo (`domain` ← `application` ← `infrastructure` e `presentation`), a `application` não tem erro que só a borda HTTP gera (o `429` sai do `HTTP_ERRORS`), o cálculo dos vizinhos (raio, ordem e desempate) está no `domain`, e o `npm run lint` falha quando uma camada importa outra que não pode.
 
 ## Escopo
 **Dentro:**
@@ -85,6 +86,7 @@ No mapa (`docs/HISTORIAS.md`), a US12 roda depois da US8 e antes da US9; o núme
 - P: A US9 e a US10 continuam? → R: Sim, depois desta. A US9 mantém o critério do `/saude` fora do rate limit.
 - P: Como o `DECISOES.md` registra a mudança? → R: Reescrever a D22. A D30 fica, porque o contador de entrada continua (a primeira resposta, apagar a D30, partia da saída do limite de entrada).
 - P: Uma US ou duas? → R: Uma, a US12.
+- P: Auditoria da arquitetura em camadas (ports and adapters, service layer, repository, dependências só para baixo): o que entra? → R: Os três ajustes da auditoria: o `429` sai da `application` para o `HTTP_ERRORS` (o `RateLimitExceededError` era um erro da borda HTTP que nenhum caso de uso lançava); o cálculo dos vizinhos vai para o `domain` (`nearestWithin`); e o ESLint passa a barrar import entre camadas (tarefas 13 a 15). Ficam como estão: o seed com `pg` + `COPY` direto, o caso de uso tipado por `ReturnType` na apresentação e o `'nominatim'` em `OriginSource`.
 - P: O `presentation/` também se divide? As funções da `nearby-ceps-route.ts` que não são rota (leitura da query, `round2`, `toSummaryResponse`, `toDetailedResponse`...) se movem ou a lógica muda? → R: Depois do `/implement`, o usuário pediu a divisão. As funções se movem para `mappers/nearby-ceps-mapper.ts`, que traduz nos dois sentidos (req → input do caso de uso, resultado → JSON em português), porque a tradução do contrato é da borda (AGENTS.md) e não pode subir para `application/`. O `errors.ts` se divide: o catálogo e o `sendError` em `errors/`, o `notFoundHandler` e o `errorHandler` em `middlewares/error-handler.ts` (tarefa 12).
 
 ## Premissas
@@ -94,7 +96,7 @@ Nenhuma.
 
 ### Rate limit de entrada (em memória)
 - Remover `infrastructure/rate-limit/redis-rate-limit-store.ts` e a dependência `rate-limit-redis`.
-- `presentation/http/rate-limit.ts`: o `rateLimitMiddleware` perde `store` e `passOnStoreError` e passa a usar o store padrão do `express-rate-limit` (`MemoryStore`). O `logger` recebe o do pino direto (`Pick<Logger, 'warn' | 'error'>`): sem store remoto, só sobram os avisos de configuração da biblioteca, e o adaptador que rebaixava falha de store para `warn` perde o motivo. O resto fica igual: `429` pelo catálogo, headers draft-8 e `skip` para contar uma vez por requisição (D30).
+- `presentation/http/rate-limit.ts`: o `rateLimitMiddleware` perde `store` e `passOnStoreError` e passa a usar o store padrão do `express-rate-limit` (`MemoryStore`). O `logger` recebe o do pino direto (`Pick<Logger, 'warn' | 'error'>`): sem store remoto, só sobram os avisos de configuração da biblioteca, e o adaptador que rebaixava falha de store para `warn` perde o motivo. O resto fica igual: `429 LIMITE_EXCEDIDO` (pelo `HTTP_ERRORS` desde a tarefa 13), headers draft-8 e `skip` para contar uma vez por requisição (D30).
 - `app.ts`: o `rateLimit` de `AppDeps` perde o `store`. O `trustProxy` fica.
 - Como o `MemoryStore` (express-rate-limit 8.7.1) gasta memória:
   - um contador por IP (janela fixa), com custo fixo de ~205 bytes por IP, medido com 100 mil IPs;
@@ -175,7 +177,7 @@ src/application/
 Os imports de `application`, `infrastructure`, `presentation`, `index.ts`, `scripts/seed` e `tests/fakes` passam a apontar para os arquivos novos.
 
 ### Erros na apresentação (`presentation/http/errors.ts`)
-- Absorve `ERROR_CATALOG` (com todas as entradas de hoje, inclusive `rate_limit_exceeded` → `429 LIMITE_EXCEDIDO`) e `ErrorCatalogEntry`, com `codigo: string`. Sai a const `ErrorCode`.
+- Absorve `ERROR_CATALOG` (com todas as entradas de hoje; o `rate_limit_exceeded` → `429 LIMITE_EXCEDIDO` sai na tarefa 13 e vira `HTTP_ERRORS.rateLimitExceeded`) e `ErrorCatalogEntry`, com `codigo: string`. Sai a const `ErrorCode`.
 - Ganha a tabela dos erros que só a camada HTTP gera:
 
 ```ts
@@ -212,6 +214,11 @@ src/presentation/http/
 - O `nearbyCepsRouter` só registra as duas rotas: `res.json(toSummaryResponse(await find(toNearbyCepsInput(req, false))))`.
 - O `parseQueryNumber`, o `round2`, o `toPagination`, o `toCeps` e o `toAddress` ficam privados no mapper. As respostas não mudam.
 - O `errors.test.ts` fica com a cobertura do catálogo, e os casos do `errorHandler` vão para `error-handler.test.ts`.
+
+### Arquitetura em camadas (tarefas 13 a 15)
+- **Tarefa 13 — 429 na borda:** saem o `RateLimitExceededError` e o kind `rate_limit_exceeded` da `application`, e a entrada do `ERROR_CATALOG`. O `HTTP_ERRORS` ganha `rateLimitExceeded: { status: 429, codigo: 'LIMITE_EXCEDIDO', mensagem: 'Limite de requisições excedido' }`, e o handler do `rateLimitMiddleware` chama `sendError(res, HTTP_ERRORS.rateLimitExceeded)`. O `express-rate-limit` grava o `Retry-After` e os headers `RateLimit` antes de chamar o handler, e o contrato não muda.
+- **Tarefa 14 — vizinhos no domínio:** `domain/geo/geo.ts` ganha `nearestWithin(origin, points, radiusKm)`, que recebe pontos com `cep`, filtra pelo raio, calcula `distanceKm` e ordena por distância e depois por CEP. O `findNearbyCeps` tira a origem da lista e chama o `nearestWithin`; fica com cache, repositório, providers e paginação.
+- **Tarefa 15 — camadas no lint:** `no-restricted-imports` por pasta no `eslint.config.js`: `src/domain` não importa `application`, `infrastructure`, `presentation` nem `config`; `src/application` não importa `infrastructure`, `presentation` nem `config`; `src/infrastructure` não importa `presentation`; `src/presentation` não importa `infrastructure` nem `config`. A composition root (`src/index.ts`) e os `scripts/` ficam fora da regra.
 
 ### Fake de cache (`tests/fakes/in-memory-cache.ts`)
 O `InMemoryCache` e o teste dele saem de `src/infrastructure/cache/` para `tests/fakes/`, sem mudar o comportamento (TTL com relógio injetável). O `tsconfig.json` já inclui `tests`. Como nenhum código de produção o usa, ele passa a ser código de teste.
@@ -351,6 +358,9 @@ Passos (commits) desta US. Todos entram no mesmo PR; tarefa não é entregável.
 - [x] 10. Domínio com um arquivo por pasta: `domain/geo/geo.ts` (`haversine` + `bounding-box`) e `domain/cep/cep.ts` (`cep-code` + `cep-centroid`), com os testes juntados e os imports atualizados.
 - [x] 11. `application/` em pastas: sai o `ports.ts`; `cache/` (`cache.ts`, `clear-cache.ts`), `errors/` (`errors.ts`) e `providers/` (`cep-address-provider.ts`, `geocoder.ts`, `caching-cep-address-provider.ts`, `origin-geocoder.ts`); `use-cases/` (`find-nearby-ceps.ts`, `cep-repository.ts`); testes junto dos arquivos e imports atualizados.
 - [x] 12. `presentation/http/` em pastas: `routes/`, `middlewares/` (`bearer-auth`, `rate-limit`, `error-handler`), `errors/` e `mappers/nearby-ceps-mapper.ts`; a rota fica só com o `Router`; testes junto dos arquivos e imports atualizados.
+- [ ] 13. `429` na borda: sai o `RateLimitExceededError` da `application`; `HTTP_ERRORS.rateLimitExceeded` e `sendError` no handler do `rateLimitMiddleware`; testes do `429` sem mudar o esperado.
+- [ ] 14. `nearestWithin` em `domain/geo/geo.ts`, com teste próprio (raio, ordem, desempate por CEP); o `findNearbyCeps` passa a usá-lo.
+- [ ] 15. Camadas no ESLint: `no-restricted-imports` por pasta no `eslint.config.js`, conferindo que um import proibido faz o `npm run lint` falhar.
 
 ## Telas e fluxos E2E (Playwright)
 Não se aplica (API sem telas).
