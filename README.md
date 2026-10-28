@@ -5,8 +5,11 @@ API que lista os CEPs num raio de um CEP de referência, com a distância de cad
 ## Como rodar
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
+
+O `.env` precisa de `NODE_ENV` (o `.env.example` já traz); sem ela, o compose aborta com `defina NODE_ENV no .env`.
 
 Sobem o Postgres, o Redis, o `seed` (aplica a migration, carrega a base e termina) e, só depois, a `api` em `http://localhost:3000`.
 
@@ -38,6 +41,7 @@ SEED_UFS=SP,RJ docker compose up --build
 | `RATE_LIMIT_MAX` | `60` | requisições por IP dentro da janela (inteiro ≥ 1) |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | janela do limite de entrada, em segundos (inteiro ≥ 1) |
 | `TRUST_PROXY` | vazio | de onde sai o IP do cliente atrás de proxy: número de saltos (`1`), `loopback`, lista de CIDRs. Vazio usa o IP do socket e ignora o `X-Forwarded-For` |
+| `NODE_ENV` | — | `development`, `test` ou `production` (obrigatória, sem padrão). Sem ela, a API, o seed e o `docker compose up` não sobem. `production` desliga o `/docs` e o `/docs/openapi.json` |
 | `LOG_LEVEL` | `info` | nível do Pino |
 
 ### Cache (Redis)
@@ -107,64 +111,15 @@ Quando o CEP não está na base mas a UF dele foi carregada (um CEP novo, ou um 
 
 ## Contrato
 
-Duas rotas de consulta. `:cep` aceita `04551000` ou `04551-000`. Query (nas duas): `pagina` (inteiro ≥ 1, padrão 1) e `limite` (inteiro 1–200, padrão 50).
+A fonte da verdade do contrato é o [`openapi.yaml`](openapi.yaml) (OpenAPI 3.1), com parâmetros, exemplos de resposta e erros de cada rota. Um teste de contrato confere as respostas da API contra ele e quebra se o código divergir. Fora de `production`, a documentação navegável (Scalar) fica em `http://localhost:3000/docs`.
 
-### `GET /ceps-proximos/:cep` (resumo)
-
-Só a origem e a lista. Com o CEP na base, não consulta nenhum serviço de CEP.
-
-```bash
-curl "localhost:3000/ceps-proximos/04551000?pagina=1&limite=50"
-```
-
-```json
-{
-  "origem": "04551000",
-  "paginacao": { "pagina": 1, "limite": 50, "total": 174, "total_paginas": 4 },
-  "ceps": [{ "cep": "04551010", "distancia_km": 0.12 }]
-}
-```
-
-### `GET /ceps-proximos/:cep/detalhes` (completa)
-
-Traz a origem com coordenada e endereço (BrasilAPI v2), o raio e a lista.
-
-```bash
-curl "localhost:3000/ceps-proximos/04551000/detalhes?pagina=1&limite=50"
-```
-
-```json
-{
-  "origem": {
-    "cep": "04551000",
-    "latitude": -23.59,
-    "longitude": -46.68,
-    "fonte": "base",
-    "endereco": { "rua": "Rua Funchal", "bairro": "Vila Olímpia", "cidade": "São Paulo", "uf": "SP" }
-  },
-  "raio_km": 1,
-  "paginacao": { "pagina": 1, "limite": 50, "total": 174, "total_paginas": 4 },
-  "ceps": [{ "cep": "04551010", "distancia_km": 0.12 }]
-}
-```
-
-`origem.fonte` é `"base"` (coordenada do CEP na base) ou `"nominatim"` (CEP fora da base, coordenada do fallback). `origem.endereco` é `null` quando a BrasilAPI está fora do ar, estoura o timeout (3 s) ou não acha o CEP; a lista vem normalmente. Campos vazios do endereço saem como `null`.
-
-Nas duas rotas, `ceps` vem ordenado por distância (empate por CEP), sem a própria origem. Página além da última devolve `ceps: []`.
+- `GET /ceps-proximos/:cep`: origem e CEPs próximos (resumo). `:cep` aceita `04551000` ou `04551-000`; query `pagina` (≥ 1, padrão 1) e `limite` (1–200, padrão 50).
+- `GET /ceps-proximos/:cep/detalhes`: o mesmo, com coordenada e endereço da origem e o raio.
+- `GET /saude`: `{ "status": "ok" }`, sem checar banco, cache nem provedores.
+- `DELETE /cache` e `DELETE /cache/:cep`: limpeza de cache com token (ver [Limpeza de cache](#limpeza-de-cache)).
+- `GET /docs` e `GET /docs/openapi.json`: UI do Scalar e o documento OpenAPI (desligados com `NODE_ENV=production`).
 
 **Migração:** quem usava `/ceps-proximos/:cep` com o contrato completo (`origem` objeto, `raio_km`) deve passar a usar `/ceps-proximos/:cep/detalhes`.
-
-### `GET /saude`
-
-Diz só que a API está no ar: corpo fixo, sem checar banco, cache nem provedores (com o Postgres ou o Redis fora, a resposta é a mesma). Conta no rate limit como as outras rotas.
-
-```bash
-curl localhost:3000/saude
-```
-
-```json
-{ "status": "ok" }
-```
 
 ### Erros
 
@@ -174,8 +129,8 @@ Formato: `{ "erro": { "codigo": "...", "mensagem": "..." } }`.
 | --- | --- | --- |
 | 400 | `CEP_INVALIDO` | `:cep` fora do formato `00000000`/`00000-000` |
 | 400 | `PARAMETRO_INVALIDO` | `pagina` ou `limite` inválidos |
-| 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
 | 401 | `NAO_AUTORIZADO` | token ausente ou inválido nos endpoints de limpeza de cache |
+| 404 | `CEP_NAO_ENCONTRADO` | nem a base nem os serviços de CEP (BrasilAPI) encontram o CEP |
 | 404 | `NAO_ENCONTRADO` | rota ou método inexistente (inclui os endpoints de limpeza com `CACHE_ADMIN_TOKEN` vazio) |
 | 422 | `CEP_FORA_DA_COBERTURA` | o CEP existe, mas a UF dele não foi carregada na base |
 | 422 | `CEP_SEM_GEOLOCALIZACAO` | o CEP existe e a UF está carregada, mas nem a base nem o Nominatim dão a coordenada dele (ou o endereço não tem rua, cidade ou UF) |

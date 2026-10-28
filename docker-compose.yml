@@ -30,6 +30,7 @@ services:
     build: .
     command: sh -c "npx prisma migrate deploy && npm run seed:container"
     environment:
+      NODE_ENV: ${NODE_ENV:?defina NODE_ENV no .env}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SEED_UFS: ${SEED_UFS:-}
       REDIS_URL: redis://redis:6379
@@ -45,6 +46,7 @@ services:
     ports:
       - '${API_PORT:-3000}:3000'
     environment:
+      NODE_ENV: ${NODE_ENV:?defina NODE_ENV no .env}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       PORT: 3000

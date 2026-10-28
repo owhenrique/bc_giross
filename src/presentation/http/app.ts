@@ -4,6 +4,7 @@ import { pinoHttp } from 'pino-http';
 import type { clearCache } from '../../application/cache/clear-cache.js';
 import type { findNearbyCeps } from '../../application/use-cases/find-nearby-ceps.js';
 import { cacheRouter } from './routes/cache-route.js';
+import { docsRouter } from './routes/docs-route.js';
 import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
 import { healthRouter } from './routes/health-route.js';
 import { nearbyCepsRouter } from './routes/nearby-ceps-route.js';
@@ -15,6 +16,8 @@ export interface AppDeps {
   /** When absent, the cache admin routes are not registered and fall to the 404 handler. */
   cacheAdmin?: { clearCache: ReturnType<typeof clearCache>; token: string };
   rateLimit: { limit: number; windowMs: number };
+  /** When absent (production), /docs is not registered and falls to the 404 handler. */
+  openApiDocument?: object;
   /** Express `trust proxy` setting; defaults to false (use the socket address). */
   trustProxy?: boolean | number | string;
 }
@@ -25,6 +28,7 @@ export function createApp({
   cacheAdmin,
   rateLimit,
   trustProxy,
+  openApiDocument,
 }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
@@ -34,6 +38,7 @@ export function createApp({
   app.use(healthRouter());
   app.use(nearbyCepsRouter(find));
   if (cacheAdmin) app.use(cacheRouter(cacheAdmin.clearCache, cacheAdmin.token));
+  if (openApiDocument) app.use(docsRouter(openApiDocument));
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
