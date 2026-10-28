@@ -24,7 +24,6 @@ function normalizeName(value: string): string {
     .trim();
 }
 
-/** Finds the coordinate of a CEP outside the dataset from its address, accepting only the right city and UF. */
 export class OriginGeocoder {
   constructor(
     private readonly geocoder: Geocoder,

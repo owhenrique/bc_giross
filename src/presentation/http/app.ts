@@ -13,12 +13,9 @@ import { rateLimitMiddleware } from './middlewares/rate-limit.js';
 export interface AppDeps {
   findNearbyCeps: ReturnType<typeof findNearbyCeps>;
   logger: Logger;
-  /** When absent, the cache admin routes are not registered and fall to the 404 handler. */
   cacheAdmin?: { clearCache: ReturnType<typeof clearCache>; token: string };
   rateLimit: { limit: number; windowMs: number };
-  /** When absent (production), /docs is not registered and falls to the 404 handler. */
   openApiDocument?: object;
-  /** Express `trust proxy` setting; defaults to false (use the socket address). */
   trustProxy?: boolean | number | string;
 }
 

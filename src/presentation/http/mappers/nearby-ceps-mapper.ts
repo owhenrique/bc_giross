@@ -5,7 +5,6 @@ import type {
   NearbyCepsResult,
 } from '../../../application/use-cases/find-nearby-ceps.js';
 
-// Query values arrive as strings; anything that is not a plain number becomes NaN and is rejected by the use case.
 const parseQueryNumber = (value: unknown) =>
   value === undefined
     ? undefined

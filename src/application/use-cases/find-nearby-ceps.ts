@@ -107,7 +107,6 @@ export function findNearbyCeps(
     const lookupPromise: Promise<AddressLookup> | null = withAddress
       ? addressProvider.lookup(cep)
       : null;
-    // Marks the promise as handled in case findByCep throws first; the awaits below still see any rejection.
     lookupPromise?.catch(() => {});
     const key = resultKey(radiusKm, cep);
     const cached = await cache.get<CachedResult>(key);

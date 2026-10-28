@@ -5,7 +5,6 @@ import yazl from 'yazl';
 
 export const HEADER = 'COD_UNICO_ENDERECO;CEP;LATITUDE;LONGITUDE;NV_GEO_COORD';
 
-/** CSV line: [cep, lat, lon, nv]. */
 export type FixtureLine = [string, string, string, string];
 
 export async function createCnefeZip(

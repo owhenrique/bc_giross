@@ -1,4 +1,3 @@
-/** In-memory sliding-window limiter: allows up to `max` acquisitions per `windowMs`, never waits. */
 export class WindowRateLimiter {
   private readonly timestamps: number[] = [];
 

@@ -6,7 +6,6 @@ export interface AddressCacheOptions {
   notFoundTtlSeconds: number;
 }
 
-/** Caches `found` and `not_found` lookups; `unavailable` is transient and never stored. */
 export class CachingCepAddressProvider implements CepAddressProvider {
   constructor(
     private readonly inner: CepAddressProvider,

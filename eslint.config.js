@@ -2,7 +2,6 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier/flat';
 
-// Each layer may only import the layers below it; src/index.ts and scripts/ wire everything together.
 const forbidLayers = (files, layers) => ({
   files,
   rules: {

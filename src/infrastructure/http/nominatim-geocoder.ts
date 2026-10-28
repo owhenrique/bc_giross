@@ -53,7 +53,6 @@ export class NominatimGeocoder implements Geocoder {
   }
 
   async search(query: GeocodeQuery): Promise<GeocodeLookup> {
-    // The UF is not sent: `state` expects the state name, so the UF is checked on the result instead.
     const params = new URLSearchParams({
       street: query.street,
       city: query.city,

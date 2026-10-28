@@ -41,11 +41,9 @@ const inMemoryRepository = (items: StoredCep[]): CepRepository => ({
 
 interface SetupOptions {
   repository?: CepRepository;
-  /** Read on every provider call, so a test can change it between requests. */
   lookup?: { current: AddressLookup };
   geocode?: GeocodeLookup;
   failingCache?: boolean;
-  /** Makes the cache admin throw a non-AppError, which the error middleware answers with 500. */
   crashingAdmin?: boolean;
   withAdmin?: boolean;
   rateLimit?: number;
@@ -130,7 +128,6 @@ describe('success responses match the contract', () => {
   });
 
   it('GET /ceps-proximos/{cep}/detalhes answers 200 with fonte nominatim and endereco null', async () => {
-    // The first call caches the Nominatim origin; the second one finds the address provider down.
     const lookup: { current: AddressLookup } = { current: { status: 'found', address: ADDRESS } };
     const app = setup({ lookup, geocode: NOMINATIM_HIT });
     expect((await request(app).get('/ceps-proximos/01001000/detalhes')).status).toBe(200);
@@ -203,7 +200,6 @@ describe('error responses match the contract', () => {
     expect(unauthorized.body.erro.codigo).toBe('NAO_AUTORIZADO');
     expectMatchesContract(unauthorized, path, 'delete');
 
-    // Without CACHE_ADMIN_TOKEN the route is not registered and gets the generic 404.
     const notRegistered = await request(setup({ withAdmin: false }))
       .delete(url)
       .set('Authorization', AUTH);
