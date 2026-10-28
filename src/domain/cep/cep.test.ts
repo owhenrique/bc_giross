@@ -70,7 +70,6 @@ describe('assessCep', () => {
     const houses = Array.from({ length: 20 }, (_, i) => ({ lat: 0, lon: i * 0.0001 }));
     const tower = Array.from({ length: 300 }, () => ({ lat: 0, lon: 0.03 }));
     const r = assessCep([...houses, ...tower]);
-    // 21 unique points: the tower (~3.2 km away) is only the 21st value, past the p90
     expect(r.p90Km).toBeLessThan(1);
     expect(r.removed).toBe(false);
   });
@@ -110,7 +109,6 @@ describe('assessCep', () => {
 
 describe('nearestCeps', () => {
   const origin = { lat: 0, lon: 0 };
-  // ~1.11 km per 0.01 degree at the equator.
   const at = (cep: string, lon: number) => ({ cep, lat: 0, lon });
 
   it('keeps only the CEPs within the radius', () => {

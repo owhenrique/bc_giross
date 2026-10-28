@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  // Required with no default: forgetting it must not boot production with /docs exposed.
   NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -16,7 +15,6 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default('bc_giross/1.0 (+https://github.com/owhenrique/bc_giross)'),
-  // Empty (compose passes `${CACHE_ADMIN_TOKEN:-}`) disables the cache admin endpoints.
   CACHE_ADMIN_TOKEN: z
     .string()
     .optional()
@@ -24,7 +22,6 @@ const envSchema = z.object({
     .pipe(z.string().min(12).optional()),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1).default(60),
-  // Empty/absent -> false; 'true'/'false' -> boolean; digits -> hop count; else -> trust list string.
   TRUST_PROXY: z
     .string()
     .optional()
@@ -42,19 +39,16 @@ export interface Env {
   databaseUrl: string;
   port: number;
   searchRadiusKm: number;
-  /** Raw comma-separated UF list; validated by the seed. */
   seedUfs: string;
   logLevel: string;
   redisUrl: string;
   cacheTtl: { addressSeconds: number; resultSeconds: number; notFoundSeconds: number };
   nominatim: { url: string; userAgent: string };
-  /** Undefined disables the cache admin endpoints. */
   cacheAdminToken?: string;
   rateLimit: { max: number; windowSeconds: number };
   trustProxy: boolean | number | string;
 }
 
-/** Parses and validates the environment. Throws the Zod error when invalid. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.parse(source);
   return {

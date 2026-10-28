@@ -6,7 +6,6 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
   sendError(res, HTTP_ERRORS.routeNotFound);
 };
 
-// Express identifies error handlers by their 4-argument arity, so `_next` must stay.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof AppError) {

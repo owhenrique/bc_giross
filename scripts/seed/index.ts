@@ -44,7 +44,6 @@ export const ALL_UFS = [
 
 const DATASET_PATH = fileURLToPath(new URL('../../data/ceps.csv.gz', import.meta.url));
 
-/** Parses the SEED_UFS value. Empty means every UF; an unknown UF throws. */
 export function parseSeedUfs(raw: string): string[] {
   const ufs = raw
     .split(',')
@@ -64,19 +63,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** UF of a data line (not the header) when it is in the allowed set; null otherwise. */
 export function allowedUf(line: string, ufs: ReadonlySet<string>): string | null {
   if (line === '' || line === DATASET_HEADER) return null;
   const uf = line.split(';')[1] ?? '';
   return ufs.has(uf) ? uf : null;
 }
 
-/** UFs that got at least one CEP loaded. */
 export function ufsWithCeps(totals: ReadonlyMap<string, number>): string[] {
   return [...totals].filter(([, count]) => count > 0).map(([uf]) => uf);
 }
 
-/** Drops every cached result (address lookups stay); the error says the base was already loaded. */
 export async function clearResultCache(cache: Pick<Cache, 'deleteByPrefix'>): Promise<void> {
   try {
     await cache.deleteByPrefix(RESULT_KEY_PREFIX);
@@ -105,7 +101,6 @@ async function main(): Promise<void> {
 
   const logger = pino({ level: 'warn' });
   const redis = createRedisClient(redisUrl, logger, false);
-  // Like the API, the seed runs without Redis: the base still loads, only the result cache is not cleared.
   let cache: Cache | null = new RedisCache(redis, logger);
   try {
     await redis.connect();
@@ -124,7 +119,6 @@ async function main(): Promise<void> {
   }
 }
 
-/** Loads the base in one transaction, then clears the result cache (skipped when `cache` is null). */
 async function load(
   ufs: string[],
   databaseUrl: string,

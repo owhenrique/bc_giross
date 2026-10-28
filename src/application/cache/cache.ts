@@ -1,10 +1,3 @@
-/**
- * Key-value cache port.
- *
- * `get` and `set` never throw: a failure is a miss / no-op, so the cache can
- * never break a request. `deleteByPrefix` does throw, because the seed must
- * know when invalidation failed. `delete` throws for the same reason.
- */
 export interface Cache {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: unknown, ttlSeconds: number): Promise<void>;

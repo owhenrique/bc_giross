@@ -6,10 +6,6 @@ export interface ClearCacheOptions {
   radiusKm: number;
 }
 
-/**
- * Manual cache invalidation. Any cache failure becomes `CacheUnavailableError`.
- * A failure midway through `all` leaves part of the cache cleared; repeating the call is safe.
- */
 export function clearCache(cache: Cache, options: ClearCacheOptions) {
   async function guarded(operation: () => Promise<void>): Promise<void> {
     try {

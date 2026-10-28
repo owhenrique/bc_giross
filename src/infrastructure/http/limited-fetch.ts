@@ -2,7 +2,6 @@ import type { Logger } from 'pino';
 import type { WindowRateLimiter } from '../rate-limit/window-rate-limiter.js';
 
 export interface LimitedFetchOptions {
-  /** Names the service in the logs, e.g. 'BrasilAPI'. */
   service: string;
   limiter: WindowRateLimiter;
   timeoutMs: number;
@@ -13,7 +12,6 @@ export interface LimitedFetchOptions {
 
 export type HttpOutcome = { ok: true; status: number; body: unknown } | { ok: false };
 
-/** GET with rate limit and timeout; a refused, failed or timed-out call is logged and returns `{ ok: false }`. */
 export async function limitedFetch(
   url: string,
   options: LimitedFetchOptions,

@@ -42,7 +42,6 @@ export const ERROR_CATALOG: Record<AppErrorKind, ErrorCatalogEntry> = {
   },
 };
 
-/** Errors raised by the HTTP layer itself, outside the use cases. */
 export const HTTP_ERRORS = {
   unauthorized: {
     status: 401,

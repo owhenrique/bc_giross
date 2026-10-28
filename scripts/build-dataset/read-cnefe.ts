@@ -16,7 +16,6 @@ export function ufFromZip(path: string): string {
   return (m[1] as string).toUpperCase();
 }
 
-/** Parses a CSV line; returns null when the coordinate or precision is not numeric. */
 export function parseLine(fields: string[], indexes: number[]): CnefeRecord | null {
   const [iCep, iLat, iLon, iNv] = indexes as [number, number, number, number];
   const lat = Number.parseFloat(fields[iLat] ?? '');
@@ -32,7 +31,6 @@ function openZip(path: string): Promise<yauzl.ZipFile> {
   });
 }
 
-/** Streams the CSV inside the ZIP. A line without numeric coordinate or precision yields `null`. */
 export async function* readCnefe(zipPath: string): AsyncGenerator<CnefeRecord | null> {
   const zip = await openZip(zipPath);
   try {

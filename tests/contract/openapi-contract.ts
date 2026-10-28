@@ -24,16 +24,11 @@ interface OpenApiDocument {
 
 export const openApiDocument = loadOpenApiDocument() as OpenApiDocument;
 
-// `strict: false` lets OpenAPI-only keywords (`example`, `examples`) pass as annotations.
 const ajv = new Ajv2020({ strict: false, allErrors: true });
 ajv.addSchema(openApiDocument, 'openapi');
 
 const escapePointer = (segment: string) => segment.replace(/~/g, '~0').replace(/\//g, '~1');
 
-/**
- * JSON pointer to the response object, following a `$ref` to `components/responses`:
- * Ajv resolves `$ref` only inside schemas, not inside OpenAPI response objects.
- */
 function responsePointer(path: string, method: HttpMethod, status: number) {
   const response = openApiDocument.paths[path]?.[method]?.responses[String(status)];
   if (!response) return undefined;
@@ -56,7 +51,6 @@ interface ContractResponse {
   text: string;
 }
 
-/** Fails unless the document declares this path, method and status and `res.body` matches its schema. */
 export function expectMatchesContract(res: ContractResponse, path: string, method: HttpMethod) {
   const found = responsePointer(path, method, res.status);
   expect(

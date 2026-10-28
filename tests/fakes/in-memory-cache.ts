@@ -1,6 +1,5 @@
 import type { Cache } from '../../src/application/cache/cache.js';
 
-/** Map-backed cache with per-entry expiry; the clock is injectable for tests. */
 export class InMemoryCache implements Cache {
   private readonly entries = new Map<string, { value: unknown; expiresAt: number }>();
 

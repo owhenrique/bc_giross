@@ -8,7 +8,6 @@ export interface CepAddress {
 export type AddressLookup =
   { status: 'found'; address: CepAddress } | { status: 'not_found' } | { status: 'unavailable' };
 
-/** Never throws: unavailability is a result, so the use case decides how to degrade. */
 export interface CepAddressProvider {
   lookup(cep: string): Promise<AddressLookup>;
 }
