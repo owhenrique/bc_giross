@@ -1,4 +1,4 @@
-import type { Cache } from '../../application/cache.js';
+import type { Cache } from '../../src/application/cache.js';
 
 /** Map-backed cache with per-entry expiry; the clock is injectable for tests. */
 export class InMemoryCache implements Cache {

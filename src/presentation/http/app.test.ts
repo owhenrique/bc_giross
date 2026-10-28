@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
-import { InMemoryCache } from '../../infrastructure/cache/in-memory-cache.js';
+import { InMemoryCache } from '../../../tests/fakes/in-memory-cache.js';
 import type { CepRepository, StoredCep } from '../../application/cep-repository.js';
 import type { AddressLookup } from '../../application/cep-address-provider.js';
 import type { GeocodeLookup } from '../../application/geocoder.js';

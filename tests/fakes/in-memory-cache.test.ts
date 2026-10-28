@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CACHE_KEY_PREFIXES, addressKey, geocodeKey, resultKey } from '../../application/cache.js';
+import {
+  CACHE_KEY_PREFIXES,
+  addressKey,
+  geocodeKey,
+  resultKey,
+} from '../../src/application/cache.js';
 import { InMemoryCache } from './in-memory-cache.js';
 
 describe('InMemoryCache', () => {

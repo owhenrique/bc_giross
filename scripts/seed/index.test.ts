@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryCache } from '../../src/infrastructure/cache/in-memory-cache.js';
+import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
 import { ALL_UFS, clearResultCache, matchesUf, parseSeedUfs, ufsWithCeps } from './index.js';
 
 describe('parseSeedUfs', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryCache } from '../infrastructure/cache/in-memory-cache.js';
+import { InMemoryCache } from '../../tests/fakes/in-memory-cache.js';
 import { CachingCepAddressProvider } from './caching-cep-address-provider.js';
 import type { AddressLookup, CepAddressProvider } from './cep-address-provider.js';
 
