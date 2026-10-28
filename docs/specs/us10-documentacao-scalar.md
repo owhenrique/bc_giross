@@ -7,7 +7,7 @@ titulo: Documentação da API com Scalar
 status: em-andamento
 modo: agent-driven
 criada_em: 2026-10-28
-implementada_em:
+implementada_em: 2026-10-28
 verificada_em:
 branch: feat/us10-documentacao-scalar
 merge_request:
@@ -24,16 +24,16 @@ Hoje o contrato existe só na seção "Contrato" do README: rotas, exemplos e a 
 É a última US do mapa (`docs/HISTORIAS.md`). Depende da US8 (catálogo de erros) e da US9 (`GET /saude`, que precisa estar documentado). O PR da US9 (#11) ainda está aberto: a implementação parte da `main` depois desse merge.
 
 ## Critérios de aceite
-- [ ] 1. Dado `NODE_ENV` diferente de `production`, quando abro `GET /docs`, então recebo `200` com o HTML da UI do Scalar apontando para `/docs/openapi.json`.
-- [ ] 2. Dado o mesmo ambiente, quando chamo `GET /docs/openapi.json`, então recebo `200` com o documento OpenAPI 3.1 (`openapi: 3.1.x`), igual ao conteúdo do `openapi.yaml` da raiz.
-- [ ] 3. Dado o documento, então ele descreve todos os endpoints existentes: `GET /ceps-proximos/{cep}`, `GET /ceps-proximos/{cep}/detalhes`, `GET /saude`, `DELETE /cache` e `DELETE /cache/{cep}`, estes dois com o esquema de segurança Bearer. Os parâmetros (`cep`, `pagina`, `limite`) e os exemplos de resposta também estão no documento.
-- [ ] 4. Dado o documento, então todo `codigo` do `ERROR_CATALOG` e do `HTTP_ERRORS` aparece nele, e cada endpoint lista os status de erro que pode devolver, com o schema `{ erro: { codigo, mensagem } }`.
-- [ ] 5. Dado `NODE_ENV=production`, quando chamo `GET /docs` ou `GET /docs/openapi.json`, então recebo o `404 NAO_ENCONTRADO` genérico, igual ao de qualquer rota inexistente.
-- [ ] 6. Dado o teste de contrato, então ele faz uma requisição Supertest para cada sucesso e cada erro de cada endpoint, valida o corpo de cada resposta contra o schema do `openapi.yaml` para aquele path, método e status e falha se o schema não existir ou não validar.
-- [ ] 7. Dado `NODE_ENV` ausente ou fora de `development|test|production`, quando a API ou o seed sobem, então a validação do env falha e o processo não sobe: não existe padrão, para que ninguém suba em produção com o `/docs` por esquecimento. No `docker compose up` sem `NODE_ENV` no `.env`, o compose aborta com `defina NODE_ENV no .env`.
-- [ ] 8. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, então `/docs` e `/docs/openapi.json` recebem `429 LIMITE_EXCEDIDO` como qualquer rota, sem isenção.
-- [ ] 9. Dado o README, então a seção "Contrato" fica enxuta (lista das rotas e tabela de erros) e aponta para `/docs` e para o `openapi.yaml` como fonte da verdade do contrato.
-- [ ] 10. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
+- [x] 1. Dado `NODE_ENV` diferente de `production`, quando abro `GET /docs`, então recebo `200` com o HTML da UI do Scalar apontando para `/docs/openapi.json`.
+- [x] 2. Dado o mesmo ambiente, quando chamo `GET /docs/openapi.json`, então recebo `200` com o documento OpenAPI 3.1 (`openapi: 3.1.x`), igual ao conteúdo do `openapi.yaml` da raiz.
+- [x] 3. Dado o documento, então ele descreve todos os endpoints existentes: `GET /ceps-proximos/{cep}`, `GET /ceps-proximos/{cep}/detalhes`, `GET /saude`, `DELETE /cache` e `DELETE /cache/{cep}`, estes dois com o esquema de segurança Bearer. Os parâmetros (`cep`, `pagina`, `limite`) e os exemplos de resposta também estão no documento.
+- [x] 4. Dado o documento, então todo `codigo` do `ERROR_CATALOG` e do `HTTP_ERRORS` aparece nele, e cada endpoint lista os status de erro que pode devolver, com o schema `{ erro: { codigo, mensagem } }`.
+- [x] 5. Dado `NODE_ENV=production`, quando chamo `GET /docs` ou `GET /docs/openapi.json`, então recebo o `404 NAO_ENCONTRADO` genérico, igual ao de qualquer rota inexistente.
+- [x] 6. Dado o teste de contrato, então ele faz uma requisição Supertest para cada sucesso e cada erro de cada endpoint, valida o corpo de cada resposta contra o schema do `openapi.yaml` para aquele path, método e status e falha se o schema não existir ou não validar.
+- [x] 7. Dado `NODE_ENV` ausente ou fora de `development|test|production`, quando a API ou o seed sobem, então a validação do env falha e o processo não sobe: não existe padrão, para que ninguém suba em produção com o `/docs` por esquecimento. No `docker compose up` sem `NODE_ENV` no `.env`, o compose aborta com `defina NODE_ENV no .env`.
+- [x] 8. Dado mais de `RATE_LIMIT_MAX` requisições do mesmo IP na janela, então `/docs` e `/docs/openapi.json` recebem `429 LIMITE_EXCEDIDO` como qualquer rota, sem isenção.
+- [x] 9. Dado o README, então a seção "Contrato" fica enxuta (lista das rotas e tabela de erros) e aponta para `/docs` e para o `openapi.yaml` como fonte da verdade do contrato.
+- [x] 10. Dado o projeto, quando rodo `npm test`, `npm run lint`, `npm run typecheck` e `npm run format:check`, então todos passam.
 
 ## Escopo
 **Dentro:**
@@ -171,4 +171,8 @@ Preenchido no `/pato/close-spec`.
 - **Merge da US9:** o PR #11 precisa estar mergeado antes do `/pato/implement`, que parte da `main`.
 - **CDN do Scalar:** a UI precisa de internet no navegador de quem abre `/docs`. O `/docs/openapi.json` funciona offline.
 - **Caminho do yaml:** o `loadOpenApiDocument` resolve o `openapi.yaml` relativo ao arquivo-fonte. Se o arquivo faltar no container (o `.dockerignore` não o exclui), a API não sobe fora de `production`, e esse erro aparece logo na subida.
+- **`.env` local sem `NODE_ENV`:** o `.env` desta máquina ainda não tem a variável; `npm run dev`, o seed e o `docker compose up` falham até acrescentar `NODE_ENV=development` (comportamento intencional).
+- **Idioma do `.env.example`:** o comentário novo do `NODE_ENV` saiu em português e os antigos estão em inglês. Sugestão: padronizar numa US futura.
+- **404 genérico no contrato:** o `404 NAO_ENCONTRADO` está documentado nos dois `DELETE /cache` (rota não registrada sem `CACHE_ADMIN_TOKEN`), e a `info.description` diz que qualquer rota inexistente devolve esse 404.
+- **Cobertura de 429 e 500 por requisição:** o 429 é exercitado em `/saude` e nas rotas de `/docs`, e o 500 nas rotas de CEP; nos outros endpoints eles estão só no documento.
 - **Ajv e OpenAPI 3.1:** palavras-chave próprias do OpenAPI (`example`, `discriminator`) não são JSON Schema. Por isso o `strict: false`. Se o Ajv rejeitar algum `$ref` entre componentes, o helper resolve o ponteiro pelo id `openapi`.
