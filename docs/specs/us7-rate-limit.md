@@ -4,7 +4,7 @@ card: —
 mapa: docs/HISTORIAS.md
 depende_de: US2 (mergeada). Parte da `main` com a US6 (PR #8, mergeada)
 titulo: Rate limit da API
-status: em-andamento
+status: implementado
 modo: agent-driven
 criada_em: 2026-10-27
 implementada_em: 2026-10-27
@@ -244,6 +244,9 @@ Preenchido no `/pato/close-spec`.
 
 | Data | Tipo | Quem testou | Ambiente | O que foi testado | Resultado | Evidência |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | Automatizado | local | local | `npm test` (26 arquivos, 258 testes), typecheck, lint, format:check | Aprovado | — |
+| 2026-10-27 | Verificação independente | subagente (contexto limpo) | local | diff contra a spec, suítes e Lua/RedisStore contra Redis real | Aprovado | seção "Verificação independente" |
+| 2026-10-27 | Manual | Henrique | local (docker compose) | passos 1 a 4 do teste manual da spec: 60×200 + 1×429, `DELETE /cache`, Nominatim 503, Redis parado | Aprovado | — |
 
 ## Riscos e pontos em aberto
 - **Script Lua sem teste automatizado contra Redis real:** a suíte usa fakes. A janela deslizante e o `RedisStore` são conferidos no teste manual (itens 1 e 3).
