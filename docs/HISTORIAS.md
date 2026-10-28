@@ -22,8 +22,11 @@ Quebra do business case da Giross em histórias entregáveis. Cada uma vira uma 
 | US6 | Limpeza de cache protegida | ~80 | US4 |
 | US7 | Rate limit da API (entrada e saída no Redis) | ~150 | US2 |
 | US8 | Error middleware com catálogo de erros | ~100 | US2 (migra os erros que existem; as US3–US7 já usam o catálogo) |
-| US9 | Healthcheck (`/saude`) | ~110 | US8 |
+| US12 | Simplificação do projeto (roda antes da US9) | ~270 | US7, US8 |
+| US9 | Healthcheck (`/saude`) | ~110 | US8, US12 |
 | US10 | Documentação da API com Scalar | ~40 | US8, US9 |
+
+Depois da US10, `docs/specs/` e este arquivo vão para a branch `docs` (decidido na US12).
 
 ---
 
@@ -130,6 +133,8 @@ Como **operador da API**, quero limitar as requisições por cliente, para prote
 
 Fica para outra US: isenção do `/saude` (US9) e o `429` no OpenAPI (US10).
 
+Simplificada na US12: os contadores de entrada e de saída saíram do Redis e ficam em memória, por processo (D22).
+
 ## US8 — Error middleware com catálogo de erros
 Como **time de desenvolvimento**, quero que os erros de negócio sejam traduzidos para HTTP num único middleware, a partir de um catálogo, para que um erro novo custe uma classe e uma linha no catálogo, e não um `case` em cada rota.
 
@@ -145,6 +150,21 @@ US técnica, pedida explicitamente. Ela não muda o contrato: as respostas de er
 Decisões: os erros esperados passam de union no retorno para exceção tipada, por pedido do usuário. A regra de dependência se mantém: `AppError` fica em `application` (ou em `domain`, se o erro for de domínio) e não conhece HTTP. O status HTTP existe só no catálogo.
 
 Fica para outra US: os erros da US3 a US7 (incluindo o `429` do rate limit). Cada uma nasce como `AppError` mais uma linha no catálogo.
+
+## US12 — Simplificação do projeto
+Como **time de desenvolvimento**, quero os rate limits em memória, sem Redis, e o código sem arquivos de poucas linhas nem trechos repetidos, para entender a solução de relance e evoluí-la com menos peças.
+
+US técnica, pedida explicitamente. Roda depois da US8 e antes da US9: o número 12 é só de cadastro, e a ordem é a da tabela.
+
+- Dado mais de 60 req/min do mesmo IP, então `429 LIMITE_EXCEDIDO`, como hoje, com o contador em memória, por processo: store padrão do `express-rate-limit`, ~205 bytes por IP, descartado depois de uma janela sem requisições.
+- Dado a BrasilAPI (5 req/s) ou o Nominatim (1 req/s) sem vaga, então a chamada não sai e a consulta degrada como hoje. O limite fica em memória, por processo, sem Redis nem Lua.
+- Dado o Redis fora na subida, então a API sobe sem esperar por ele, responde sem cache e os limites continuam valendo.
+- Dado as rotas e os erros, então status, corpo e headers não mudam.
+- Dado o `src/`, então ele tem 26 arquivos de produção, sem achatar pastas: interfaces da aplicação em `ports.ts`, catálogo e `HTTP_ERRORS` em `presentation/http/errors.ts`, `limitedFetch` para as chamadas externas e `InMemoryCache` em `tests/fakes/`. A raiz perde `.git-blame-ignore-revs`, `.nvmrc`, `vitest.config.ts` e `.prettierrc.json`.
+
+Decisões: D22 reescrita (os dois limites em memória, por processo); a D30 fica. Spec: `docs/specs/us12-simplificacao.md`.
+
+Fica para depois da US10: mover `docs/specs/` e este arquivo para a branch `docs`.
 
 ## US9 — Healthcheck (`/saude`)
 Como **operador da API**, quero um endpoint que diga se a API e as dependências dela estão de pé, para o orquestrador reiniciar o serviço e eu saber, sem abrir logs, qual peça caiu.
